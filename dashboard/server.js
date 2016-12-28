@@ -6,6 +6,8 @@
  * and ouputs files to `build-env` directory
  */
 
+/* eslint-disable no-console */
+
 var server = require('pushstate-server');
 var ncp = require('ncp').ncp;
 var path = require('path');
@@ -17,10 +19,8 @@ var config = {}
 
 // config
 Object.keys(process.env)
-.filter(key => (/^REACT_APP_/i).test(key))
-.map((env, key) => {
-  config[env] = process.env[env]
-})
+  .filter(key => (/^REACT_APP_/i).test(key))
+  .map(env => config[env] = process.env[env])
 
 var options = {
   transform: function (read, write, file) { 

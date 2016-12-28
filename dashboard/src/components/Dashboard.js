@@ -13,8 +13,7 @@ class DashboardPage extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
-})
+const mapStateToProps = () => ({})
 
 export default connect(mapStateToProps, {
 })(DashboardPage)

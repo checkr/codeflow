@@ -2,39 +2,38 @@ import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Button, Form, FormGroup, Label, Input } from 'reactstrap'
 import { Field, FieldArray, reduxForm, change } from 'redux-form'
-import _ from 'underscore'
 
-class ProjectSettingsForm extends Component {
+class ProjectSettings extends Component {
   static propTypes = {
     dispatch: PropTypes.func.isRequired
   }
 
-  renderInput = (field) => {   
+  renderInput = (field) => {
     if(field['data-type'] === 'file') {
       return (
         <Input {...field.input} type='textarea' placeholder={field.placeholder} />
-      )  
+      )
     } else {
       return (
         <Input {...field.input} type='text' placeholder={field.placeholder} />
-      )  
+      )
     }
   }
-  
-  renderSelect = (field) => {   
+
+  renderSelect = (field) => {
     return (
       <select {...field.input} className="form-control">
         <option value="env">Env</option>
         <option value="build">Build Arg</option>
         <option value="file">File</option>
       </select>
-    )  
+    )
   }
 
-  renderDisabledInput = (field) => {   
+  renderDisabledInput = (field) => {
     return (
       <Input {...field.input} type={field.type} placeholder={field.placeholder} disabled/>
-    )  
+    )
   }
 
   addConfigVar = (fields) => {
@@ -70,7 +69,7 @@ class ProjectSettingsForm extends Component {
     }
   }
 
-  renderConfigVars = ({ fields, meta: { touched, error } }) => {
+  renderConfigVars = ({ fields }) => {
     return (
       <div>
         <div className="hr-divider m-t-md m-b">
@@ -90,7 +89,7 @@ class ProjectSettingsForm extends Component {
                 <Field name={'secrets['+i+'].value'} data-type={secret.type} component={this.renderInput} type="textarea" placeholder="******"/>
               </div>
               <div className="col-xs-2">
-                <button type="button" className="btn btn-secondary btn-sm" onClick={(e) => this.deleteConfigVar(secret, fields, i)}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => this.deleteConfigVar(secret, fields, i)}>
                   <i className="fa fa-times" aria-hidden="true" />
                 </button>
               </div>
@@ -104,7 +103,7 @@ class ProjectSettingsForm extends Component {
             <div className="col-xs-11">
               <button type="button" className="btn btn-secondary btn-sm float-xs-right" onClick={() => fields.push({type: "env"})}>
                 <i className="fa fa-plus" aria-hidden="true" /> Add
-              </button> 
+              </button>
             </div>
           </div>
         </FormGroup>
@@ -134,18 +133,15 @@ class ProjectSettingsForm extends Component {
 }
 
 
-ProjectSettingsForm = reduxForm({
+const ProjectSettingsForm = reduxForm({
   enableReinitialize: true,
   destroyOnUnmount: false,
   form: 'projectSettings'
-})(ProjectSettingsForm)
+})(ProjectSettings)
 
-ProjectSettingsForm = connect(
+export default connect(
   state => {
     const formValues = state.form.projectSettings
     return { formValues: formValues }
   }
 )(ProjectSettingsForm)
-
-export default ProjectSettingsForm 
-

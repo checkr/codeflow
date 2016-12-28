@@ -4,11 +4,14 @@
     "valid-jsdoc": 2,
     // Disable until Flow supports let and const
     "no-var": 0,
+    "no-unused-vars": [2, { "argsIgnorePattern": "^_" }],
     "react/jsx-uses-react": 1,
     "react/jsx-no-undef": 2,
-    "react/wrap-multilines": 2
+    "react/jsx-uses-vars": 2,
+    "react/jsx-wrap-multilines": 2
   },
   "env": {
+    "browser": true,
     "es6": true,
     "node": true,
     "mocha": true,
@@ -18,12 +21,13 @@
     "experimentalObjectRestSpread": true,
     "modules": true
   },
+  "parser": "babel-eslint",
   "parserOptions": {
-      sourceType: "module",
-      "ecmaFeatures": {
-          "jsx": true,
-          "modules": true
-      }
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true,
+      "modules": true
+    }
   },
   "plugins": [
     "react"

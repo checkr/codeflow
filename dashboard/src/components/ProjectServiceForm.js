@@ -2,18 +2,17 @@ import React, { Component } from 'react'
 import { Form, FormGroup, Input } from 'reactstrap'
 import { Field, FieldArray, reduxForm } from 'redux-form'
 
-import _ from 'underscore'
-const renderInput = field => {   
+const renderInput = field => {
   return (
     <Input {...field.input} type={field.type} placeholder={field.placeholder} disabled={field.disabled} />
-  )  
+  )
 }
 
-const normalizeInt = (value, previousValue) => {
+const normalizeInt = (value, _previousValue) => {
   return parseInt(value, 10)
 }
 
-const renderListeners = ({ fields, meta: { touched, error } }) => (
+const renderListeners = ({ fields }) => (
   <div className="col-xs-12">
     { (fields.length > 0) && <label>Container listeners</label>}
     {fields.map((service, i) =>

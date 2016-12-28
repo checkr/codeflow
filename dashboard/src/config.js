@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+
 import _ from 'underscore'
 
 const loadConfig = () => {

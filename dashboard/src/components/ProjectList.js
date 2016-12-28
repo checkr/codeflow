@@ -46,7 +46,7 @@ class ProjectList extends Component {
     const { bookmarks } = this.props
     let projects_jsx = []
     let that = this
-    records.forEach(function (project, i) {
+    records.forEach(function (project) {
       let star = 'star-o'
       let action = that.handleBookmarkCreate
       let bookmark = _.findWhere(bookmarks, { projectId: project.id })
@@ -78,7 +78,7 @@ class ProjectList extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = state => ({
   projects: state.projects,
   bookmarks: state.bookmarks,
   routing: state.routing.locationBeforeTransitions
