@@ -1,13 +1,13 @@
 import { wsConnect, wsConnected, wsDisconnect, wsDisconnected, wsMessageReceived, wsConnecting } from '../actions'
 
-const socketMiddleware = (function() { 
-  
+const socketMiddleware = (function() {
+
   var socket = null
   var reconnect = null
   var reconnectCount = 0
-  
 
-  const onOpen = (ws, store , token) => evt => {
+
+  const onOpen = (ws, store, _token) => _evt => {
     //Tell the store we're connected
     store.dispatch(wsConnected())
     clearTimeout(reconnect)
@@ -17,7 +17,7 @@ const socketMiddleware = (function() {
     }
   }
 
-  const onClose = (ws, store) => evt => {
+  const onClose = (ws, store) => _evt => {
     //Tell the store we've disconnected
     store.dispatch(wsDisconnect())
   }
@@ -50,13 +50,13 @@ const socketMiddleware = (function() {
         socket.onmessage = onMessage(socket, store)
         socket.onclose = onClose(socket, store)
         socket.onopen = onOpen(socket, store, action.token)
-        socket.onerror = function (evt) {
+        socket.onerror = function (_evt) {
 
         }
         break
 
       //The user wants us to disconnect
-      case 'WS_DISCONNECT':
+      case 'WS_DISCONNECT': {
         if(socket != null) {
           socket.close()
         }
@@ -66,10 +66,10 @@ const socketMiddleware = (function() {
 
         //Set our state to disconnected
         store.dispatch(wsDisconnected())
-        
+
         // Fast check for the first 10 times then back-off
         if (reconnectCount < 10) {
-          timeout = 1000 
+          timeout = 1000
         }
 
         //Try to reconnect
@@ -79,6 +79,7 @@ const socketMiddleware = (function() {
         }, timeout)
 
         break
+      }
 
       //Send the 'SEND_MESSAGE' action down the websocket to the server
       case 'WS_SEND_MESSAGE':

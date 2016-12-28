@@ -80,7 +80,7 @@ class ProjectResources extends Component {
     let { services } = this.props
     let services_jsx = []
 
-    _.forEach(services, (service, i) => {
+    _.forEach(services, service => {
       if (this.state.edit && this.state.edit === service.id) {
         services_jsx.push(this.renderEditService(service))
       } else {
@@ -109,12 +109,12 @@ class ProjectResources extends Component {
       </div>
     )
   }
-  
+
   renderExtensions() {
     let { extensions } = this.props
     let extensions_jsx = []
 
-    _.forEach(extensions, (extension, i) => {
+    _.forEach(extensions, extension => {
       if (this.state.editExtension && this.state.extensionId === extension.id) {
         extensions_jsx.push(this.renderEditExtension(extension))
       } else {
@@ -257,7 +257,7 @@ class ProjectResources extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = state => ({
   projectService: state.form.projectService,
   projectExtension: state.form.projectExtension,
   services: state.projectServices,

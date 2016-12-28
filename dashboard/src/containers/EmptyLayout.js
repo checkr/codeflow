@@ -18,8 +18,7 @@ class Empty extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
-})
+const mapStateToProps = () => ({})
 
 export default connect(mapStateToProps, {
 })(Empty)

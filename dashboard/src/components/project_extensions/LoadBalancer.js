@@ -5,45 +5,45 @@ import { Field, FieldArray, reduxForm } from 'redux-form'
 import _ from 'underscore'
 import ButtonConfirmAction from '../../components/ButtonConfirmAction'
 
-const renderInput = field => {   
+const renderInput = field => {
   return (
     <Input {...field.input} type={field.type} placeholder={field.placeholder} />
-  )  
+  )
 }
 
-const renderSelect = field => {   
+const renderSelect = field => {
   return (
     <select {...field.input} name={field.name} className="form-control">
       <option disabled value="">Choose service</option>
-      {field.services.map(function (service, i) {
+      {field.services.map(function (service) {
         return <option key={service.id} value={service.id}>{service.name}</option>
       })}
     </select>
-  )  
+  )
 }
 
-const renderListenerSelect = field => {   
+const renderListenerSelect = field => {
   if (_.isEmpty(field.service.listeners)) {
     return null
   }
   return (
     <select {...field.input} name={field.name} className="form-control">
       <option disabled value="" key="">Choose service listener</option>
-      {field.service.listeners.map(function (listener, i) {
+      {field.service.listeners.map(function (listener) {
         return <option key={listener.port} value={listener.port}>{listener.port}</option>
       })}
     </select>
-  )  
+  )
 }
 
-const normalizeInt = (value, previousValue) => {
+const normalizeInt = (value, _previousValue) => {
   return parseInt(value, 10)
 }
 
-const renderListeners = ({ fields, meta: { touched, error }, service }) => {
+const renderListeners = ({ fields, service }) => {
   return (
   <div className="col-xs-12">
-    { (fields.length > 0) && 
+    { (fields.length > 0) &&
     <div className="row">
       <div className="col-xs-3">
         <label>Port</label>
@@ -112,14 +112,14 @@ class LoadBalancer extends Component {
     if (!_.isEmpty(extension.dnsName)) {
       dns = <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-globe" aria-hidden="true" /></div><input type="text" className="form-control" value={extension.dnsName} readonly/></div>
     }
-    
+
     return (
       <div>
         <h5 className="lb-title">
           Load Balancer
-        </h5> 
+        </h5>
         { !_.isEmpty(service) && <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-tasks" aria-hidden="true" /></div><input type="text" className="form-control" value={service.name} readonly/></div>
- } 
+ }
 
         {dns}
       </div>
@@ -188,21 +188,19 @@ class LoadBalancer extends Component {
       return this.renderEdit()
     } else {
       return this.renderShow()
-    } 
+    }
   }
 }
 
-LoadBalancer = reduxForm({
+const LoadBalancerForm = reduxForm({
   enableReinitialize: true,
   destroyOnUnmount: false,
   form: 'projectExtension'
 })(LoadBalancer)
 
-LoadBalancer = connect(
+export default connect(
   state => {
     const formValues = state.form.projectExtension
     return { formValues: formValues }
   }
-)(LoadBalancer)
-
-export default LoadBalancer
+)(LoadBalancerForm)

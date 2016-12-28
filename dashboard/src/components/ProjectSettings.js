@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import _ from 'underscore'
@@ -8,7 +10,7 @@ class ProjectSettings extends Component {
   componentWillMount() {
     this.loadData(this.props)
   }
-  
+
   loadData = props => {
     props.fetchProjectSettings(props.project.slug)
   }
@@ -36,7 +38,7 @@ class ProjectSettings extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = state => ({
   projectSettingsForm: state.form.projectSettings,
   projectSettings: state.projectSettings
 })

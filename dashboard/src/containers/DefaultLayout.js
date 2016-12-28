@@ -23,8 +23,7 @@ class Default extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
-})
+const mapStateToProps = () => ({})
 
 export default connect(mapStateToProps, {
 })(Default)

@@ -26,16 +26,16 @@ class Navigation extends Component {
   renderBookmarks() {
     let bookmarks_jsx = []
     let { bookmarks } = this.props
-    
+
     if (bookmarks.length > 0) {
       bookmarks_jsx.push(<li key="header-bookmarks" className="nav-header">Bookmarks</li>)
-      bookmarks.forEach(function (bookmark, i) {
+      bookmarks.forEach(function (bookmark) {
         bookmarks_jsx.push(<NavItem to={'/projects/'+bookmark.slug} classNames="" key={bookmark.projectId}>{bookmark.name}</NavItem>)
       })
     } else {
       return null 
     }
-    
+
     if (bookmarks_jsx.length === 0) {
       return null
     }
@@ -77,7 +77,7 @@ class Navigation extends Component {
             <li className="nav-header">Projects</li>
             <NavItem to="/projects/add">Add new</NavItem>
             <NavItem to="/projects">Browse</NavItem>
-            
+
             {this.renderUser()}
 
             {this.renderAdmin()}
@@ -88,7 +88,7 @@ class Navigation extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = state => ({
   me: state.me,
   bookmarks: state.bookmarks,
 })

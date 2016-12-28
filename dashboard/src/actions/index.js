@@ -151,7 +151,7 @@ export const BOOKMARKS_FETCH_REQUEST = 'BOOKMARKS_FETCH_REQUEST'
 export const BOOKMARKS_FETCH_SUCCESS = 'BOOKMARKS_FETCH_SUCCESS'
 export const BOOKMARKS_FETCH_FAILURE = 'BOOKMARKS_FETCH_FAILURE'
 
-export const fetchBookmarks = (payload) => {
+export const fetchBookmarks = (_payload) => {
   return {
     [CALL_API]: {
       endpoint: `${API_ROOT}/bookmarks`,
@@ -551,7 +551,7 @@ export const PROJECT_SETTINGS_FETCH_REQUEST = 'PROJECT_SETTINGS_FETCH_REQUEST'
 export const PROJECT_SETTINGS_FETCH_SUCCESS = 'PROJECT_SETTINGS_FETCH_SUCCESS'
 export const PROJECT_SETTINGS_FETCH_FAILURE = 'PROJECT_SETTINGS_FETCH_FAILURE'
 
-export const fetchProjectSettings = (project_slug, payload) => {
+export const fetchProjectSettings = (project_slug, _payload) => {
   return {
     [CALL_API]: {
       endpoint: `${API_ROOT}/projects/${project_slug}/settings`,

@@ -1,6 +1,5 @@
 import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
-import _ from 'underscore'
 import { Pagination as Pagination1, PaginationItem, PaginationLink } from 'reactstrap'
 import merge from 'lodash/merge'
 import queryString  from 'query-string'
@@ -107,7 +106,7 @@ class Pagination extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = state => ({
   routing: state.routing.locationBeforeTransitions 
 })
 

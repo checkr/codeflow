@@ -76,7 +76,7 @@ class ProjectDeploy extends Component {
     }
 
     let includedClass = ""
-    records.forEach((feature, i) => {
+    records.forEach(feature => {
       if (this.state.featureHover === feature.id) {
         includedClass = " feature-included"
       }
@@ -308,7 +308,7 @@ class ProjectDeploy extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = state => ({
   features: state.features,
   releases: state.releases,
   currentRelease: state.currentRelease,

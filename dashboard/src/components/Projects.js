@@ -1,10 +1,9 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import ProjectList from '../components/ProjectList'
-import _ from 'underscore'
 
 class ProjectsPage extends Component {
-  render() { 
+  render() {
     return (
       <div>
         <ProjectList projects={this.props.projects}/>
@@ -13,8 +12,7 @@ class ProjectsPage extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
-})
+const mapStateToProps = () => ({})
 
 export default connect(mapStateToProps, {
 })(ProjectsPage)

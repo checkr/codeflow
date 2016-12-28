@@ -56,13 +56,15 @@ const projectServices = (state = [], action = {}) => {
     case ActionTypes.PROJECT_SERVICE_UPDATE_SUCCESS:
       _.extend(_.findWhere(state, { id: action.payload.id }), action.payload)
       return _.extend([], state)
-    case ActionTypes.PROJECT_SERVICE_CREATE_SUCCESS:
+    case ActionTypes.PROJECT_SERVICE_CREATE_SUCCESS: {
       let s = _.extend([], state)
       s.push(action.payload)
       return s
-    case ActionTypes.PROJECT_SERVICE_DELETE_SUCCESS:
+    }
+    case ActionTypes.PROJECT_SERVICE_DELETE_SUCCESS: {
       let s1 = _.without(state, _.findWhere(state, { id: action.payload.id }))
       return s1
+    }
     case ActionTypes.PROJECT_SERVICE_FETCH_SUCCESS:
       return action.payload
     default:
@@ -77,13 +79,15 @@ const projectExtensions = (state = [], action = {}) => {
     case ActionTypes.PROJECT_EXTENSION_UPDATE_SUCCESS:
       _.extend(_.findWhere(state, { id: action.payload.id }), action.payload)
       return _.extend([], state)
-    case ActionTypes.PROJECT_EXTENSION_CREATE_SUCCESS:
+    case ActionTypes.PROJECT_EXTENSION_CREATE_SUCCESS: {
       let s = _.extend([], state)
       s.push(action.payload)
       return s
-    case ActionTypes.PROJECT_EXTENSION_DELETE_SUCCESS:
+    }
+    case ActionTypes.PROJECT_EXTENSION_DELETE_SUCCESS: {
       let s1 = _.without(state, _.findWhere(state, { id: action.payload.id }))
       return s1
+    }
     case ActionTypes.PROJECT_EXTENSION_FETCH_SUCCESS:
       return action.payload
     default:
@@ -131,7 +135,7 @@ const features = (state = [], action = {}) => {
       return []
     case ActionTypes.FEATURES_SUCCESS:
       return action.payload
-    case ActionTypes.WS_MESSAGE_RECEIVED:
+    case ActionTypes.WS_MESSAGE_RECEIVED: {
       if (action.message.channel === 'create/projects/checkr-codeflow/feature' && state.pagination && state.pagination.page === 1) {
         if (action.meta.project.id && action.meta.project.id === action.message.data.projectId) {
           let x = Object.assign({}, state)
@@ -144,6 +148,7 @@ const features = (state = [], action = {}) => {
         }
       }
       return state
+    }
     default:
       return state
   }
@@ -171,7 +176,7 @@ const releases = (state = [], action = {}) => {
       return action.payload
 
     case ActionTypes.PROJECT_RELEASE_CREATE_SUCCESS:
-    case ActionTypes.PROJECT_ROLLBACK_TO_CREATE_SUCCESS:
+    case ActionTypes.PROJECT_ROLLBACK_TO_CREATE_SUCCESS: {
       let x = Object.assign({}, state)
       if (_.findWhere(x.records, { id: action.payload.id  })) {
         _.extend(_.findWhere(x.records, { id: action.payload.id }), action.payload)
@@ -179,7 +184,8 @@ const releases = (state = [], action = {}) => {
         x.records.unshift(action.payload)
       }
       return x
-    case ActionTypes.WS_MESSAGE_RECEIVED:
+    }
+    case ActionTypes.WS_MESSAGE_RECEIVED: {
       if ((action.message.channel === `update/projects/${action.meta.project.slug}/release` || action.message.channel === `create/projects/${action.meta.project.slug}/release`) && state.pagination && state.pagination.page === 1) {
         if (action.meta.project.id && action.meta.project.id === action.message.data.projectId) {
           let x = Object.assign({}, state)
@@ -192,6 +198,7 @@ const releases = (state = [], action = {}) => {
         }
       }
       return state
+    }
     default:
       return state
   }
