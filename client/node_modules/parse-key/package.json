@@ -1,0 +1,25 @@
+{
+  "name": "parse-key",
+  "version": "0.2.1",
+  "description": "Parses strings into key objects of the same format as the ones emitted by nodejs readline.",
+  "main": "parse-key.js",
+  "scripts": {
+    "test": "node-trap test/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/thlorenz/parse-key.git"
+  },
+  "keywords": [
+    "readline",
+    "string",
+    "print",
+    "convert"
+  ],
+  "author": "Thorsten Lorenz <thlorenz@gmx.de> (thlorenz.com)",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "trap": "~0.3.2"
+  }
+}

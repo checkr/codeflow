@@ -1,0 +1,110 @@
+import createDeleteInWithCleanUp from '../deleteInWithCleanUp';
+import plain from '../structure/plain';
+import plainExpectations from '../structure/plain/expectations';
+import immutable from '../structure/immutable';
+import immutableExpectations from '../structure/immutable/expectations';
+import addExpectations from './addExpectations';
+
+var describeDeleteInWithCleanUp = function describeDeleteInWithCleanUp(name, structure, expect) {
+  var fromJS = structure.fromJS;
+
+  var deleteInWithCleanUp = createDeleteInWithCleanUp(structure);
+
+  describe(name, function () {
+    it('should delete from a flat structure', function () {
+      expect(deleteInWithCleanUp(fromJS({
+        dog: 'Scooby',
+        cat: 'Garfield'
+      }), 'dog')).toEqualMap({
+        cat: 'Garfield'
+      });
+    });
+
+    it('should not delete parent if has other children', function () {
+      expect(deleteInWithCleanUp(fromJS({
+        a: {
+          b: 1,
+          c: 2
+        },
+        d: {
+          e: 3
+        }
+      }), 'a.b')).toEqualMap({
+        a: {
+          c: 2
+        },
+        d: {
+          e: 3
+        }
+      });
+    });
+
+    it('should just set to undefined if leaf structure is an array', function () {
+      expect(deleteInWithCleanUp(fromJS({
+        a: [42]
+      }), 'a[0]')).toEqualMap({
+        a: [undefined]
+      });
+      expect(deleteInWithCleanUp(fromJS({
+        a: [42]
+      }), 'b[0]')).toEqualMap({
+        a: [42]
+      });
+      expect(deleteInWithCleanUp(fromJS({
+        a: [41, 42, 43]
+      }), 'a[1]')).toEqualMap({
+        a: [41, undefined, 43]
+      });
+      expect(deleteInWithCleanUp(fromJS({
+        a: {
+          b: 1,
+          c: [2]
+        },
+        d: {
+          e: 3
+        }
+      }), 'a.c[0]')).toEqualMap({
+        a: {
+          b: 1,
+          c: [undefined]
+        },
+        d: {
+          e: 3
+        }
+      });
+    });
+
+    it('should delete parent if no other children', function () {
+      expect(deleteInWithCleanUp(fromJS({
+        a: {
+          b: 1,
+          c: 2
+        },
+        d: {
+          e: 3
+        }
+      }), 'd.e')).toEqualMap({
+        a: {
+          b: 1,
+          c: 2
+        }
+      });
+      expect(deleteInWithCleanUp(fromJS({
+        a: {
+          b: {
+            c: {
+              d: {
+                e: {
+                  f: 'That\'s DEEP!'
+                }
+              }
+            }
+          }
+        }
+      }), 'a.b.c.d.e.f')).toEqualMap({});
+    });
+  });
+};
+
+describeDeleteInWithCleanUp('deleteInWithCleanUp.plain', plain, addExpectations(plainExpectations));
+describeDeleteInWithCleanUp('deleteInWithCleanUp.immutable', immutable, addExpectations(immutableExpectations));

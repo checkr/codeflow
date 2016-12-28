@@ -1,0 +1,55 @@
+---
+allowed_origins:
+  - "http://localhost:3000"
+  - "https://codeflow.checkrhq-dev.net"
+  - "https://codeflow.checkrhq.net"
+redis:
+  username: 
+  password: 
+  server: "localhost:16379"
+  database: "0"
+  pool: "30"
+  process: "1"
+mongo:
+  database: "codeflow"
+  username:
+  password:
+  ssl: false
+  uri: "localhost:27017"
+plugins:
+  webhooks:
+    workers: 1
+    service_address: ":3002"
+    github:
+      path: "/github"
+  codeflow:
+    workers: 1
+    service_address: ":3001"
+    builds:
+      path: "/builds"
+    projects:
+      path: "/projects"
+    auth:
+      path: "/oauth2"
+      okta_org: ""
+    users:
+      path: "/users"
+    features:
+      path: "/features"
+    websockets:
+      path: "/ws"
+    bookmarks:
+      path: "/bookmarks"
+  docker_build:
+    workers: 1
+    registry_host: "docker.io"
+    registry_username: ""  
+    registry_password: ""
+    registry_user_email: ""
+    build_path: "/tmp"
+    docker_host: "unix:///var/run/docker.sock"
+  kubedeploy:
+    workers: 1
+  websockets:
+    workers: 1
+    service_address: ":3003"

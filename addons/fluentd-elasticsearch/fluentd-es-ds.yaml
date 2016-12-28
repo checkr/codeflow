@@ -1,0 +1,60 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: fluentd-es-v1.20
+  namespace: kube-system
+  labels:
+    k8s-app: fluentd-es
+    kubernetes.io/cluster-service: "true"
+    version: v1.20
+spec:
+  template:
+    metadata:
+      namespace: kube-system
+      labels:
+        k8s-app: fluentd-es
+        kubernetes.io/cluster-service: "true"
+        version: v1.20
+    spec:
+      imagePullSecrets:
+        - name: docker-io
+      containers:
+      - name: fluentd-es
+        image: checkr/fluentd-elasticsearch:1.20
+        imagePullPolicy: Always
+        command:
+          - '/bin/sh'
+          - '-c'
+          - '/usr/sbin/td-agent 2>&1 >> /var/log/fluentd.log'
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+          - name: var-log
+            mountPath: /var/log
+          - name: var-log-journal
+            mountPath: /var/log/journal
+            readOnly: true
+          - name: var-lib-docker-containers
+            mountPath: /var/lib/docker/containers
+            readOnly: true
+          - name: var-log-containers
+            mountPath: /var/log/containers
+            readOnly: true
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: var-log
+        hostPath:
+          path: /var/log
+      - name: var-log-journal
+        hostPath:
+          path: /var/log/journal
+      - name: var-lib-docker-containers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: var-log-containers
+        hostPath:
+          path: /var/log/containers

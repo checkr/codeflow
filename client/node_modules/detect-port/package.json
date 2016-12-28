@@ -1,0 +1,44 @@
+{
+  "name": "detect-port",
+  "version": "1.0.1",
+  "description": "port detector",
+  "keywords": [
+    "detect",
+    "port",
+    "detect-port"
+  ],
+  "bin": {
+    "detect": "./bin/detect-port",
+    "detect-port": "./bin/detect-port"
+  },
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/xudafeng/detect-port.git"
+  },
+  "dependencies": {
+    "commander": "~2.8.1"
+  },
+  "devDependencies": {
+    "mocha": "2.2.4",
+    "co-mocha": "*",
+    "istanbul": "*",
+    "should": "~6.0.3",
+    "jshint": "*"
+  },
+  "scripts": {
+    "test": "make test",
+    "jshint": "make jshint"
+  },
+  "precommit": [
+    "jshint"
+  ],
+  "engines": {
+    "node": ">= 0.11.14"
+  },
+  "author": "xudafeng",
+  "homepage": "https://github.com/xudafeng/detect-port",
+  "email": "xudafeng@126.com",
+  "blog": "http://xdf.me",
+  "license": "MIT"
+}

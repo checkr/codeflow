@@ -1,0 +1,8 @@
+/node_modules
+/jsdoc
+/coverage
+/.idea
+/*.iml
+/npm-debug.log
+/build
+/test

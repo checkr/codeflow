@@ -1,0 +1,24 @@
+{
+  "name": "array-findindex-polyfill",
+  "version": "0.1.0",
+  "description": "Simple ES6 Array.prototype.findIndex polyfill for older environments.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/ryanhefner/Array.prototype.findIndex.git"
+  },
+  "keywords": [
+    "array",
+    "findIndex",
+    "polyfill"
+  ],
+  "author": "Ryan Hefner <hi@ryanhefner.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ryanhefner/Array.prototype.findIndex/issues"
+  },
+  "homepage": "https://github.com/ryanhefner/Array.prototype.findIndex#readme"
+}

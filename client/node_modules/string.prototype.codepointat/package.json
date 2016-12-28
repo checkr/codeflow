@@ -1,0 +1,42 @@
+{
+	"name": "string.prototype.codepointat",
+	"version": "0.2.0",
+	"description": "A robust & optimized `String.prototype.codePointAt` polyfill, based on the ECMAScript 6 specification.",
+	"homepage": "http://mths.be/codepointat",
+	"main": "codepointat.js",
+	"keywords": [
+		"string",
+		"unicode",
+		"es6",
+		"ecmascript",
+		"polyfill"
+	],
+	"licenses": [
+		{
+			"type": "MIT",
+			"url": "http://mths.be/mit"
+		}
+	],
+	"author": {
+		"name": "Mathias Bynens",
+		"url": "http://mathiasbynens.be/"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/mathiasbynens/String.prototype.codePointAt.git"
+	},
+	"bugs": {
+		"url": "https://github.com/mathiasbynens/String.prototype.codePointAt/issues"
+	},
+	"files": [
+		"LICENSE-MIT.txt",
+		"codepointat.js"
+	],
+	"directories": {
+		"test": "tests"
+	},
+	"scripts": {
+		"test": "node tests/tests.js",
+		"cover": "istanbul cover --report html --verbose --dir coverage tests/tests.js"
+	}
+}
