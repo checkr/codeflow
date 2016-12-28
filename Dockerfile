@@ -13,4 +13,5 @@ WORKDIR /go/src/github.com/checkr/codeflow/server
 COPY . /go/src/github.com/checkr/codeflow
 RUN go build -o /go/bin/codeflow .
 
+WORKDIR /go/src/github.com/checkr/codeflow/dashboard
 EXPOSE 3000 3001 3002 9000
