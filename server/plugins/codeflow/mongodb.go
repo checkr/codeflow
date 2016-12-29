@@ -1,4 +1,4 @@
-package codeflow_db
+package codeflow
 
 import (
 	"crypto/tls"
@@ -9,13 +9,13 @@ import (
 	mgo "gopkg.in/mgo.v2"
 )
 
-type Config struct {
+type MongoConfig struct {
 	URI   string
 	SSL   bool
 	Creds mgo.Credential
 }
 
-func NewConnection(config Config) (*mgo.Session, error) {
+func NewMongoConnection(config MongoConfig) (*mgo.Session, error) {
 	var dialInfo *mgo.DialInfo
 	var err error
 

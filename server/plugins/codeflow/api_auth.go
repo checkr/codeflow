@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"gopkg.in/mgo.v2/bson"
-
 	"github.com/ant0ine/go-json-rest/rest"
 	jwt_m "github.com/cheungpat/go-json-rest-middleware-jwt"
 	jwt "github.com/dgrijalva/jwt-go"
@@ -104,9 +102,7 @@ func (o *Okta) getKey(token *jwt.Token) (interface{}, error) {
 	return nil, errors.New("unable to find key")
 }
 
-// LoginHandler can be used by clients to get a jwt token.
-// Payload needs to be json in the form of {"username": "USERNAME", "password": "PASSWORD"}.
-// Reply will be of the form {"token": "TOKEN"}.
+// oktaCallbackEventHandler can be used by clients to get a jwt token.
 func (o *Okta) oktaCallbackEventHandler(writer rest.ResponseWriter, request *rest.Request) {
 	var idToken map[string]string
 	if err := request.DecodeJsonPayload(&idToken); err != nil {
@@ -122,22 +118,21 @@ func (o *Okta) oktaCallbackEventHandler(writer rest.ResponseWriter, request *res
 		name := oktaClaims["name"].(string)
 
 		user := User{
-			Name:      name,
-			Username:  email,
-			Email:     email,
-			UpdatedAt: time.Now(),
+			Name:     name,
+			Username: email,
+			Email:    email,
 		}
 
-		userBson, err := bson.Marshal(&user)
-		if err != nil {
-			panic(err)
-		}
-
-		collection := db.C("users")
-		if err := collection.Find(bson.M{"email": user.Email}).One(&user); err != nil {
-			collection.Insert(&user)
+		if user, err := GetUserByEmail(user.Email); err != nil {
+			if err := CreateUser(&user); err != nil {
+				rest.Error(writer, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		} else {
-			collection.Update(bson.M{"email": user.Email}, bson.M{"$set": userBson})
+			if err := UpdateUser(user.Id, &user); err != nil {
+				rest.Error(writer, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 
 		token := jwt.New(jwt.GetSigningMethod(o.JWTMiddleware.SigningAlgorithm))
