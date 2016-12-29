@@ -20,7 +20,7 @@ class ProjectAccess extends Component {
   }
 }
 
-const mapStateToProps = () => ({})
+const mapStateToProps = (state, ownProps) => ({})
 
 export default connect(mapStateToProps, {
 

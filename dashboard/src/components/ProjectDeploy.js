@@ -71,7 +71,7 @@ class ProjectDeploy extends Component {
     let { records, pagination } = this.props.features
     let features_jsx = [] 
 
-    if (_.isEmpty(this.props.features)) {
+    if (_.isEmpty(records)) {
       return null
     }
 
@@ -184,8 +184,8 @@ class ProjectDeploy extends Component {
     let { records, pagination } = this.props.releases
     let releases_jsx = [] 
     let that = this 
-
-    if (_.isEmpty(this.props.releases)) {
+    
+    if (_.isEmpty(records)) {
       return null
     }
 
@@ -308,7 +308,7 @@ class ProjectDeploy extends Component {
   }
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state, ownProps) => ({
   features: state.features,
   releases: state.releases,
   currentRelease: state.currentRelease,

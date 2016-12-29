@@ -79,7 +79,7 @@ class ProjectPage extends Component {
   }
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state, ownProps) => ({
   project: state.project
 })
 
