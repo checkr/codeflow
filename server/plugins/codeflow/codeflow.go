@@ -3,7 +3,6 @@ package codeflow
 import (
 	"fmt"
 	"log"
-	"math"
 	"net/http"
 	"reflect"
 	"strings"
@@ -12,7 +11,7 @@ import (
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/checkr/codeflow/server/agent"
 	"github.com/checkr/codeflow/server/plugins"
-	"github.com/checkr/codeflow/server/plugins/codeflow/db"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/viper"
 	"gopkg.in/go-playground/validator.v9"
 	mgo "gopkg.in/mgo.v2"
@@ -120,7 +119,7 @@ func (x *Codeflow) Start(events chan agent.Event) error {
 	validate = validator.New()
 	cf = x
 
-	mongoConfig := codeflow_db.Config{
+	mongoConfig := MongoConfig{
 		URI: viper.GetString("mongo.uri"),
 		SSL: viper.GetBool("mongo.ssl"),
 		Creds: mgo.Credential{
@@ -129,7 +128,7 @@ func (x *Codeflow) Start(events chan agent.Event) error {
 		},
 	}
 
-	dbSession, err = codeflow_db.NewConnection(mongoConfig)
+	dbSession, err = NewMongoConnection(mongoConfig)
 	if err != nil {
 		fmt.Println(fmt.Errorf("Error: %s", err))
 	}
@@ -171,15 +170,17 @@ func (x *Codeflow) Process(e agent.Event) error {
 
 	if e.Name == "plugins.GitPing" {
 		payload := e.Payload.(plugins.GitPing)
-		project := Project{}
+		var project Project
+		var err error
 
-		collection := db.C("projects")
-		if err := collection.Find(bson.M{"repository": payload.Repository}).One(&project); err != nil {
+		if project, err = GetProjectByRepository(payload.Repository); err != nil {
+			log.Println(err.Error())
 			return err
 		}
 
 		project.Pinged = true
-		if err := collection.Update(bson.M{"_id": project.Id}, project); err != nil {
+		if err = UpdateProject(project.Id, &project); err != nil {
+			log.Println(err.Error())
 			return err
 		}
 
@@ -188,30 +189,29 @@ func (x *Codeflow) Process(e agent.Event) error {
 
 	if e.Name == "plugins.GitCommit" {
 		payload := e.Payload.(plugins.GitCommit)
+		var err error
+		var project Project
+		var feature Feature
 
 		// Only build master branch
 		if payload.Ref != "refs/heads/master" {
 			return nil
 		}
 
-		project := Project{}
-		feature := Feature{}
-
-		projectCol := db.C("projects")
-		featureCol := db.C("features")
-
-		if err := projectCol.Find(bson.M{"repository": payload.Repository}).One(&project); err != nil {
+		if project, err = GetProjectByRepository(payload.Repository); err != nil {
+			log.Println(err.Error())
 			return err
 		}
 
 		if !project.Pinged {
 			project.Pinged = true
-			if err := projectCol.Update(bson.M{"_id": project.Id}, project); err != nil {
+			if err = UpdateProject(project.Id, &project); err != nil {
+				log.Println(err.Error())
 				return err
 			}
 		}
 
-		if err := featureCol.Find(bson.M{"hash": payload.Hash}).One(&feature); err != nil {
+		if feature, err = GetFeatureByHash(payload.Hash); err != nil {
 			switch err {
 			case mgo.ErrNotFound:
 				feature = Feature{
@@ -224,22 +224,20 @@ func (x *Codeflow) Process(e agent.Event) error {
 					UpdatedAt:  time.Now(),
 				}
 
-				if err := featureCol.Insert(feature); err != nil {
+				if err := CreateFeature(&feature); err != nil {
+					log.Println(err.Error())
 					return err
 				}
 
-				x.CreateFeature(&feature, e)
+				x.FeatureCreated(&feature, e)
 				return nil
 			default:
+				log.Println(err.Error())
 				return err
 			}
 		}
 
-		if err := featureCol.Update(bson.M{"_id": feature.Id}, feature); err != nil {
-			return err
-		}
-
-		x.CreateFeature(&feature, e)
+		log.Println("Feature `%v` for `%v` already exists", payload.Message, project.Repository)
 	}
 
 	if e.Name == "plugins.DockerBuild:status" {
@@ -250,33 +248,7 @@ func (x *Codeflow) Process(e agent.Event) error {
 	return nil
 }
 
-func CurrentUser(r *rest.Request) (User, error) {
-	user := User{}
-
-	userCol := db.C("users")
-	if err := userCol.Find(bson.M{"username": r.Env["REMOTE_USER"]}).One(&user); err != nil {
-	}
-
-	return user, nil
-}
-
-func (x *Codeflow) ProjectChange(p *Project, name string, msg string) {
-	projectChangeCol := db.C("projectChanges")
-	projectChange := ProjectChange{
-		Id:        bson.NewObjectId(),
-		ProjectId: p.Id,
-		Name:      name,
-		Message:   msg,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-
-	if err := projectChangeCol.Insert(&projectChange); err != nil {
-		log.Println(err)
-	}
-}
-
-func (x *Codeflow) CreateProject(p *Project) {
+func (x *Codeflow) ProjectCreated(p *Project) {
 	wsMsg := plugins.WebsocketMsg{
 		Channel: "projects/new",
 		Payload: p,
@@ -285,86 +257,60 @@ func (x *Codeflow) CreateProject(p *Project) {
 	x.events <- event
 }
 
-func (x *Codeflow) CreateService(s *Service) {
-	project := Project{}
-	projectCol := db.C("projects")
+func (x *Codeflow) ServiceCreated(s *Service) {
+	var err error
+	var project Project
 
-	if err := projectCol.Find(bson.M{"_id": s.ProjectId}).One(&project); err != nil {
-		panic(err)
+	if project, err = GetProjectById(s.ProjectId); err != nil {
+		log.Println(err.Error())
+		return
 	}
 
-	var services []*Service
-	services = append(services, s)
-
-	secretCol := db.C("secrets")
-	secrets := []Secret{}
-	if err := secretCol.Find(bson.M{"projectId": project.Id, "deleted": false, "type": bson.M{"$in": []plugins.Type{plugins.Env, plugins.File}}}).All(&secrets); err != nil {
-
-	}
+	// TODO: Magic
+	spew.Dump(project, s)
 }
 
-func (x *Codeflow) UpdateService(s *Service) {
-	project := Project{}
-	projectCol := db.C("projects")
-	if err := projectCol.Find(bson.M{"_id": s.ProjectId}).One(&project); err != nil {
-		panic(err)
+func (x *Codeflow) ServiceUpdated(s *Service) {
+	var err error
+	var project Project
+
+	if project, err = GetProjectById(s.ProjectId); err != nil {
+		log.Println(err.Error())
+		return
 	}
 
-	var services []*Service
-	services = append(services, s)
-
-	secretCol := db.C("secrets")
-	secrets := []Secret{}
-	if err := secretCol.Find(bson.M{"projectId": project.Id, "deleted": false, "type": bson.M{"$in": []plugins.Type{plugins.Env, plugins.File}}}).All(&secrets); err != nil {
-
-	}
-
-	x.ProjectChange(&project, "serviceUpdate", fmt.Sprintf("Service `%v` was updated", s.Name))
+	// TODO: Magic
+	spew.Dump(project, s)
 }
 
-func (x *Codeflow) DeleteService(s *Service) {
-	project := Project{}
-	projectCol := db.C("projects")
-	if err := projectCol.Find(bson.M{"_id": s.ProjectId}).One(&project); err != nil {
-		panic(err)
+func (x *Codeflow) ServiceDeleted(s *Service) {
+	var err error
+	var project Project
+
+	if project, err = GetProjectById(s.ProjectId); err != nil {
+		log.Println(err.Error())
+		return
 	}
 
-	var services []*Service
-	services = append(services, s)
-
-	secretCol := db.C("secrets")
-	secrets := []Secret{}
-	if err := secretCol.Find(bson.M{"projectId": project.Id, "deleted": false, "type": bson.M{"$in": []plugins.Type{plugins.Env, plugins.File}}}).All(&secrets); err != nil {
-
-	}
+	// TODO: Magic
+	spew.Dump(project, s)
 }
 
-func (x *Codeflow) CreateRelease(r *Release) {
-	project := Project{}
+func (x *Codeflow) ReleaseCreated(r *Release) {
+	var err error
 
-	projectCol := db.C("projects")
-	workflowCol := db.C("workflows")
-	serviceCol := db.C("services")
-
-	if err := projectCol.Find(bson.M{"_id": r.ProjectId}).One(&project); err != nil {
-		panic(err)
+	if _, err = GetProjectById(r.ProjectId); err != nil {
+		log.Println(err.Error())
+		return
 	}
 
-	var services []*Service
-
-	if err := serviceCol.Find(bson.M{"projectId": r.ProjectId}).All(&services); err != nil {
-		panic(err)
-	}
-
-	// Create Workflow
-	// Pull this info from project spec/req
+	// TODO: Read required workflows from db
 	workflows := []string{"build:DockerImage"}
 
 	for _, str := range workflows {
 		s := strings.Split(str, ":")
 		t, n := s[0], s[1]
 		flow := Flow{
-			Id:        bson.NewObjectId(),
 			ReleaseId: r.Id,
 			Type:      t,
 			Name:      n,
@@ -373,8 +319,9 @@ func (x *Codeflow) CreateRelease(r *Release) {
 			UpdatedAt: time.Now(),
 		}
 
-		if err := workflowCol.Insert(&flow); err != nil {
-			fmt.Println(err)
+		if err := CreateWorkflow(&flow); err != nil {
+			log.Println(err.Error())
+			return
 		}
 
 		r.Workflow = append(r.Workflow, flow)
@@ -384,54 +331,21 @@ func (x *Codeflow) CreateRelease(r *Release) {
 }
 
 func (x *Codeflow) CheckWorkflows(r *Release) {
+	var err error
 	var workflowStatus plugins.State = plugins.Complete
-	projectCol := db.C("projects")
-	featureCol := db.C("features")
-	releaseCol := db.C("releases")
-	workflowCol := db.C("workflows")
-	userCol := db.C("users")
 
-	project := Project{}
-	headFeature := Feature{}
-	tailFeature := Feature{}
-	user := User{}
-	workflows := []Flow{}
-
-	if err := projectCol.Find(bson.M{"_id": r.ProjectId}).One(&project); err != nil {
-		fmt.Println("Project not found!")
+	if err = PopulateRelease(r); err != nil {
+		log.Println(err.Error())
 		return
 	}
-
-	if err := featureCol.Find(bson.M{"_id": r.HeadFeatureId}).One(&headFeature); err != nil {
-		fmt.Println("HeadFeature not found!")
-		return
-	}
-
-	if err := featureCol.Find(bson.M{"_id": r.TailFeatureId}).One(&tailFeature); err != nil {
-		fmt.Println("TailFeature not found!")
-		return
-	}
-
-	if err := userCol.Find(bson.M{"_id": r.UserId}).One(&user); err != nil {
-		fmt.Println("User not found!")
-		return
-	}
-
-	workflowCol.Find(bson.M{"releaseId": r.Id}).All(&workflows)
-
-	r.HeadFeature = headFeature
-	r.TailFeature = tailFeature
-	r.User = user
-	r.Workflow = workflows
 
 	for idx, _ := range r.Workflow {
 		flow := &r.Workflow[idx]
 
 		switch flow.Type {
 		case "build":
-			buildCol := db.C("builds")
-			build := Build{}
-			if err := buildCol.Find(bson.M{"featureHash": r.HeadFeature.Hash, "type": flow.Name}).One(&build); err != nil {
+			var build Build
+			if build, err = GetBuildByHashAndType(r.HeadFeature.Hash, flow.Name); err != nil {
 				flow.State = plugins.Failed
 			} else {
 				switch build.State {
@@ -447,19 +361,19 @@ func (x *Codeflow) CheckWorkflows(r *Release) {
 				}
 			}
 
-			flow.UpdatedAt = time.Now()
-
-			if err := workflowCol.Update(bson.M{"_id": flow.Id}, &flow); err != nil {
-				panic(err)
+			if err := UpdateFlow(flow.Id, flow); err != nil {
+				log.Println(err.Error())
+				return
 			}
 
-			// Update release state
-			releaseCol.Update(bson.M{"_id": r.Id}, bson.M{"$set": bson.M{"state": r.State}})
+			if err := UpdateRelease(r.Id, r); err != nil {
+				log.Println(err.Error())
+				return
+			}
 
 			if flow.State != plugins.Complete {
 				workflowStatus = flow.State
 			}
-
 			break
 		}
 	}
@@ -469,31 +383,32 @@ func (x *Codeflow) CheckWorkflows(r *Release) {
 	}
 }
 
-func (x *Codeflow) CreateExtensions(lb *LoadBalancer) {
+func (x *Codeflow) ExtensionCreated(lb *LoadBalancer) {
 	x.loadBalancer(lb, plugins.Create)
 }
 
-func (x *Codeflow) UpdateExtensions(lb *LoadBalancer) {
+func (x *Codeflow) ExtensionUpdated(lb *LoadBalancer) {
 	x.loadBalancer(lb, plugins.Update)
 }
 
-func (x *Codeflow) DeleteExtensions(lb *LoadBalancer) {
+func (x *Codeflow) ExtensionDeleted(lb *LoadBalancer) {
 	x.loadBalancer(lb, plugins.Destroy)
 }
 
 func (x *Codeflow) loadBalancer(lb *LoadBalancer, action plugins.Action) {
-	project := Project{}
-	service := Service{}
+	var err error
+	var project Project
+	var service Service
 
-	projectCol := db.C("projects")
-	serviceCol := db.C("services")
-
-	if err := projectCol.Find(bson.M{"_id": lb.ProjectId}).One(&project); err != nil {
-		panic(err)
+	if _, err = GetProjectById(lb.ProjectId); err != nil {
+		log.Println(err.Error())
+		return
 	}
 
-	if err := serviceCol.Find(bson.M{"_id": lb.ServiceId}).One(&service); err != nil {
-		fmt.Println("Load balancer is not attached to any service or sercice was already deleted")
+	if service, err = GetServiceById(lb.ServiceId); err != nil {
+		log.Println("Load balancer is not attached to any service or service was deleted")
+		log.Println(err.Error())
+		return
 	}
 
 	var serviceListeners []plugins.Listener
@@ -535,39 +450,36 @@ func (x *Codeflow) loadBalancer(lb *LoadBalancer, action plugins.Action) {
 			Replicas:  int64(service.Count),
 		},
 		ListenerPairs: listenerPairs,
-		Environment:   "development",
 	}
 
 	event := agent.NewEvent(loadBalancerEvent, nil)
 	x.events <- event
 }
 
-func (x *Codeflow) CreateFeature(feature *Feature, e agent.Event) {
-	project := Project{}
+func (x *Codeflow) FeatureCreated(feature *Feature, e agent.Event) {
+	var err error
+	var project Project
+	var secrets []Secret
 
-	projectCol := db.C("projects")
-	secretCol := db.C("secrets")
-	buildCol := db.C("builds")
-
-	if err := projectCol.Find(bson.M{"_id": feature.ProjectId}).One(&project); err != nil {
-		panic(err)
+	if project, err = GetProjectById(feature.ProjectId); err != nil {
+		log.Println(err.Error())
+		return
 	}
 
 	build := Build{
 		FeatureHash: feature.Hash,
 		Type:        "DockerImage",
 		State:       plugins.Waiting,
-		CreatedAt:   time.Now(),
 	}
 
-	_, err := buildCol.Upsert(bson.M{"featureHash": feature.Hash}, &build)
-	if err != nil {
-		fmt.Println(err)
+	if err = CreateOrUpdateBuildByFeatureHash(feature.Hash, &build); err != nil {
+		log.Println(err.Error())
+		return
 	}
 
-	secrets := []Secret{}
-	if err := secretCol.Find(bson.M{"projectId": project.Id, "deleted": false, "type": plugins.Build}).All(&secrets); err != nil {
-
+	if secrets, err = GetSecretsByProjectIdAndType(project.Id, plugins.Build); err != nil {
+		log.Println(err.Error())
+		return
 	}
 
 	var buildArgs []plugins.Arg
@@ -617,41 +529,44 @@ func (x *Codeflow) CreateFeature(feature *Feature, e agent.Event) {
 }
 
 func (x *Codeflow) DockerBuildStatus(br *plugins.DockerBuild) {
-	project := Project{}
-	build := Build{}
+	var err error
+	var build Build
+	var feature Feature
 
-	projectCol := db.C("projects")
-	buildCol := db.C("builds")
-
-	if err := projectCol.Find(bson.M{"repository": br.Project.Repository}).One(&project); err != nil {
-		panic(err)
-	}
-
-	buildCol.Update(bson.M{"featureHash": br.Feature.Hash}, bson.M{"$set": bson.M{
-		"image":      br.Image,
-		"state":      br.State,
-		"buildLog":   br.BuildLog,
-		"buildError": br.BuildError,
-		"updatedAt":  time.Now(),
-	}})
-
-	if err := buildCol.Find(bson.M{"featureHash": br.Feature.Hash}).One(&build); err != nil {
-		panic(err)
-	}
-
-	// Check if there is any releases pending and call their workflow
-	featureCol := db.C("features")
-	releaseCol := db.C("releases")
-	feature := Feature{}
-	releases := []Release{}
-
-	if err := featureCol.Find(bson.M{"hash": br.Feature.Hash}).One(&feature); err != nil {
-		fmt.Println("Feature not found!")
+	if _, err = GetProjectByRepository(br.Project.Repository); err != nil {
+		log.Println(err.Error())
 		return
 	}
 
-	if err := releaseCol.Find(bson.M{"headFeatureId": feature.Id, "state": plugins.Waiting}).All(&releases); err != nil {
-		fmt.Println("No pending releases found.")
+	if build, err = GetBuildByHash(br.Feature.Hash); err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	build.Image = br.Image
+	build.State = br.State
+	build.BuildLog = br.BuildLog
+	build.BuildError = br.BuildError
+
+	if err := UpdateBuild(build.Id, &build); err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	if feature, err = GetFeatureByHash(br.Feature.Hash); err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	x.UpdateInProgessReleases(&feature)
+}
+
+func (x *Codeflow) UpdateInProgessReleases(f *Feature) {
+	var err error
+	var releases []Release
+
+	if releases, err = GetReleasesByFeatureIdAndState(f.Id, plugins.Waiting); err != nil {
+		log.Println(err.Error())
 		return
 	}
 
@@ -662,25 +577,24 @@ func (x *Codeflow) DockerBuildStatus(br *plugins.DockerBuild) {
 }
 
 func (x *Codeflow) CreateDeploy(r *Release) {
-	releaseServices := []Service{}
-	build := Build{}
-	project := Project{}
+	var err error
+	var project Project
+	var build Build
+	var releaseServices []Service
 
-	serviceCol := db.C("services")
-	buildCol := db.C("builds")
-	projectCol := db.C("projects")
-
-	if err := projectCol.Find(bson.M{"_id": r.ProjectId}).One(&project); err != nil {
-		fmt.Println("Project not found!")
+	if project, err = GetProjectById(r.ProjectId); err != nil {
+		log.Println(err.Error())
 		return
 	}
 
-	if err := serviceCol.Find(bson.M{"projectId": r.ProjectId, "state": bson.M{"$in": []plugins.State{plugins.Waiting, plugins.Running, plugins.Deleting}}}).All(&releaseServices); err != nil {
+	if releaseServices, err = GetReleaseServices(r.ProjectId); err != nil {
+		log.Println(err.Error())
 		fmt.Println("Service not found! Can't deploy without service")
 		return
 	}
 
-	if err := buildCol.Find(bson.M{"featureHash": r.HeadFeature.Hash, "type": "DockerImage", "state": plugins.Complete}).One(&build); err != nil {
+	if build, err = GetBuildByHashAndState(r.HeadFeature.Hash, plugins.Complete); err != nil {
+		log.Println(err.Error())
 		fmt.Println("Build not found!")
 		return
 	}
@@ -771,51 +685,46 @@ func (x *Codeflow) CreateDeploy(r *Release) {
 }
 
 func (x *Codeflow) LoadBalancerStatus(lb *plugins.LoadBalancer) {
-	projectCol := db.C("projects")
-	extensionCol := db.C("extensions")
-	var extension LoadBalancer
+	var err error
 	var project Project
+	var extension LoadBalancer
 
-	if err := projectCol.Find(bson.M{"repository": lb.Project.Repository}).One(&project); err != nil {
-		fmt.Println("Project not found!")
+	if project, err = GetProjectByRepository(lb.Project.Repository); err != nil {
+		log.Println(err.Error())
 		return
 	}
 
-	if err := extensionCol.Find(bson.M{"projectId": project.Id, "name": lb.Name}).One(&extension); err != nil {
+	if extension, err = GetExtensionByProjectIdAndName(project.Id, lb.Name); err != nil {
 		fmt.Printf("LoadBalancer %s not found!\n", lb.Name)
+		log.Println(err.Error())
 		return
 	}
 
-	extensionCol.Update(bson.M{"_id": extension.Id}, bson.M{"$set": bson.M{"dnsName": lb.DNSName, "state": lb.State, "stateMessage": lb.StateMessage}})
+	extension.DNSName = lb.DNSName
+	extension.State = lb.State
+	extension.StateMessage = lb.StateMessage
+
+	if err = UpdateExtension(extension.Id, &extension); err != nil {
+		log.Println(err.Error())
+		return
+	}
 }
 
 func (x *Codeflow) DockerDeployStatus(e *plugins.DockerDeploy) {
-	projectCol := db.C("projects")
-	featureCol := db.C("features")
-	releaseCol := db.C("releases")
+	var err error
+	var release Release
 
-	feature := Feature{}
-	release := Release{}
-	project := Project{}
-
-	if err := projectCol.Find(bson.M{"repository": e.Project.Repository}).One(&project); err != nil {
-		fmt.Println("Project not found!")
+	if release, err = GetReleaseById(bson.ObjectIdHex(e.Release.Id)); err != nil {
+		log.Println(err.Error())
 		return
 	}
 
-	if err := featureCol.Find(bson.M{"hash": e.Release.HeadFeature.Hash}).One(&feature); err != nil {
-		fmt.Println("Feature not found!")
-		return
-	}
-
-	if err := releaseCol.Find(bson.M{"_id": bson.ObjectIdHex(e.Release.Id)}).One(&release); err != nil {
-		fmt.Println("Release not found!")
-		return
-	}
-
-	// Update release state
-	releaseCol.Update(bson.M{"_id": release.Id}, bson.M{"$set": bson.M{"state": e.State}})
 	release.State = e.State
+
+	if err = UpdateRelease(release.Id, &release); err != nil {
+		log.Println(err.Error())
+		return
+	}
 
 	if release.State == plugins.Complete {
 
@@ -825,46 +734,18 @@ func (x *Codeflow) DockerDeployStatus(e *plugins.DockerDeploy) {
 }
 
 func (x *Codeflow) ReleaseUpdated(r *Release) {
-	projectCol := db.C("projects")
-	featureCol := db.C("features")
-	workflowCol := db.C("workflows")
-	userCol := db.C("users")
+	var err error
+	var project Project
 
-	project := Project{}
-	headFeature := Feature{}
-	tailFeature := Feature{}
-	user := User{}
-	workflows := []Flow{}
-
-	if err := projectCol.Find(bson.M{"_id": r.ProjectId}).One(&project); err != nil {
-		fmt.Println("Project not found!")
+	if project, err = GetProjectById(r.ProjectId); err != nil {
+		log.Println(err.Error())
 		return
 	}
 
-	if err := featureCol.Find(bson.M{"_id": r.HeadFeatureId}).One(&headFeature); err != nil {
-		fmt.Println("HeadFeature not found!")
+	if err = PopulateRelease(r); err != nil {
+		log.Println(err.Error())
 		return
 	}
-
-	if err := featureCol.Find(bson.M{"_id": r.TailFeatureId}).One(&tailFeature); err != nil {
-		fmt.Println("TailFeature not found!")
-		return
-	}
-
-	if err := userCol.Find(bson.M{"_id": r.UserId}).One(&user); err != nil {
-		fmt.Println("User not found!")
-		return
-	}
-
-	r.HeadFeature = headFeature
-	r.TailFeature = tailFeature
-	r.User = user
-
-	if err := workflowCol.Find(bson.M{"releaseId": r.Id}).All(&workflows); err != nil {
-
-	}
-
-	r.Workflow = workflows
 
 	wsMsg := plugins.WebsocketMsg{
 		Channel: fmt.Sprintf("update/projects/%v/release", project.Slug),
@@ -874,70 +755,20 @@ func (x *Codeflow) ReleaseUpdated(r *Release) {
 	x.events <- agent.NewEvent(wsMsg, nil)
 }
 
-func (x *Codeflow) UpdateBookmarks(u *User) {
-	bookmarks := []Bookmark{}
-	bookmarkCol := db.C("bookmarks")
+func (x *Codeflow) BookmarksUpdated(u *User) {
+	var err error
+	var bookmarks []Bookmark
 
-	if err := bookmarkCol.Find(bson.M{"userId": u.Id}).All(&bookmarks); err != nil {
-		fmt.Println("Bookmarks error: " + err.Error())
-	}
-
-	projectCol := db.C("projects")
-	for idx, bookmark := range bookmarks {
-		project := Project{}
-		if err := projectCol.Find(bson.M{"_id": bookmark.ProjectId}).One(&project); err != nil {
-
-		}
-		bookmarks[idx].Name = project.Name
-		bookmarks[idx].Slug = project.Slug
+	if bookmarks, err = GetUserBookmarks(u.Id); err != nil {
+		log.Println(err.Error())
+		return
 	}
 
 	wsMsg := plugins.WebsocketMsg{
 		Channel: "bookmarks/" + u.Id.Hex(),
 		Payload: bookmarks,
 	}
+
 	event := agent.NewEvent(wsMsg, nil)
 	x.events <- event
-}
-
-// Calc produces a Paging calculated over
-// Page, Limit, Count and DefaultLimit values of given Paging
-func (p Pagination) Calc() *Pagination {
-	if p.Page < 1 {
-		p.Page = 1
-	}
-
-	if p.Limit < 1 {
-		if p.DefaultLimit > 0 {
-			p.Limit = p.DefaultLimit
-		} else {
-			p.Limit = 10
-		}
-	}
-
-	if p.Count < p.Limit {
-		p.TotalPages = 1
-	} else {
-		p.TotalPages = int(math.Ceil(float64(p.Count) / float64(p.Limit)))
-	}
-
-	if p.Page > p.TotalPages {
-		p.Page = p.TotalPages
-	}
-
-	p.Offset = (p.Page - 1) * p.Limit
-
-	return &p
-}
-
-func StringToLoadBalancerType(s string) plugins.Type {
-	switch strings.ToLower(s) {
-	case "internal":
-		return plugins.Internal
-	case "external":
-		return plugins.External
-	case "office":
-		return plugins.Office
-	}
-	return plugins.Internal
 }

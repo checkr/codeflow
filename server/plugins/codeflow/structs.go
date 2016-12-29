@@ -4,14 +4,8 @@ import (
 	"time"
 
 	"github.com/checkr/codeflow/server/plugins"
-
 	"gopkg.in/mgo.v2/bson"
 )
-
-type Error struct {
-	StatusCode int    `json:"statusCode"`
-	Message    string `json:"message"`
-}
 
 type User struct {
 	Id        bson.ObjectId `bson:"_id,omitempty" json:"id"`
