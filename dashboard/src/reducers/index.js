@@ -126,7 +126,7 @@ const bookmarks = (state = [], action = {}) => {
   }
 }
 
-const features = (state = [], action = {}) => {
+const features = (state = {}, action = {}) => {
   switch (action.type) {
     case ActionTypes.FEATURES_REQUEST:
       if (action.meta.callee === 'pagination') {
@@ -165,7 +165,7 @@ const currentRelease = (state = {}, action = {}) => {
   }
 }
 
-const releases = (state = [], action = {}) => {
+const releases = (state = {}, action = {}) => {
   switch (action.type) {
     case ActionTypes.PROJECT_RELEASES_FETCH_REQUEST:
       if (action.meta.callee === 'pagination') {
@@ -174,7 +174,6 @@ const releases = (state = [], action = {}) => {
       return []
     case ActionTypes.PROJECT_RELEASES_FETCH_SUCCESS:
       return action.payload
-
     case ActionTypes.PROJECT_RELEASE_CREATE_SUCCESS:
     case ActionTypes.PROJECT_ROLLBACK_TO_CREATE_SUCCESS: {
       let x = Object.assign({}, state)

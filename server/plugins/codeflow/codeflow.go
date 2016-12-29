@@ -237,7 +237,7 @@ func (x *Codeflow) Process(e agent.Event) error {
 			}
 		}
 
-		log.Println("Feature `%v` for `%v` already exists", payload.Message, project.Repository)
+		log.Printf("Feature `%v:%v` already exists", project.Repository, payload.Hash)
 	}
 
 	if e.Name == "plugins.DockerBuild:status" {
@@ -328,6 +328,7 @@ func (x *Codeflow) ReleaseCreated(r *Release) {
 	}
 
 	x.CheckWorkflows(r)
+	x.ReleaseUpdated(r)
 }
 
 func (x *Codeflow) CheckWorkflows(r *Release) {

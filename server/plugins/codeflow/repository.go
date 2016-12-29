@@ -750,7 +750,7 @@ func GetCurrentlyDeployedFeature(projectId bson.ObjectId, feature *Feature) erro
 func GetFeaturesWithPagination(projectId bson.ObjectId, currPage int, limit int) (PageResults, error) {
 	var err error
 	var itemsCount int
-	var features []Feature
+	features := []Feature{}
 	var pagination *Pagination
 	var currentlyDeployedFeature Feature
 	var pageResults PageResults
@@ -800,7 +800,7 @@ func GetFeaturesWithPagination(projectId bson.ObjectId, currPage int, limit int)
 func GetReleasesWithPagination(projectId bson.ObjectId, currPage int, limit int) (PageResults, error) {
 	var err error
 	var itemsCount int
-	var releases []Release
+	releases := []Release{}
 	var pagination *Pagination
 	var pageResults PageResults
 
@@ -830,7 +830,7 @@ func GetReleasesWithPagination(projectId bson.ObjectId, currPage int, limit int)
 	}
 
 	pageResults = PageResults{
-		Records:    &releases,
+		Records:    releases,
 		Pagination: pagination,
 	}
 
@@ -856,7 +856,7 @@ func GetCurrentRelease(projectId bson.ObjectId) (Release, error) {
 func GetProjectsWithPagination(currPage int, limit int) (PageResults, error) {
 	var err error
 	var itemsCount int
-	var projects []Project
+	projects := []Project{}
 	var pagination *Pagination
 	var pageResults PageResults
 
