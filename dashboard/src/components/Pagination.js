@@ -106,7 +106,7 @@ class Pagination extends Component {
   }
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state, ownProps) => ({
   routing: state.routing.locationBeforeTransitions 
 })
 

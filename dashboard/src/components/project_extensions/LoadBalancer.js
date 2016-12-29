@@ -108,9 +108,9 @@ class LoadBalancer extends Component {
       service = _.findWhere(services, { id: extension.serviceId })
     }
 
-    let dns = <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-globe" aria-hidden="true" /></div><input type="text" className="form-control" value={extension.type} readonly/></div>
+    let dns = <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-globe" aria-hidden="true" /></div><input type="text" className="form-control" value={extension.type} readOnly/></div>
     if (!_.isEmpty(extension.dnsName)) {
-      dns = <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-globe" aria-hidden="true" /></div><input type="text" className="form-control" value={extension.dnsName} readonly/></div>
+      dns = <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-globe" aria-hidden="true" /></div><input type="text" className="form-control" value={extension.dnsName} readOnly/></div>
     }
 
     return (
@@ -118,7 +118,7 @@ class LoadBalancer extends Component {
         <h5 className="lb-title">
           Load Balancer
         </h5>
-        { !_.isEmpty(service) && <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-tasks" aria-hidden="true" /></div><input type="text" className="form-control" value={service.name} readonly/></div>
+        { !_.isEmpty(service) && <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-tasks" aria-hidden="true" /></div><input type="text" className="form-control" value={service.name} readOnly/></div>
  }
 
         {dns}

@@ -257,7 +257,7 @@ class ProjectResources extends Component {
   }
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state, ownProps) => ({
   projectService: state.form.projectService,
   projectExtension: state.form.projectExtension,
   services: state.projectServices,

@@ -47,7 +47,7 @@ class ProjectInit extends Component {
   }
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state, ownProps) => ({
   config: state.appConfig
 })
 

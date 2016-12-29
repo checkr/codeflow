@@ -308,7 +308,7 @@ class ProjectDeploy extends Component {
   }
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state, ownProps) => ({
   features: state.features,
   releases: state.releases,
   currentRelease: state.currentRelease,

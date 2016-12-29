@@ -38,7 +38,7 @@ class ProjectSettings extends Component {
   }
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state, ownProps) => ({
   projectSettingsForm: state.form.projectSettings,
   projectSettings: state.projectSettings
 })
