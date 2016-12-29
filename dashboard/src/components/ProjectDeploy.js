@@ -72,7 +72,15 @@ class ProjectDeploy extends Component {
     let features_jsx = [] 
 
     if (_.isEmpty(records)) {
-      return null
+      return(
+        <ul className="list-group">
+          <li>
+            <Alert color="info">
+              This project has no deployable features. Do some work and come back!
+            </Alert>
+          </li>
+        </ul>
+      ) 
     }
 
     let includedClass = ""
@@ -97,18 +105,6 @@ class ProjectDeploy extends Component {
         </li>
       )
     })
-
-    if (features_jsx.length === 0) {
-      return(
-        <ul className="list-group">
-          <li>
-            <Alert color="info">
-              This project has no deployable features. Do some work and come back!
-            </Alert>
-          </li>
-        </ul>
-      ) 
-    }
 
     return (
       <div>
@@ -186,7 +182,11 @@ class ProjectDeploy extends Component {
     let that = this 
     
     if (_.isEmpty(records)) {
-      return null
+      return (<li>
+        <Alert color="info">
+          This project has no releases. Build some features and deploy them!
+        </Alert>
+      </li>) 
     }
 
     records.forEach((release, i) => {
@@ -217,14 +217,6 @@ class ProjectDeploy extends Component {
         </li>
       )
     })
-
-    if (releases_jsx.length === 0) {
-      return (<li>
-        <Alert color="info">
-          This project has no releases. Build some features and deploy them!
-        </Alert>
-      </li>) 
-    }
 
     return (
       <div>
