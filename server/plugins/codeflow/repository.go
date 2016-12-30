@@ -884,3 +884,40 @@ func GetProjectsWithPagination(currPage int, limit int) (PageResults, error) {
 
 	return pageResults, nil
 }
+
+func CollectStats(save bool) (Statistics, error) {
+	stats := Statistics{}
+
+	// Project stats
+	projectCol := db.C("projects")
+	if projectCount, err := projectCol.Find(bson.M{}).Count(); err != nil {
+		return stats, err
+	} else {
+		stats.Projects = projectCount
+	}
+
+	// Feature stats
+	featureCol := db.C("features")
+	if featureCount, err := featureCol.Find(bson.M{}).Count(); err != nil {
+		return stats, err
+	} else {
+		stats.Features = featureCount
+	}
+
+	// Release stats
+	releaseCol := db.C("releases")
+	if releaseCount, err := releaseCol.Find(bson.M{}).Count(); err != nil {
+		return stats, err
+	} else {
+		stats.Releases = releaseCount
+	}
+
+	// User stats
+	userCol := db.C("users")
+	if userCount, err := userCol.Find(bson.M{}).Count(); err != nil {
+		return stats, err
+	} else {
+		stats.Users = userCount
+	}
+	return stats, nil
+}

@@ -585,3 +585,22 @@ export const updateProjectSettings = (project_slug, payload) => {
     }
   }
 }
+
+export const STATS_FETCH_REQUEST = 'STATS_FETCH_REQUEST'
+export const STATS_FETCH_SUCCESS = 'STATS_FETCH_SUCCESS'
+export const STATS_FETCH_FAILURE = 'STATS_FETCH_FAILURE'
+
+export const fetchStats = (slug = "") => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/stats${slug}`,
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [ STATS_FETCH_REQUEST, STATS_FETCH_SUCCESS, STATS_FETCH_FAILURE ]
+    }
+  }
+}

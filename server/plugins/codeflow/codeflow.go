@@ -39,6 +39,7 @@ type Codeflow struct {
 	Auth      *Auth
 	Users     *Users
 	Bookmarks *Bookmarks
+	Stats     *Stats
 }
 
 func NewCodeflow() *Codeflow {

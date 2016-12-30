@@ -297,6 +297,17 @@ const auth = (state = initialAuthState, action) => {
   }
 }
 
+const stats = (state = {}, action = {}) => {
+  switch (action.type) {
+    case ActionTypes.STATS_FETCH_REQUEST:
+      return {}
+    case ActionTypes.STATS_FETCH_SUCCESS:
+      return action.payload
+    default:
+      return state
+  }
+}
+
 const rootReducer = combineReducers({
   me,
   projects,
@@ -312,7 +323,8 @@ const rootReducer = combineReducers({
   auth,
   routing,
   form,
-  appConfig
+  appConfig,
+  stats
 })
 
 export default rootReducer
