@@ -1,6 +1,7 @@
 package codeflow
 
 import (
+	"errors"
 	"log"
 	"math"
 	"strings"
@@ -358,6 +359,22 @@ func PopulateRelease(release *Release) error {
 	var tailFeature Feature
 	var user User
 	var workflows []Flow
+
+	if !release.HeadFeatureId.Valid() {
+		release.HeadFeatureId = release.HeadFeature.Id
+	}
+
+	if !release.TailFeatureId.Valid() {
+		release.TailFeatureId = release.TailFeature.Id
+	}
+
+	if !release.UserId.Valid() {
+		release.UserId = release.User.Id
+	}
+
+	if !release.HeadFeatureId.Valid() || !release.TailFeatureId.Valid() || !release.UserId.Valid() {
+		return errors.New("One of feature ids is missing")
+	}
 
 	if headFeature, err = GetFeatureById(release.HeadFeatureId); err != nil {
 		return err
