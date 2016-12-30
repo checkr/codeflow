@@ -250,7 +250,7 @@ func (x *Codeflow) Process(e agent.Event) error {
 
 func (x *Codeflow) ProjectCreated(p *Project) {
 	wsMsg := plugins.WebsocketMsg{
-		Channel: "projects/new",
+		Channel: "projects",
 		Payload: p,
 	}
 	event := agent.NewEvent(wsMsg, nil)
@@ -522,7 +522,7 @@ func (x *Codeflow) FeatureCreated(feature *Feature, e agent.Event) {
 	x.events <- e.NewEvent(dockerBuildEvent, nil)
 
 	wsMsg := plugins.WebsocketMsg{
-		Channel: fmt.Sprintf("create/projects/%v/feature", project.Slug),
+		Channel: "features",
 		Payload: feature,
 	}
 
@@ -728,7 +728,8 @@ func (x *Codeflow) DockerDeployStatus(e *plugins.DockerDeploy) {
 	}
 
 	if release.State == plugins.Complete {
-
+		x.ReleasePromoted(&release)
+		x.FeatureUpdated(&release)
 	}
 
 	x.ReleaseUpdated(&release)
@@ -736,12 +737,6 @@ func (x *Codeflow) DockerDeployStatus(e *plugins.DockerDeploy) {
 
 func (x *Codeflow) ReleaseUpdated(r *Release) {
 	var err error
-	var project Project
-
-	if project, err = GetProjectById(r.ProjectId); err != nil {
-		log.Println(err.Error())
-		return
-	}
 
 	if err = PopulateRelease(r); err != nil {
 		log.Println(err.Error())
@@ -749,7 +744,39 @@ func (x *Codeflow) ReleaseUpdated(r *Release) {
 	}
 
 	wsMsg := plugins.WebsocketMsg{
-		Channel: fmt.Sprintf("update/projects/%v/release", project.Slug),
+		Channel: "releases",
+		Payload: r,
+	}
+
+	x.events <- agent.NewEvent(wsMsg, nil)
+}
+
+func (x *Codeflow) FeatureUpdated(r *Release) {
+	var err error
+
+	if err = PopulateRelease(r); err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	wsMsg := plugins.WebsocketMsg{
+		Channel: "features",
+		Payload: r.HeadFeature,
+	}
+
+	x.events <- agent.NewEvent(wsMsg, nil)
+}
+
+func (x *Codeflow) ReleasePromoted(r *Release) {
+	var err error
+
+	if err = PopulateRelease(r); err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	wsMsg := plugins.WebsocketMsg{
+		Channel: "releases/promote",
 		Payload: r,
 	}
 

@@ -31,6 +31,12 @@ class ProjectDeploy extends Component {
     if (nextProps.project.slug !== '' && nextProps.project.slug !== this.props.project.slug) {
       loadData(nextProps)
     }
+    if (nextProps.features.dirty) {
+      nextProps.fetchProjectFeatures(nextProps.project.slug, nextProps.routing.search)
+    }
+    if (nextProps.releases.dirty) {
+      nextProps.fetchProjectReleases(nextProps.project.slug, nextProps.routing.search)
+    }
   }
 
   paginateFeatures(pathname, search) {
@@ -116,7 +122,7 @@ class ProjectDeploy extends Component {
   
 
   renderCurrentReleaseActions(release) {
-    return <button type="button" key="btn" className="btn btn-secondary btn-sm float-xs-right" onClick={(e) => this.onDeployFeature(release.headFeature, e)}>Deploy</button>
+    return <button type="button" key="btn" className="btn btn-secondary btn-sm float-xs-right" onClick={(e) => this.onDeployFeature(release.headFeature, e)}>Redeploy</button>
   }
 
   renderReleaseActions(release) {

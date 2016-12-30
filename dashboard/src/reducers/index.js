@@ -57,13 +57,10 @@ const projectServices = (state = [], action = {}) => {
       _.extend(_.findWhere(state, { id: action.payload.id }), action.payload)
       return _.extend([], state)
     case ActionTypes.PROJECT_SERVICE_CREATE_SUCCESS: {
-      let s = _.extend([], state)
-      s.push(action.payload)
-      return s
+      return _.union([], state, [action.payload])
     }
     case ActionTypes.PROJECT_SERVICE_DELETE_SUCCESS: {
-      let s1 = _.without(state, _.findWhere(state, { id: action.payload.id }))
-      return s1
+      return _.without(state, _.findWhere(state, { id: action.payload.id }))
     }
     case ActionTypes.PROJECT_SERVICE_FETCH_SUCCESS:
       return action.payload
@@ -80,13 +77,10 @@ const projectExtensions = (state = [], action = {}) => {
       _.extend(_.findWhere(state, { id: action.payload.id }), action.payload)
       return _.extend([], state)
     case ActionTypes.PROJECT_EXTENSION_CREATE_SUCCESS: {
-      let s = _.extend([], state)
-      s.push(action.payload)
-      return s
+      return _.union([], state, [action.payload])
     }
     case ActionTypes.PROJECT_EXTENSION_DELETE_SUCCESS: {
-      let s1 = _.without(state, _.findWhere(state, { id: action.payload.id }))
-      return s1
+      return _.without(state, _.findWhere(state, { id: action.payload.id }))
     }
     case ActionTypes.PROJECT_EXTENSION_FETCH_SUCCESS:
       return action.payload
@@ -130,21 +124,15 @@ const features = (state = {}, action = {}) => {
   switch (action.type) {
     case ActionTypes.FEATURES_REQUEST:
       if (action.meta.callee === 'pagination') {
-        return state
+        return Object.assign({dirty: false}, state)
       }
-      return []
+      return {}
     case ActionTypes.FEATURES_SUCCESS:
       return action.payload
     case ActionTypes.WS_MESSAGE_RECEIVED: {
-      if (action.message.channel === 'create/projects/checkr-codeflow/feature' && state.pagination && state.pagination.page === 1) {
-        if (action.meta.project.id && action.meta.project.id === action.message.data.projectId) {
-          let x = Object.assign({}, state)
-          if (_.findWhere(x.records, { id: action.message.data.id  })) {
-            _.extend(_.findWhere(x.records, { id: action.message.data.id }), action.message.data)
-          } else {
-            x.records.unshift(action.message.data)
-          }
-          return x
+      if (action.message.channel === 'features') {
+        if (_.isEqual(action.meta.project.id, action.message.data.projectId)) {
+          return Object.assign({dirty: true}, state)
         }
       }
       return state
@@ -160,6 +148,14 @@ const currentRelease = (state = {}, action = {}) => {
       return {}
     case ActionTypes.PROJECT_CURRENT_RELEASE_FETCH_SUCCESS:
       return action.payload
+    case ActionTypes.WS_MESSAGE_RECEIVED: {
+      if (action.message.channel === 'releases/promote') {
+        if (_.isEqual(action.meta.project.id, action.message.data.projectId)) {
+          return action.message.data
+        }
+      }
+      return state
+    }
     default:
       return state
   }
@@ -169,31 +165,19 @@ const releases = (state = {}, action = {}) => {
   switch (action.type) {
     case ActionTypes.PROJECT_RELEASES_FETCH_REQUEST:
       if (action.meta.callee === 'pagination') {
-        return state
+        return Object.assign({dirty: false}, state)
       }
-      return []
+      return {}
     case ActionTypes.PROJECT_RELEASES_FETCH_SUCCESS:
       return action.payload
     case ActionTypes.PROJECT_RELEASE_CREATE_SUCCESS:
     case ActionTypes.PROJECT_ROLLBACK_TO_CREATE_SUCCESS: {
-      let x = Object.assign({}, state)
-      if (_.findWhere(x.records, { id: action.payload.id  })) {
-        _.extend(_.findWhere(x.records, { id: action.payload.id }), action.payload)
-      } else {
-        x.records.unshift(action.payload)
-      }
-      return x
+      return Object.assign({dirty: true}, state)
     }
     case ActionTypes.WS_MESSAGE_RECEIVED: {
-      if ((action.message.channel === `update/projects/${action.meta.project.slug}/release` || action.message.channel === `create/projects/${action.meta.project.slug}/release`) && state.pagination && state.pagination.page === 1) {
-        if (action.meta.project.id && action.meta.project.id === action.message.data.projectId) {
-          let x = Object.assign({}, state)
-          if (_.findWhere(x.records, { id: action.message.data.id  })) {
-            _.extend(_.findWhere(x.records, { id: action.message.data.id }), action.message.data)
-          } else {
-            x.records.unshift(action.message.data)
-          }
-          return x
+      if (action.message.channel === 'releases') {
+        if (_.isEqual(action.meta.project.id, action.message.data.projectId)) {
+          return Object.assign({dirty: true}, state)
         }
       }
       return state
@@ -201,6 +185,7 @@ const releases = (state = {}, action = {}) => {
     default:
       return state
   }
+
 }
 
 // Updates error message to notify about the failed fetches.
