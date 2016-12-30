@@ -72,11 +72,12 @@ class Navigation extends Component {
         <div className="collapse nav-toggleable-sm" id="nav-toggleable-sm">
           <ul className="nav nav-pills nav-stacked">
             <NavItem to="/" onlyActiveOnIndex>Dashboard</NavItem>
-            {this.renderBookmarks()}
 
             <li className="nav-header">Projects</li>
             <NavItem to="/projects/add">Add new</NavItem>
             <NavItem to="/projects">Browse</NavItem>
+
+            {this.renderBookmarks()}
 
             {this.renderUser()}
 

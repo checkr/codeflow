@@ -168,3 +168,11 @@ type ProjectChange struct {
 	CreatedAt time.Time     `bson:"createdAt" json:"createdAt"`
 	UpdatedAt time.Time     `bson:"updatedAt" json:"updatedAt"`
 }
+
+type Statistics struct {
+	Projects  int       `bson:"projects" json:"projects"`
+	Releases  int       `bson:"deploys" json:"releases"`
+	Features  int       `bson:"features" json:"features"`
+	Users     int       `bson:"users" json:"users"`
+	CreatedAt time.Time `bson:"createdAt" json:"createdAt"`
+}

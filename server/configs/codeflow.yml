@@ -40,6 +40,8 @@ plugins:
       path: "/ws"
     bookmarks:
       path: "/bookmarks"
+    stats:
+      path: "/stats"
   docker_build:
     workers: 1
     registry_host: "docker.io"
