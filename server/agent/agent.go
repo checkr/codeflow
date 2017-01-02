@@ -1,11 +1,13 @@
 package agent
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/jrallison/go-workers"
@@ -15,12 +17,11 @@ import (
 
 // Agent runs codeflow and collects data based on the given config
 type Agent struct {
-	Events  chan Event
-	Plugins []*RunningPlugin
-
-	testRun         bool
-	TestSubscribeTo []string
-	TestWork        func(*Event, int)
+	Queueing   bool
+	Events     chan Event
+	TestEvents chan Event
+	Shutdown   chan struct{}
+	Plugins    []*RunningPlugin
 }
 
 // NewAgent returns an Agent struct based off the given Config
@@ -31,9 +32,34 @@ func NewAgent() (*Agent, error) {
 
 	agent := &Agent{}
 
+	// channel shared between all plugin threads for accumulating events
+	agent.Events = make(chan Event, 10000)
+
+	// channel shared between all plugin threads to trigger shutdown
+	agent.Shutdown = make(chan struct{})
+
 	if err := agent.LoadPlugins(); err != nil {
-		log.Println(err)
+		log.Fatal(err)
 	}
+
+	return agent, nil
+}
+
+// NewTestAgent returns an Agent struct based off the given Config
+func NewTestAgent(config []byte) (*Agent, error) {
+	var err error
+	var agent *Agent
+
+	viper.SetConfigType("yaml")
+	viper.ReadConfig(bytes.NewBuffer(config))
+
+	if agent, err = NewAgent(); err != nil {
+		log.Fatalf("Error while initializing agent: %v", err)
+	}
+
+	agent.TestEvents = make(chan Event, 10000)
+	agent.Queueing = false
+
 	return agent, nil
 }
 
@@ -115,37 +141,32 @@ func (a *Agent) enablePlugin(name string) error {
 }
 
 // flusher monitors the events plugin channel and schedules them to correct queues
-func (a *Agent) flusher(shutdown chan struct{}, event chan Event) {
-	eventCount := 0
+func (a *Agent) flusher() {
 	for {
 		select {
-		case <-shutdown:
+		case <-a.Shutdown:
 			log.Println("Hang on, flushing any cached metrics before shutdown")
 			return
-		case e := <-event:
+		case e := <-a.Events:
 			ev_handled := false
 
 			for _, plugin := range a.Plugins {
 				subscribedTo := plugin.Plugin.Subscribe(e)
 				if SliceContains(e.PayloadModel, subscribedTo) || SliceContains(e.Name, subscribedTo) {
 					ev_handled = true
-					if a.testRun {
-						plugin.Plugin.Process(e)
-					} else {
+					if a.Queueing {
 						log.Printf("Enqueue event %v for %v\n", e.Name, plugin.Name)
 						workers.Enqueue(plugin.Name, "Event", e)
+					} else {
+						plugin.Plugin.Process(e)
 					}
 				}
 			}
 
-			if a.testRun && (SliceContains(e.PayloadModel, a.TestSubscribeTo) || SliceContains(e.Name, a.TestSubscribeTo)) {
-				ev_handled = true
-				eventCount++
-				a.TestWork(&e, eventCount)
-			}
-
-			if !ev_handled {
-				log.Println("Event not handled by any plugin")
+			if a.TestEvents != nil {
+				a.TestEvents <- e
+			} else if !ev_handled {
+				log.Printf("Event not handled by any plugin: ", e.Name)
 				spew.Dump(e)
 			}
 		}
@@ -153,23 +174,22 @@ func (a *Agent) flusher(shutdown chan struct{}, event chan Event) {
 }
 
 // Run runs the agent daemon
-func (a *Agent) Run(shutdown chan struct{}) error {
+func (a *Agent) Run() error {
 	var wg sync.WaitGroup
 
-	workers.Middleware = workers.NewMiddleware(
-		&workers.MiddlewareRetry{},
-		&workers.MiddlewareStats{},
-	)
+	if a.Queueing {
+		workers.Middleware = workers.NewMiddleware(
+			&workers.MiddlewareRetry{},
+			&workers.MiddlewareStats{},
+		)
 
-	workers.Configure(map[string]string{
-		"server":   viper.GetString("redis.server"),
-		"database": viper.GetString("redis.database"),
-		"pool":     viper.GetString("redis.pool"),
-		"process":  uuid.New(),
-	})
-
-	// channel shared between all plugin threads for accumulating events
-	a.Events = make(chan Event, 10000)
+		workers.Configure(map[string]string{
+			"server":   viper.GetString("redis.server"),
+			"database": viper.GetString("redis.database"),
+			"pool":     viper.GetString("redis.pool"),
+			"process":  uuid.New(),
+		})
+	}
 
 	for _, plugin := range a.Plugins {
 		if !plugin.Enabled {
@@ -184,56 +204,54 @@ func (a *Agent) Run(shutdown chan struct{}) error {
 					plugin.Name, err.Error())
 				return err
 			}
-			workers.Process(plugin.Name, plugin.Work, viper.GetInt("plugins."+plugin.Name+".workers"))
 			defer p.Stop()
+
+			if a.Queueing {
+				workers.Process(plugin.Name, plugin.Work, viper.GetInt("plugins."+plugin.Name+".workers"))
+			}
 		}
 	}
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		a.flusher(shutdown, a.Events)
+		a.flusher()
 	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		workers.Run()
-		close(shutdown)
-	}()
+	if a.Queueing {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			workers.Run()
+			a.Stop()
+		}()
+	}
 
 	wg.Wait()
 	return nil
 }
 
-// Run runs the agent daemon
-func (a *Agent) RunTest(shutdown chan struct{}) error {
-	var wg sync.WaitGroup
-	a.testRun = true
+// Shutdown the agent daemon
+func (a *Agent) Stop() {
+	close(a.Shutdown)
+}
 
-	for _, plugin := range a.Plugins {
-		if !plugin.Enabled {
-			continue
-		}
+// GetTestEvent listens and returns requested event
+func (a *Agent) GetTestEvent(name string, timeout time.Duration) Event {
+	// timeout in the case that we don't get requested event
+	timer := time.NewTimer(time.Second * timeout)
+	go func() {
+		<-timer.C
+		a.Stop()
+		log.Fatalf("Timer expired waiting for event: %v", name)
+	}()
 
-		// Start service of any Plugins
-		switch p := plugin.Plugin.(type) {
-		case Plugin:
-			if err := p.Start(a.Events); err != nil {
-				log.Printf("Service for plugin %s failed to start, exiting\n%s\n",
-					plugin.Name, err.Error())
-				return err
-			}
-			defer p.Stop()
+	for e := range a.TestEvents {
+		if e.Name == name {
+			timer.Stop()
+			return e
 		}
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		a.flusher(shutdown, a.Events)
-	}()
-
-	wg.Wait()
-	return nil
+	return Event{}
 }

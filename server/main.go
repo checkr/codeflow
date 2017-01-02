@@ -57,7 +57,6 @@ func initConfig() {
 	}
 
 	viper.SetConfigType("yaml")
-	viper.AutomaticEnv() // read in environment variables that match
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.SetEnvPrefix("CF")
 
@@ -65,6 +64,8 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+
+	viper.AutomaticEnv() // read in environment variables that match
 }
 
 var cmdServer = &cobra.Command{
@@ -76,18 +77,23 @@ var cmdServer = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		shutdown := make(chan struct{})
+		ag.Queueing = true
+
 		signals := make(chan os.Signal)
 		signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 		go func() {
 			sig := <-signals
 			if sig == os.Interrupt || sig == syscall.SIGTERM {
 				log.Printf("Shutting down Codeflow. SIGTERM recieved!\n")
+				// If Queueing is ON then workers are responsible for closing Shutdown chan
+				if !ag.Queueing {
+					ag.Stop()
+				}
 			}
 		}()
 
 		log.Printf("Loaded plugins: %s", strings.Join(ag.PluginNames(), " "))
 
-		ag.Run(shutdown)
+		ag.Run()
 	},
 }

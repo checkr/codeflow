@@ -65,7 +65,7 @@ func (x *Codeflow) Listen() {
 	api.Use(&rest.CorsMiddleware{
 		RejectNonCorsRequests: false,
 		OriginValidator: func(origin string, request *rest.Request) bool {
-			allowedOrigins := viper.GetStringSlice("allowed_origins")
+			allowedOrigins := viper.GetStringSlice("plugins.codeflow.allowed_origins")
 			if agent.SliceContains(origin, allowedOrigins) {
 				return true
 			}
@@ -121,11 +121,11 @@ func (x *Codeflow) Start(events chan agent.Event) error {
 	cf = x
 
 	mongoConfig := MongoConfig{
-		URI: viper.GetString("mongo.uri"),
-		SSL: viper.GetBool("mongo.ssl"),
+		URI: viper.GetString("plugins.codeflow.mongodb.uri"),
+		SSL: viper.GetBool("plugins.codeflow.mongodb.ssl"),
 		Creds: mgo.Credential{
-			Username: viper.GetString("mongo.username"),
-			Password: viper.GetString("mongo.password"),
+			Username: viper.GetString("plugins.codeflow.mongodb.username"),
+			Password: viper.GetString("plugins.codeflow.mongodb.password"),
 		},
 	}
 
@@ -134,7 +134,7 @@ func (x *Codeflow) Start(events chan agent.Event) error {
 		fmt.Println(fmt.Errorf("Error: %s", err))
 	}
 
-	db = dbSession.DB(viper.GetString("mongo.database"))
+	db = dbSession.DB(viper.GetString("plugins.codeflow.mongodb.database"))
 
 	go x.Listen()
 	log.Printf("Started Codeflow service on %s\n", x.ServiceAddress)
