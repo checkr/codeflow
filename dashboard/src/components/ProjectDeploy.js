@@ -151,15 +151,15 @@ class ProjectDeploy extends Component {
     let flows = _.map(release.workflow, (wf) => {
       switch(wf.state) {
         case 'running':
-          return <span className="tag tag-warning flow" key="warning"><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-warning flow" key={wf.id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
         case 'building':
-          return <span className="tag tag-warning flow" key="warning"><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-warning flow" key={wf.id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
         case 'complete':
-          return <span className="tag tag-success flow" key="success"><i className="fa fa-check fa-lg" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-success flow" key={wf.id}><i className="fa fa-check fa-lg" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
         case 'failed':
-          return <span className="tag tag-danger flow" key="danger"><i className="fa fa-times fa-lg" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-danger flow" key={wf.id}><i className="fa fa-times fa-lg" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
         default:
-          return <span className="tag tag-info flow" key="info"><i className="fa fa-cog fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-info flow" key={wf.id}><i className="fa fa-cog fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
       }
     })
     

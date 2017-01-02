@@ -5,6 +5,7 @@ import "github.com/checkr/codeflow/server/agent"
 func init() {
 	agent.RegisterApi(GitPing{})
 	agent.RegisterApi(GitCommit{})
+	agent.RegisterApi(GitStatus{})
 	agent.RegisterApi(Release{})
 	agent.RegisterApi(DockerBuild{})
 	agent.RegisterApi(DockerDeploy{})
@@ -69,6 +70,14 @@ type GitCommit struct {
 type GitPing struct {
 	Repository string `json:"repository"`
 	User       string `json:"user"`
+}
+
+type GitStatus struct {
+	Repository string `json:"repository"`
+	User       string `json:"user"`
+	Hash       string `json:"hash"`
+	State      string `json:"state"`
+	Context    string `json:"context"`
 }
 
 type Feature struct {

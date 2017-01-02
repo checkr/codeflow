@@ -149,6 +149,9 @@ func (x *Projects) createProjects(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
+	// TODO: make this dynamic based on type of the project
+	project.Workflows = []string{"build/DockerImage"}
+
 	// Bookmark
 	if project.Bokmarked {
 		if err := CreateUserBookmark(user.Id, project.Id); err != nil {
@@ -452,58 +455,19 @@ func (x *Projects) currentRelease(w rest.ResponseWriter, r *rest.Request) {
 }
 
 func (x *Projects) createReleases(w rest.ResponseWriter, r *rest.Request) {
-	var secrets []Secret
-	var envSecrets []Secret
-	var fileSecrets []Secret
+	var err error
 	var headFeature Feature
-	var tailFeature Feature
+	var release Release
 
-	project, _ := CurrentProject(r)
 	user, _ := CurrentUser(r)
 
-	err := r.DecodeJsonPayload(&headFeature)
+	err = r.DecodeJsonPayload(&headFeature)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if envSecrets, err = GetSecretsByProjectIdAndType(project.Id, plugins.Env); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	if fileSecrets, err = GetSecretsByProjectIdAndType(project.Id, plugins.File); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	secrets = append(secrets, envSecrets...)
-	secrets = append(secrets, fileSecrets...)
-
-	release := Release{
-		ProjectId:     project.Id,
-		HeadFeatureId: headFeature.Id,
-		HeadFeature:   headFeature,
-		UserId:        user.Id,
-		User:          user,
-		State:         plugins.Waiting,
-		Secrets:       secrets,
-	}
-
-	if err := GetCurrentlyDeployedFeature(project.Id, &tailFeature); err != nil {
-		release.TailFeatureId = headFeature.Id
-		release.TailFeature = headFeature
-	} else {
-		release.TailFeatureId = tailFeature.Id
-		release.TailFeature = tailFeature
-	}
-
-	if err := CreateRelease(&release); err != nil {
+	if release, err = cf.NewRelease(headFeature, user); err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -551,9 +515,11 @@ func (x *Projects) settings(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	settings := ProjectSettings{
-		ProjectId: project.Id,
-		GitSshUrl: project.GitSshUrl,
-		Secrets:   secrets,
+		ProjectId:             project.Id,
+		GitSshUrl:             project.GitSshUrl,
+		Secrets:               secrets,
+		ContinuousIntegration: project.ContinuousIntegration,
+		ContinuousDelivery:    project.ContinuousDelivery,
 	}
 
 	w.WriteJson(settings)
@@ -590,10 +556,30 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 		project.Slug = slug.Slug(repository)
 		project.GitSshUrl = projectSettingsRequest.GitSshUrl
 
-		if err := UpdateProject(project.Id, &project); err != nil {
-			rest.Error(w, err.Error(), http.StatusBadRequest)
-			return
+	}
+
+	project.ContinuousIntegration = projectSettingsRequest.ContinuousIntegration
+	if project.ContinuousIntegration {
+		for idx, wf := range project.Workflows {
+			if strings.HasPrefix(wf, "ci/") {
+				project.Workflows = append(project.Workflows[:idx], project.Workflows[idx+1:]...)
+			}
 		}
+		// TODO: make this dynamic
+		project.Workflows = append(project.Workflows, "ci/circleci")
+	} else {
+		for idx, wf := range project.Workflows {
+			if strings.HasPrefix(wf, "ci/") {
+				project.Workflows = append(project.Workflows[:idx], project.Workflows[idx+1:]...)
+			}
+		}
+	}
+
+	project.ContinuousDelivery = projectSettingsRequest.ContinuousDelivery
+
+	if err := UpdateProject(project.Id, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	// Delete secrets
@@ -656,10 +642,12 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	projectSettingsResponse := ProjectSettings{
-		ProjectId: projectSettingsRequest.ProjectId,
-		GitSshUrl: projectSettingsRequest.GitSshUrl,
-		Secrets:   secrets,
-		UpdatedAt: time.Now(),
+		ProjectId:             projectSettingsRequest.ProjectId,
+		GitSshUrl:             projectSettingsRequest.GitSshUrl,
+		ContinuousIntegration: project.ContinuousIntegration,
+		ContinuousDelivery:    project.ContinuousDelivery,
+		Secrets:               secrets,
+		UpdatedAt:             time.Now(),
 	}
 
 	w.WriteJson(projectSettingsResponse)

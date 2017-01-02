@@ -531,24 +531,20 @@ func (s RepositoryEvent) NewEvent() agent.Event {
 }
 
 type StatusEvent struct {
-	Commit     string     `json:"sha"`
+	Hash       string     `json:"sha"`
 	State      string     `json:"state"`
 	Repository Repository `json:"repository"`
 	Sender     Sender     `json:"sender"`
+	Context    string     `json:"context"`
 }
 
 func (s StatusEvent) NewEvent() agent.Event {
-
-	data := map[string]interface{}{
-		"repository": s.Repository.Repository,
-		"private":    fmt.Sprintf("%v", s.Repository.Private),
-		"user":       s.Sender.User,
-		"admin":      fmt.Sprintf("%v", s.Sender.Admin),
-		"stars":      s.Repository.Stars,
-		"forks":      s.Repository.Forks,
-		"issues":     s.Repository.Issues,
-		"commit":     s.Commit,
-		"state":      s.State,
+	data := plugins.GitStatus{
+		Repository: s.Repository.Repository,
+		User:       s.Sender.User,
+		Hash:       s.Hash,
+		State:      s.State,
+		Context:    s.Context,
 	}
 	m := agent.NewEvent(data, nil)
 	return m

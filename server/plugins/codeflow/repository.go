@@ -699,6 +699,18 @@ func StringToLoadBalancerType(s string) plugins.Type {
 	return plugins.Internal
 }
 
+func StringToState(s string) plugins.State {
+	switch strings.ToLower(s) {
+	case "pending":
+		return plugins.Running
+	case "success":
+		return plugins.Complete
+	case "failed":
+		return plugins.Failed
+	}
+	return plugins.Waiting
+}
+
 // CreateProject creates a new project and sets Id field
 func CreateProject(project *Project) error {
 	projectCol := db.C("projects")
@@ -937,4 +949,56 @@ func CollectStats(save bool) (Statistics, error) {
 		stats.Users = userCount
 	}
 	return stats, nil
+}
+
+func GetExternalFlowStatusByHash(hash string) (ExternalFlowStatus, error) {
+	externalFlowStatusCol := db.C("externalFlowStatuses")
+	var externalFlowStatus ExternalFlowStatus
+
+	if err := externalFlowStatusCol.Find(bson.M{"hash": hash}).One(&externalFlowStatus); err != nil {
+		return externalFlowStatus, err
+	} else {
+		return externalFlowStatus, nil
+	}
+}
+
+func CreateExternalFlowStatus(externalFlowStatus *ExternalFlowStatus) error {
+	externalFlowStatusCol := db.C("externalFlowStatuses")
+	externalFlowStatus.Id = bson.NewObjectId()
+	externalFlowStatus.CreatedAt = time.Now()
+	externalFlowStatus.UpdatedAt = time.Now()
+
+	if err := externalFlowStatusCol.Insert(&externalFlowStatus); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func UpdateExternalFlowStatus(id bson.ObjectId, externalFlowStatus *ExternalFlowStatus) error {
+	externalFlowStatusCol := db.C("externalFlowStatuses")
+	externalFlowStatus.UpdatedAt = time.Now()
+
+	if err := externalFlowStatusCol.Update(bson.M{"_id": id}, bson.M{"$set": externalFlowStatus}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CreateOrUpdateExternalFlowStatus(hash string, externalFlowStatus *ExternalFlowStatus) error {
+	var err error
+	var efs ExternalFlowStatus
+
+	if efs, err = GetExternalFlowStatusByHash(hash); err != nil {
+		if err = CreateExternalFlowStatus(externalFlowStatus); err != nil {
+			return err
+		}
+	} else {
+		if err = UpdateExternalFlowStatus(efs.Id, externalFlowStatus); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

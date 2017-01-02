@@ -12,23 +12,26 @@ type User struct {
 	Name      string        `bson:"name" json:"name"`
 	Username  string        `bson:"username" json:"username"`
 	Email     string        `bson:"email" json:"email"`
-	CreatedAt time.Time     `bson:"createdAt" json:"createdAt"`
-	UpdatedAt time.Time     `bson:"updatedAt" json:"updatedAt"`
+	CreatedAt time.Time     `bson:"createdAt,omitempty" json:"createdAt"`
+	UpdatedAt time.Time     `bson:"updatedtAt,omitempty" json:"updatedAt"`
 }
 
 type Project struct {
-	Id            bson.ObjectId `bson:"_id,omitempty" json:"id"`
-	Name          string        `bson:"name" json:"name"`
-	Slug          string        `bson:"slug" json:"slug"`
-	Repository    string        `bson:"repository" json:"repository"`
-	Secret        string        `bson:"secret" json:"secret"`
-	Pinged        bool          `bson:"pinged" json:"pinged"`
-	GitSshUrl     string        `bson:"gitSshUrl" json:"gitSshUrl" validate:"required"`
-	RsaPrivateKey string        `bson:"rsaPrivateKey" json:"-"`
-	RsaPublicKey  string        `bson:"rsaPublicKey" json:"rsaPublicKey"`
-	Bokmarked     bool          `bson:"-" json:"bookmarked"`
-	CreatedAt     time.Time     `bson:"createdAt" json:"createdAt"`
-	UpdatedAt     time.Time     `bson:"updatedAt" json:"updatedAt"`
+	Id                    bson.ObjectId `bson:"_id,omitempty" json:"id"`
+	Name                  string        `bson:"name" json:"name"`
+	Slug                  string        `bson:"slug" json:"slug"`
+	Repository            string        `bson:"repository" json:"repository"`
+	Secret                string        `bson:"secret" json:"secret"`
+	Pinged                bool          `bson:"pinged" json:"pinged"`
+	GitSshUrl             string        `bson:"gitSshUrl" json:"gitSshUrl" validate:"required"`
+	RsaPrivateKey         string        `bson:"rsaPrivateKey" json:"-"`
+	RsaPublicKey          string        `bson:"rsaPublicKey" json:"rsaPublicKey"`
+	Bokmarked             bool          `bson:"-" json:"bookmarked"`
+	ContinuousIntegration bool          `bson:"continuousIntegration" json:"continuousIntegration"`
+	ContinuousDelivery    bool          `bson:"continuousDelivery" json:"continuousDelivery"`
+	Workflows             []string      `bson:"workflows" json:"workflows"`
+	CreatedAt             time.Time     `bson:"createdAt,omitempty" json:"createdAt"`
+	UpdatedAt             time.Time     `bson:"updatedtAt,omitempty" json:"updatedAt"`
 }
 
 type Bookmark struct {
@@ -47,8 +50,8 @@ type Service struct {
 	Count     int           `bson:"count" json:"count"`
 	Command   string        `bson:"command" json:"command"`
 	Listeners []Listener    `bson:"listeners" json:"listeners"`
-	CreatedAt time.Time     `bson:"createdAt" json:"createdAt"`
-	UpdatedAt time.Time     `bson:"updatedAt" json:"updatedAt"`
+	CreatedAt time.Time     `bson:"createdAt,omitempty" json:"createdAt"`
+	UpdatedAt time.Time     `bson:"updatedtAt,omitempty" json:"updatedAt"`
 }
 
 type Listener struct {
@@ -72,8 +75,8 @@ type LoadBalancer struct {
 	ListenerPairs []ListenerPair `bson:"listenerPairs" json:"listenerPairs"`
 	State         plugins.State  `bson:"state" json:"state"`
 	StateMessage  string         `bson:"stateMessage" json:"stateMessage"`
-	CreatedAt     time.Time      `bson:"createdAt" json:"createdAt"`
-	UpdatedAt     time.Time      `bson:"updatedAt" json:"updatedAt"`
+	CreatedAt     time.Time      `bson:"createdAt,omitempty" json:"createdAt"`
+	UpdatedAt     time.Time      `bson:"updatedtAt,omitempty" json:"updatedAt"`
 }
 
 type Feature struct {
@@ -84,8 +87,8 @@ type Feature struct {
 	Hash         string        `bson:"hash" json:"hash"`
 	ParentHash   string        `bson:"parentHash" json:"parentHash"`
 	ExternalLink string        `bson:"externalLink" json:"externalLink"`
-	CreatedAt    time.Time     `bson:"createdAt" json:"createdAt"`
-	UpdatedAt    time.Time     `bson:"updatedAt" json:"updatedAt"`
+	CreatedAt    time.Time     `bson:"createdAt,omitempty" json:"createdAt"`
+	UpdatedAt    time.Time     `bson:"updatedtAt,omitempty" json:"updatedAt"`
 }
 
 type Release struct {
@@ -100,8 +103,8 @@ type Release struct {
 	State         plugins.State `bson:"state" json:"state"`
 	Secrets       []Secret      `bson:"secrets" json:"-"`
 	Workflow      []Flow        `bson:"-" json:"workflow"`
-	CreatedAt     time.Time     `bson:"createdAt" json:"createdAt"`
-	UpdatedAt     time.Time     `bson:"updatedAt" json:"updatedAt"`
+	CreatedAt     time.Time     `bson:"createdAt,omitempty" json:"createdAt"`
+	UpdatedAt     time.Time     `bson:"updatedtAt,omitempty" json:"updatedAt"`
 }
 
 type Flow struct {
@@ -111,8 +114,20 @@ type Flow struct {
 	Name      string        `bson:"name" json:"name"`
 	Message   string        `bson:"message" json:"message"`
 	State     plugins.State `bson:"state" json:"state"`
-	CreatedAt time.Time     `bson:"createdAt" json:"createdAt"`
+	CreatedAt time.Time     `bson:"createdAt,omitempty" json:"createdAt"`
 	UpdatedAt time.Time     `bson:"upadatedAt" json:"updatedAt"`
+}
+
+type ExternalFlowStatus struct {
+	Id            bson.ObjectId `bson:"_id,omitempty" json:"id"`
+	ProjectId     bson.ObjectId `bson:"projectId" json:"projectId"`
+	Hash          string        `bson:"hash" json:"hash"`
+	Context       string        `bson:"context" json:"context"`
+	Message       string        `bson:"message" json:"message"`
+	State         plugins.State `bson:"state" json:"state"`
+	OriginalState string        `bson:"originalState" json:"originalState"`
+	CreatedAt     time.Time     `bson:"createdAt,omitempty" json:"createdAt"`
+	UpdatedAt     time.Time     `bson:"upadatedAt" json:"updatedAt"`
 }
 
 type Secret struct {
@@ -122,7 +137,7 @@ type Secret struct {
 	Key       string        `bson:"key" json:"key"`
 	Value     string        `bson:"value" json:"value"`
 	Type      plugins.Type  `bson:"type" json:"type"`
-	CreatedAt time.Time     `bson:"createdAt" json:"createdAt,omitempty"`
+	CreatedAt time.Time     `bson:"createdAt,omitempty" json:"createdAt,omitempty"`
 	DeletedAt time.Time     `bson:"deletedAt" json:"deletedAt,omitempty"`
 }
 
@@ -134,8 +149,8 @@ type Build struct {
 	Image       string        `bson:"image" json:"image"`
 	BuildLog    string        `bson:"buildLog" json:"buildLog"`
 	BuildError  string        `bson:"buildError" json:"buildError"`
-	CreatedAt   time.Time     `bson:"createdAt" json:"createdAt"`
-	UpdatedAt   time.Time     `bson:"updatedAt" json:"updatedAt"`
+	CreatedAt   time.Time     `bson:"createdAt,omitempty" json:"createdAt"`
+	UpdatedAt   time.Time     `bson:"updatedtAt,omitempty" json:"updatedAt"`
 }
 
 type Pagination struct {
@@ -152,11 +167,13 @@ type PageResults struct {
 }
 
 type ProjectSettings struct {
-	ProjectId      bson.ObjectId `json:"projectId"`
-	GitSshUrl      string        `json:"gitSshUrl"`
-	Secrets        []Secret      `json:"secrets"`
-	DeletedSecrets []Secret      `json:"deletedSecrets"`
-	UpdatedAt      time.Time     `json:"updatedAt"`
+	ProjectId             bson.ObjectId `json:"projectId"`
+	GitSshUrl             string        `json:"gitSshUrl"`
+	Secrets               []Secret      `json:"secrets"`
+	DeletedSecrets        []Secret      `json:"deletedSecrets"`
+	ContinuousIntegration bool          `json:"continuousIntegration"`
+	ContinuousDelivery    bool          `json:"continuousDelivery"`
+	UpdatedAt             time.Time     `json:"updatedAt"`
 }
 
 type ProjectChange struct {
@@ -165,8 +182,8 @@ type ProjectChange struct {
 	ReleaseId bson.ObjectId `bson:"releaseId,omitempty" json:"releaseId"`
 	Name      string        `bson:"name" json:"name"`
 	Message   string        `bson:"message" json:"message"`
-	CreatedAt time.Time     `bson:"createdAt" json:"createdAt"`
-	UpdatedAt time.Time     `bson:"updatedAt" json:"updatedAt"`
+	CreatedAt time.Time     `bson:"createdAt,omitempty" json:"createdAt"`
+	UpdatedAt time.Time     `bson:"updatedtAt,omitempty" json:"updatedAt"`
 }
 
 type Statistics struct {
@@ -174,5 +191,5 @@ type Statistics struct {
 	Releases  int       `bson:"deploys" json:"releases"`
 	Features  int       `bson:"features" json:"features"`
 	Users     int       `bson:"users" json:"users"`
-	CreatedAt time.Time `bson:"createdAt" json:"createdAt"`
+	CreatedAt time.Time `bson:"createdAt,omitempty" json:"createdAt"`
 }
