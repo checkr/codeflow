@@ -1,8 +1,4 @@
 ---
-allowed_origins:
-  - "http://localhost:3000"
-  - "https://codeflow.checkrhq-dev.net"
-  - "https://codeflow.checkrhq.net"
 redis:
   username: 
   password: 
@@ -10,12 +6,6 @@ redis:
   database: "0"
   pool: "30"
   process: "1"
-mongo:
-  database: "codeflow"
-  username:
-  password:
-  ssl: false
-  uri: "localhost:27017"
 plugins:
   webhooks:
     workers: 1
@@ -24,6 +14,16 @@ plugins:
       path: "/github"
   codeflow:
     workers: 1
+    allowed_origins:
+      - "http://localhost:3000"
+      - "https://codeflow.checkrhq-dev.net"
+      - "https://codeflow.checkrhq.net"
+    mongodb:
+      database: "codeflow"
+      username: ""
+      password: ""
+      ssl: false
+      uri: "localhost:27017"
     service_address: ":3001"
     builds:
       path: "/builds"
