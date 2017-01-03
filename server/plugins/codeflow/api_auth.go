@@ -123,13 +123,13 @@ func (o *Okta) oktaCallbackEventHandler(writer rest.ResponseWriter, request *res
 			Email:    email,
 		}
 
-		if user, err := GetUserByEmail(user.Email); err != nil {
+		if u, err := GetUserByEmail(user.Email); err != nil {
 			if err := CreateUser(&user); err != nil {
 				rest.Error(writer, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		} else {
-			if err := UpdateUser(user.Id, &user); err != nil {
+			if err := UpdateUser(u.Id, &user); err != nil {
 				rest.Error(writer, err.Error(), http.StatusInternalServerError)
 				return
 			}

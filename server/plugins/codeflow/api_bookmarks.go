@@ -29,6 +29,7 @@ func (x *Bookmarks) bookmarks(w rest.ResponseWriter, r *rest.Request) {
 
 	if user, err = CurrentUser(r); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	if bookmarks, err = GetUserBookmarks(user.Id); err != nil {
