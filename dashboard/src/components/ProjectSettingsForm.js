@@ -20,6 +20,12 @@ class ProjectSettings extends Component {
     }
   }
 
+  renderCheckbox(field) {   
+    return (
+      <Input {...field.input} type={field.type} placeholder={field.placeholder} />
+    )  
+  }
+
   renderSelect = (field) => {
     return (
       <select {...field.input} className="form-control">
@@ -121,6 +127,18 @@ class ProjectSettings extends Component {
         <FormGroup>
           <Label for="gitSshUrl">Git SSH Url</Label>
           <Field name="gitSshUrl" component={this.renderInput} type="text" placeholder="git@github.com:checkr/codeflow.git"/>
+        </FormGroup>
+
+        <FormGroup check>
+          <Label check>
+            <Field name="continuousIntegration" component={this.renderCheckbox} type="checkbox"/> Continuous Integration (CircleCI)
+          </Label>
+        </FormGroup>
+
+        <FormGroup check>
+          <Label check>
+            <Field name="continuousDelivery" component={this.renderCheckbox} type="checkbox"/> Continuous Delivery (Deploy on green)
+          </Label>
         </FormGroup>
 
         <FieldArray name="secrets" component={this.renderConfigVars}/>

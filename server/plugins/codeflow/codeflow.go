@@ -149,6 +149,7 @@ func (x *Codeflow) Subscribe(e agent.Event) []string {
 	return []string{
 		"plugins.GitPing",
 		"plugins.GitCommit",
+		"plugins.GitStatus",
 		"plugins.DockerBuild:status",
 		"plugins.HeartBeat",
 		"plugins.LoadBalancer:status",
@@ -184,6 +185,41 @@ func (x *Codeflow) Process(e agent.Event) error {
 			log.Println(err.Error())
 			return err
 		}
+
+		return nil
+	}
+
+	if e.Name == "plugins.GitStatus" {
+		payload := e.Payload.(plugins.GitStatus)
+		var project Project
+		var feature Feature
+		var err error
+
+		if project, err = GetProjectByRepository(payload.Repository); err != nil {
+			log.Println(err.Error())
+			return err
+		}
+
+		externalFlowStatus := ExternalFlowStatus{
+			ProjectId:     project.Id,
+			Hash:          payload.Hash,
+			Context:       payload.Context,
+			Message:       "",
+			State:         StringToState(payload.State),
+			OriginalState: payload.State,
+		}
+
+		if err = CreateOrUpdateExternalFlowStatus(payload.Hash, &externalFlowStatus); err != nil {
+			log.Println(err.Error())
+			return err
+		}
+
+		if feature, err = GetFeatureByHash(payload.Hash); err != nil {
+			log.Println(err.Error())
+			return err
+		}
+
+		x.UpdateInProgessReleases(&feature)
 
 		return nil
 	}
@@ -231,6 +267,24 @@ func (x *Codeflow) Process(e agent.Event) error {
 				}
 
 				x.FeatureCreated(&feature, e)
+
+				if project.ContinuousDelivery {
+					var user User
+					var release Release
+
+					if user, err = GetUserByEmail("codeflow"); err != nil {
+						log.Println(err.Error())
+						return err
+					}
+
+					if release, err = x.NewRelease(feature, user); err != nil {
+						log.Println(err.Error())
+						return err
+					}
+
+					cf.ReleaseCreated(&release)
+				}
+
 				return nil
 			default:
 				log.Println(err.Error())
@@ -299,17 +353,15 @@ func (x *Codeflow) ServiceDeleted(s *Service) {
 
 func (x *Codeflow) ReleaseCreated(r *Release) {
 	var err error
+	var project Project
 
-	if _, err = GetProjectById(r.ProjectId); err != nil {
+	if project, err = GetProjectById(r.ProjectId); err != nil {
 		log.Println(err.Error())
 		return
 	}
 
-	// TODO: Read required workflows from db
-	workflows := []string{"build:DockerImage"}
-
-	for _, str := range workflows {
-		s := strings.Split(str, ":")
+	for _, str := range project.Workflows {
+		s := strings.Split(str, "/")
 		t, n := s[0], s[1]
 		flow := Flow{
 			ReleaseId: r.Id,
@@ -362,22 +414,41 @@ func (x *Codeflow) CheckWorkflows(r *Release) {
 					flow.State = plugins.Running
 				}
 			}
+			break
 
-			if err := UpdateFlow(flow.Id, flow); err != nil {
-				log.Println(err.Error())
-				return
-			}
-
-			if err := UpdateRelease(r.Id, r); err != nil {
-				log.Println(err.Error())
-				return
-			}
-
-			if flow.State != plugins.Complete {
-				workflowStatus = flow.State
+		case "ci":
+			var externalFlowStatus ExternalFlowStatus
+			if externalFlowStatus, err = GetExternalFlowStatusByHash(r.HeadFeature.Hash); err != nil {
+				flow.State = plugins.Failed
+			} else {
+				switch externalFlowStatus.State {
+				case plugins.Waiting:
+					flow.State = plugins.Waiting
+				case plugins.Complete:
+					flow.State = plugins.Complete
+				case plugins.Failed:
+					flow.State = plugins.Failed
+					r.State = plugins.Failed
+				default:
+					flow.State = plugins.Running
+				}
 			}
 			break
 		}
+
+		if err := UpdateFlow(flow.Id, flow); err != nil {
+			log.Println(err.Error())
+			return
+		}
+
+		if flow.State != plugins.Complete {
+			workflowStatus = flow.State
+		}
+	}
+
+	if err := UpdateRelease(r.Id, r); err != nil {
+		log.Println(err.Error())
+		return
 	}
 
 	if workflowStatus == plugins.Complete {
@@ -576,6 +647,60 @@ func (x *Codeflow) UpdateInProgessReleases(f *Feature) {
 		x.CheckWorkflows(&rel)
 		x.ReleaseUpdated(&rel)
 	}
+}
+
+func (x *Codeflow) NewRelease(f Feature, u User) (Release, error) {
+	var err error
+	var project Project
+	var secrets []Secret
+	var envSecrets []Secret
+	var fileSecrets []Secret
+	var tailFeature Feature
+
+	release := Release{}
+
+	if project, err = GetProjectById(f.ProjectId); err != nil {
+		log.Println("Project error")
+		return release, err
+	}
+
+	if envSecrets, err = GetSecretsByProjectIdAndType(project.Id, plugins.Env); err != nil {
+		log.Println("Env secrets error")
+		return release, err
+	}
+
+	if fileSecrets, err = GetSecretsByProjectIdAndType(project.Id, plugins.File); err != nil {
+		log.Println("File secrets error")
+		return release, err
+	}
+
+	secrets = append(secrets, envSecrets...)
+	secrets = append(secrets, fileSecrets...)
+
+	release = Release{
+		ProjectId:     project.Id,
+		HeadFeatureId: f.Id,
+		HeadFeature:   f,
+		UserId:        u.Id,
+		User:          u,
+		State:         plugins.Waiting,
+		Secrets:       secrets,
+	}
+
+	if err := GetCurrentlyDeployedFeature(project.Id, &tailFeature); err != nil {
+		release.TailFeatureId = f.Id
+		release.TailFeature = f
+	} else {
+		release.TailFeatureId = tailFeature.Id
+		release.TailFeature = tailFeature
+	}
+
+	if err := CreateRelease(&release); err != nil {
+		log.Println("Create release error")
+		return release, err
+	}
+
+	return release, nil
 }
 
 func (x *Codeflow) CreateDeploy(r *Release) {
