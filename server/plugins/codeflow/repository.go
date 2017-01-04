@@ -626,7 +626,7 @@ func GetExtensionByProjectIdAndName(projectId bson.ObjectId, name string) (LoadB
 	var extension LoadBalancer
 	extensionCol := db.C("extensions")
 
-	if err := extensionCol.Find(bson.M{"projectId": projectId, "name": name}).All(&extension); err != nil {
+	if err := extensionCol.Find(bson.M{"projectId": projectId, "name": name}).One(&extension); err != nil {
 		return extension, err
 	} else {
 		return extension, nil

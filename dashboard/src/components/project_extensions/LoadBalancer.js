@@ -170,11 +170,11 @@ class LoadBalancer extends Component {
               <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-service-action-right" onClick={() => onCancel()}>
                 <i className="fa fa-times" aria-hidden="true" /> Cancel
               </button>
-              <button type="button" className="btn btn-danger btn-sm float-xs-right btn-service-action-right" onClick={() => onDelete()}>
-                <i className="fa fa-trash" aria-hidden="true" /> Delete
-              </button>
+              <ButtonConfirmAction btnLabel="Delete" btnIconClass="fa fa-check" onConfirm={onDelete} onCancel={onCancel} btnClass="btn btn-danger btn-sm float-xs-right btn-service-action-right">
+                Are you sure?
+              </ButtonConfirmAction>
               <ButtonConfirmAction btnLabel="Save" btnIconClass="fa fa-check" onConfirm={onSave} onCancel={onCancel} btnClass="btn btn-success btn-sm float-xs-right btn-service-action-right">
-                This action is destructive and will recreate Load Balancer!
+                Are you sure?
               </ButtonConfirmAction>
             </div>
           </div>
