@@ -473,7 +473,7 @@ func (x *Codeflow) loadBalancer(lb *LoadBalancer, action plugins.Action) {
 	var project Project
 	var service Service
 
-	if _, err = GetProjectById(lb.ProjectId); err != nil {
+	if project, err = GetProjectById(lb.ProjectId); err != nil {
 		log.Println(err.Error())
 		return
 	}
@@ -523,6 +523,7 @@ func (x *Codeflow) loadBalancer(lb *LoadBalancer, action plugins.Action) {
 			Replicas:  int64(service.Count),
 		},
 		ListenerPairs: listenerPairs,
+		Environment:   "development",
 	}
 
 	event := agent.NewEvent(loadBalancerEvent, nil)
