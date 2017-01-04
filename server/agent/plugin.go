@@ -18,7 +18,7 @@ type Plugin interface {
 	Stop()
 
 	// Subscribe takes in an event message and validates it for Process
-	Subscribe(Event) []string
+	Subscribe() []string
 
 	// Process takes in an event message and tries to process it
 	Process(Event) error

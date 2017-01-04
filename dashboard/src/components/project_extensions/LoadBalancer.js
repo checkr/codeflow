@@ -16,7 +16,7 @@ const renderSelect = field => {
     <select {...field.input} name={field.name} className="form-control">
       <option disabled value="">Choose service</option>
       {field.services.map(function (service) {
-        return <option key={service.id} value={service.id}>{service.name}</option>
+        return <option key={service._id} value={service._id}>{service.name}</option>
       })}
     </select>
   )
@@ -93,7 +93,7 @@ const renderListeners = ({ fields, service }) => {
     )}
     {!_.isEmpty(service) && <div className="row">
       <div className="col-xs-2" style={{ position: 'absolute', zIndex: 100 }}>
-        <button type="button" className="btn btn-secondary btn-sm float-xs-left btn-service-action" onClick={() => fields.push({destination: {protocol: "TCP"}})}>Add port map</button>
+        <button type="button" className="btn btn-secondary btn-sm float-xs-left btn-service-action" onClick={() => fields.push({destination: {protocol: "HTTPS"}})}>Add port map</button>
       </div>
     </div>}
   </div>
@@ -105,7 +105,7 @@ class LoadBalancer extends Component {
     let { services, extension } = this.props
     let service = {}
     if (!_.isEmpty(extension) && extension.serviceId) {
-      service = _.findWhere(services, { id: extension.serviceId })
+      service = _.findWhere(services, { _id: extension.serviceId })
     }
 
     let dns = <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-globe" aria-hidden="true" /></div><input type="text" className="form-control" value={extension.type} readOnly/></div>
@@ -130,8 +130,9 @@ class LoadBalancer extends Component {
     const { onSave, onCancel, onDelete, formValues } = this.props
     let { services } = this.props
     let service = {}
+
     if (!_.isEmpty(formValues) && formValues.values.serviceId) {
-      service = _.findWhere(services, { id: formValues.values.serviceId })
+      service = _.findWhere(services, { _id: formValues.values.serviceId })
     }
     return (
       <Form>

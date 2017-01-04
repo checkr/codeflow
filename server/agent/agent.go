@@ -151,7 +151,7 @@ func (a *Agent) flusher() {
 			ev_handled := false
 
 			for _, plugin := range a.Plugins {
-				subscribedTo := plugin.Plugin.Subscribe(e)
+				subscribedTo := plugin.Plugin.Subscribe()
 				if SliceContains(e.PayloadModel, subscribedTo) || SliceContains(e.Name, subscribedTo) {
 					ev_handled = true
 					if a.Queueing {
@@ -225,6 +225,12 @@ func (a *Agent) Run() error {
 			workers.Run()
 			a.Stop()
 		}()
+
+		//wg.Add(1)
+		//go func() {
+		//	defer wg.Done()
+		//	workers.StatsServer(8080)
+		//}()
 	}
 
 	wg.Wait()

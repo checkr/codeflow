@@ -5,23 +5,17 @@ import (
 	"log"
 	"net/http"
 	"reflect"
-	"strings"
-	"time"
 
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/checkr/codeflow/server/agent"
 	"github.com/checkr/codeflow/server/plugins"
-	"github.com/davecgh/go-spew/spew"
+	"github.com/maxwellhealth/bongo"
 	"github.com/spf13/viper"
-	"gopkg.in/go-playground/validator.v9"
-	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
-var dbSession *mgo.Session
-var db *mgo.Database
-var validate *validator.Validate
 var cf *Codeflow
+var db *bongo.Connection
 
 type CodeflowHandler interface {
 	Register(api *rest.Api) []*rest.Route
@@ -33,7 +27,7 @@ func init() {
 
 type Codeflow struct {
 	ServiceAddress string `mapstructure:"service_address"`
-	events         chan agent.Event
+	Events         chan agent.Event
 
 	Projects  *Projects
 	Auth      *Auth
@@ -85,11 +79,14 @@ func (x *Codeflow) Listen() {
 		handlerRoutes = handler.Register(api)
 		routes = append(routes, handlerRoutes...)
 	}
+
 	router, err := rest.MakeRouter(routes...)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	api.SetApp(router)
+
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s", x.ServiceAddress), api.MakeHandler()))
 }
 
@@ -116,28 +113,23 @@ func (x *Codeflow) AvailableCodeflowHandlers() []CodeflowHandler {
 func (x *Codeflow) Start(events chan agent.Event) error {
 	var err error
 
-	x.events = events
-	validate = validator.New()
+	x.Events = events
 	cf = x
 
-	mongoConfig := MongoConfig{
-		URI: viper.GetString("plugins.codeflow.mongodb.uri"),
-		SSL: viper.GetBool("plugins.codeflow.mongodb.ssl"),
-		Creds: mgo.Credential{
-			Username: viper.GetString("plugins.codeflow.mongodb.username"),
-			Password: viper.GetString("plugins.codeflow.mongodb.password"),
-		},
+	config := &bongo.Config{
+		ConnectionString: viper.GetString("plugins.codeflow.mongodb.uri"),
+		Database:         viper.GetString("plugins.codeflow.mongodb.database"),
 	}
 
-	dbSession, err = NewMongoConnection(mongoConfig)
+	db, err = bongo.Connect(config)
 	if err != nil {
-		fmt.Println(fmt.Errorf("Error: %s", err))
+		log.Fatal(err)
 	}
-
-	db = dbSession.DB(viper.GetString("plugins.codeflow.mongodb.database"))
 
 	go x.Listen()
+
 	log.Printf("Started Codeflow service on %s\n", x.ServiceAddress)
+
 	return nil
 }
 
@@ -145,7 +137,7 @@ func (x *Codeflow) Stop() {
 	log.Println("Stopping Codeflow service")
 }
 
-func (x *Codeflow) Subscribe(e agent.Event) []string {
+func (x *Codeflow) Subscribe() []string {
 	return []string{
 		"plugins.GitPing",
 		"plugins.GitCommit",
@@ -162,27 +154,31 @@ func (x *Codeflow) Process(e agent.Event) error {
 
 	if e.Name == "plugins.DockerDeploy:status" {
 		dockerDeploy := e.Payload.(plugins.DockerDeploy)
-		x.DockerDeployStatus(&dockerDeploy)
+		DockerDeployStatus(&dockerDeploy)
 	}
 
 	if e.Name == "plugins.LoadBalancer:status" {
 		payload := e.Payload.(plugins.LoadBalancer)
-		x.LoadBalancerStatus(&payload)
+		LoadBalancerStatus(&payload)
 	}
 
 	if e.Name == "plugins.GitPing" {
 		payload := e.Payload.(plugins.GitPing)
-		var project Project
-		var err error
+		project := Project{}
 
-		if project, err = GetProjectByRepository(payload.Repository); err != nil {
-			log.Println(err.Error())
+		if err := db.Collection("projects").FindOne(bson.M{"repository": payload.Repository}, &project); err != nil {
+			if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+				log.Printf("Projects::FindOne::DocumentNotFoundError: repository: `%v`", payload.Repository)
+			} else {
+				log.Printf("Projects::FindOne::Error: %s", err.Error())
+			}
 			return err
 		}
 
 		project.Pinged = true
-		if err = UpdateProject(project.Id, &project); err != nil {
-			log.Println(err.Error())
+
+		if err := db.Collection("projects").Save(&project); err != nil {
+			log.Printf("Projects::Save::Error: %v", err.Error())
 			return err
 		}
 
@@ -191,12 +187,15 @@ func (x *Codeflow) Process(e agent.Event) error {
 
 	if e.Name == "plugins.GitStatus" {
 		payload := e.Payload.(plugins.GitStatus)
-		var project Project
-		var feature Feature
-		var err error
+		project := Project{}
+		feature := Feature{}
 
-		if project, err = GetProjectByRepository(payload.Repository); err != nil {
-			log.Println(err.Error())
+		if err := db.Collection("projects").FindOne(bson.M{"repository": payload.Repository}, &project); err != nil {
+			if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+				log.Printf("Projects::FindOne::DocumentNotFoundError: repository: `%v`", payload.Repository)
+			} else {
+				log.Printf("Projects::FindOne::Error: %s", err.Error())
+			}
 			return err
 		}
 
@@ -209,87 +208,93 @@ func (x *Codeflow) Process(e agent.Event) error {
 			OriginalState: payload.State,
 		}
 
-		if err = CreateOrUpdateExternalFlowStatus(payload.Hash, &externalFlowStatus); err != nil {
-			log.Println(err.Error())
+		if err := db.Collection("externalFlowStatuses").Save(&externalFlowStatus); err != nil {
+			log.Printf("ExternalFlowStatuses::Save::Error: %v", err.Error())
 			return err
 		}
 
-		if feature, err = GetFeatureByHash(payload.Hash); err != nil {
-			log.Println(err.Error())
+		if err := db.Collection("features").FindOne(bson.M{"hash": payload.Hash}, &feature); err != nil {
+			if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+				log.Printf("Features::FindOne::DocumentNotFoundError: hash: `%v`", payload.Hash)
+			} else {
+				log.Printf("Features::FindOne::Error: %s", err.Error())
+			}
 			return err
 		}
 
-		x.UpdateInProgessReleases(&feature)
+		UpdateInProgessReleases(&feature)
 
 		return nil
 	}
 
 	if e.Name == "plugins.GitCommit" {
 		payload := e.Payload.(plugins.GitCommit)
-		var err error
-		var project Project
-		var feature Feature
+		project := Project{}
+		feature := Feature{}
 
 		// Only build master branch
 		if payload.Ref != "refs/heads/master" {
 			return nil
 		}
 
-		if project, err = GetProjectByRepository(payload.Repository); err != nil {
-			log.Println(err.Error())
+		if err := db.Collection("projects").FindOne(bson.M{"repository": payload.Repository}, &project); err != nil {
+			if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+				log.Printf("Projects::FindOne::DocumentNotFoundError: repository: `%v`", payload.Repository)
+			} else {
+				log.Printf("Projects::FindOne::Error: %s", err.Error())
+			}
 			return err
 		}
 
 		if !project.Pinged {
 			project.Pinged = true
-			if err = UpdateProject(project.Id, &project); err != nil {
-				log.Println(err.Error())
+
+			if err := db.Collection("projects").Save(&project); err != nil {
+				log.Printf("Projects::Save::Error: %v", err.Error())
 				return err
 			}
 		}
 
-		if feature, err = GetFeatureByHash(payload.Hash); err != nil {
-			switch err {
-			case mgo.ErrNotFound:
+		if err := db.Collection("features").FindOne(bson.M{"hash": payload.Hash}, &feature); err != nil {
+			if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 				feature = Feature{
 					ProjectId:  project.Id,
 					Message:    payload.Message,
 					User:       payload.User,
 					Hash:       payload.Hash,
 					ParentHash: payload.ParentHash,
-					CreatedAt:  time.Now(),
-					UpdatedAt:  time.Now(),
 				}
-
-				if err := CreateFeature(&feature); err != nil {
-					log.Println(err.Error())
+				if err := db.Collection("features").Save(&feature); err != nil {
+					log.Printf("Features::Save::Error: %v", err.Error())
 					return err
 				}
 
-				x.FeatureCreated(&feature, e)
+				FeatureCreated(&feature, e)
 
 				if project.ContinuousDelivery {
-					var user User
-					var release Release
+					user := User{}
+					release := Release{}
 
-					if user, err = GetUserByEmail("codeflow"); err != nil {
-						log.Println(err.Error())
+					if err := db.Collection("users").FindOne(bson.M{"email": "codeflow"}, &user); err != nil {
+						if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+							log.Printf("Users::FindOne::DocumentNotFoundError: email: `%v`", "codeflow")
+						} else {
+							log.Printf("Users::FindOne::Error: %s", err.Error())
+						}
 						return err
 					}
 
-					if release, err = x.NewRelease(feature, user); err != nil {
-						log.Println(err.Error())
+					if err = NewRelease(feature, user, &release); err != nil {
+						log.Printf("NewRelease::Error: %s", err.Error())
 						return err
 					}
 
-					cf.ReleaseCreated(&release)
+					ReleaseCreated(&release)
 				}
-
-				return nil
-			default:
-				log.Println(err.Error())
-				return err
+			} else {
+				log.Printf("Features::FindOne::Error: %s", err.Error())
 			}
+			return err
 		}
 
 		log.Printf("Feature `%v:%v` already exists", project.Repository, payload.Hash)
@@ -297,633 +302,8 @@ func (x *Codeflow) Process(e agent.Event) error {
 
 	if e.Name == "plugins.DockerBuild:status" {
 		payload := e.Payload.(plugins.DockerBuild)
-		x.DockerBuildStatus(&payload)
+		DockerBuildStatus(&payload)
 	}
 
 	return nil
-}
-
-func (x *Codeflow) ProjectCreated(p *Project) {
-	wsMsg := plugins.WebsocketMsg{
-		Channel: "projects",
-		Payload: p,
-	}
-	event := agent.NewEvent(wsMsg, nil)
-	x.events <- event
-}
-
-func (x *Codeflow) ServiceCreated(s *Service) {
-	var err error
-	var project Project
-
-	if project, err = GetProjectById(s.ProjectId); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	// TODO: Magic
-	spew.Dump(project, s)
-}
-
-func (x *Codeflow) ServiceUpdated(s *Service) {
-	var err error
-	var project Project
-
-	if project, err = GetProjectById(s.ProjectId); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	// TODO: Magic
-	spew.Dump(project, s)
-}
-
-func (x *Codeflow) ServiceDeleted(s *Service) {
-	var err error
-	var project Project
-
-	if project, err = GetProjectById(s.ProjectId); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	// TODO: Magic
-	spew.Dump(project, s)
-}
-
-func (x *Codeflow) ReleaseCreated(r *Release) {
-	var err error
-	var project Project
-
-	if project, err = GetProjectById(r.ProjectId); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	for _, str := range project.Workflows {
-		s := strings.Split(str, "/")
-		t, n := s[0], s[1]
-		flow := Flow{
-			ReleaseId: r.Id,
-			Type:      t,
-			Name:      n,
-			State:     plugins.Waiting,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-
-		if err := CreateWorkflow(&flow); err != nil {
-			log.Println(err.Error())
-			return
-		}
-
-		r.Workflow = append(r.Workflow, flow)
-	}
-
-	x.CheckWorkflows(r)
-	x.ReleaseUpdated(r)
-}
-
-func (x *Codeflow) CheckWorkflows(r *Release) {
-	var err error
-	var workflowStatus plugins.State = plugins.Complete
-
-	if err = PopulateRelease(r); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	for idx, _ := range r.Workflow {
-		flow := &r.Workflow[idx]
-
-		switch flow.Type {
-		case "build":
-			var build Build
-			if build, err = GetBuildByHashAndType(r.HeadFeature.Hash, flow.Name); err != nil {
-				flow.State = plugins.Failed
-			} else {
-				switch build.State {
-				case "waiting":
-					flow.State = plugins.Waiting
-				case "complete":
-					flow.State = plugins.Complete
-				case "failed":
-					flow.State = plugins.Failed
-					r.State = plugins.Failed
-				default:
-					flow.State = plugins.Running
-				}
-			}
-			break
-
-		case "ci":
-			var externalFlowStatus ExternalFlowStatus
-			if externalFlowStatus, err = GetExternalFlowStatusByHash(r.HeadFeature.Hash); err != nil {
-				flow.State = plugins.Failed
-			} else {
-				switch externalFlowStatus.State {
-				case plugins.Waiting:
-					flow.State = plugins.Waiting
-				case plugins.Complete:
-					flow.State = plugins.Complete
-				case plugins.Failed:
-					flow.State = plugins.Failed
-					r.State = plugins.Failed
-				default:
-					flow.State = plugins.Running
-				}
-			}
-			break
-		}
-
-		if err := UpdateFlow(flow.Id, flow); err != nil {
-			log.Println(err.Error())
-			return
-		}
-
-		if flow.State != plugins.Complete {
-			workflowStatus = flow.State
-		}
-	}
-
-	if err := UpdateRelease(r.Id, r); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	if workflowStatus == plugins.Complete {
-		x.CreateDeploy(r)
-	}
-}
-
-func (x *Codeflow) ExtensionCreated(lb *LoadBalancer) {
-	x.loadBalancer(lb, plugins.Create)
-}
-
-func (x *Codeflow) ExtensionUpdated(lb *LoadBalancer) {
-	x.loadBalancer(lb, plugins.Update)
-}
-
-func (x *Codeflow) ExtensionDeleted(lb *LoadBalancer) {
-	x.loadBalancer(lb, plugins.Destroy)
-}
-
-func (x *Codeflow) loadBalancer(lb *LoadBalancer, action plugins.Action) {
-	var err error
-	var project Project
-	var service Service
-
-	if project, err = GetProjectById(lb.ProjectId); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	if service, err = GetServiceById(lb.ServiceId); err != nil {
-		log.Println("Load balancer is not attached to any service or service was deleted")
-		log.Println(err.Error())
-		return
-	}
-
-	var serviceListeners []plugins.Listener
-
-	for _, listener := range service.Listeners {
-		serviceListeners = append(serviceListeners, plugins.Listener{
-			Port:     int32(listener.Port),
-			Protocol: listener.Protocol,
-		})
-	}
-
-	var listenerPairs []plugins.ListenerPair
-
-	for _, listenerPair := range lb.ListenerPairs {
-		listenerPairs = append(listenerPairs, plugins.ListenerPair{
-			Source: plugins.Listener{
-				Port:     int32(listenerPair.Source.Port),
-				Protocol: listenerPair.Destination.Protocol,
-			},
-			Destination: plugins.Listener{
-				Port:     int32(listenerPair.Destination.Port),
-				Protocol: listenerPair.Destination.Protocol,
-			},
-		})
-	}
-
-	loadBalancerEvent := plugins.LoadBalancer{
-		Name:   lb.Name,
-		Action: action,
-		Type:   StringToLoadBalancerType(lb.Type),
-		Project: plugins.Project{
-			Slug:       project.Slug,
-			Repository: project.Repository,
-		},
-		Service: plugins.Service{
-			Name:      service.Name,
-			Command:   service.Command,
-			Listeners: serviceListeners,
-			Replicas:  int64(service.Count),
-		},
-		ListenerPairs: listenerPairs,
-		Environment:   "development",
-	}
-
-	event := agent.NewEvent(loadBalancerEvent, nil)
-	x.events <- event
-}
-
-func (x *Codeflow) FeatureCreated(feature *Feature, e agent.Event) {
-	var err error
-	var project Project
-	var secrets []Secret
-
-	if project, err = GetProjectById(feature.ProjectId); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	build := Build{
-		FeatureHash: feature.Hash,
-		Type:        "DockerImage",
-		State:       plugins.Waiting,
-	}
-
-	if err = CreateOrUpdateBuildByFeatureHash(feature.Hash, &build); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	if secrets, err = GetSecretsByProjectIdAndType(project.Id, plugins.Build); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	var buildArgs []plugins.Arg
-	for _, secret := range secrets {
-		arg := plugins.Arg{
-			Key:   secret.Key,
-			Value: secret.Value,
-		}
-		buildArgs = append(buildArgs, arg)
-	}
-
-	dockerBuildEvent := plugins.DockerBuild{
-		Action: plugins.Create,
-		State:  plugins.Waiting,
-		Project: plugins.Project{
-			Slug:       project.Slug,
-			Repository: project.Repository,
-		},
-		Git: plugins.Git{
-			SshUrl:        project.GitSshUrl,
-			RsaPrivateKey: project.RsaPrivateKey,
-			RsaPublicKey:  project.RsaPublicKey,
-		},
-		Feature: plugins.Feature{
-			Hash:       feature.Hash,
-			ParentHash: feature.ParentHash,
-			User:       feature.User,
-			Message:    feature.Message,
-		},
-		Registry: plugins.DockerRegistry{
-			Host:     viper.GetString("plugins.docker_build.registry_host"),
-			Username: viper.GetString("plugins.docker_build.registry_username"),
-			Password: viper.GetString("plugins.docker_build.registry_password"),
-			Email:    viper.GetString("plugins.docker_build.registry_user_email"),
-		},
-		BuildArgs: buildArgs,
-	}
-
-	x.events <- e.NewEvent(dockerBuildEvent, nil)
-
-	wsMsg := plugins.WebsocketMsg{
-		Channel: "features",
-		Payload: feature,
-	}
-
-	x.events <- agent.NewEvent(wsMsg, nil)
-}
-
-func (x *Codeflow) DockerBuildStatus(br *plugins.DockerBuild) {
-	var err error
-	var build Build
-	var feature Feature
-
-	if _, err = GetProjectByRepository(br.Project.Repository); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	if build, err = GetBuildByHash(br.Feature.Hash); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	build.Image = br.Image
-	build.State = br.State
-	build.BuildLog = br.BuildLog
-	build.BuildError = br.BuildError
-
-	if err := UpdateBuild(build.Id, &build); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	if feature, err = GetFeatureByHash(br.Feature.Hash); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	x.UpdateInProgessReleases(&feature)
-}
-
-func (x *Codeflow) UpdateInProgessReleases(f *Feature) {
-	var err error
-	var releases []Release
-
-	if releases, err = GetReleasesByFeatureIdAndState(f.Id, plugins.Waiting); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	for _, rel := range releases {
-		x.CheckWorkflows(&rel)
-		x.ReleaseUpdated(&rel)
-	}
-}
-
-func (x *Codeflow) NewRelease(f Feature, u User) (Release, error) {
-	var err error
-	var project Project
-	var secrets []Secret
-	var envSecrets []Secret
-	var fileSecrets []Secret
-	var tailFeature Feature
-
-	release := Release{}
-
-	if project, err = GetProjectById(f.ProjectId); err != nil {
-		log.Println("Project error")
-		return release, err
-	}
-
-	if envSecrets, err = GetSecretsByProjectIdAndType(project.Id, plugins.Env); err != nil {
-		log.Println("Env secrets error")
-		return release, err
-	}
-
-	if fileSecrets, err = GetSecretsByProjectIdAndType(project.Id, plugins.File); err != nil {
-		log.Println("File secrets error")
-		return release, err
-	}
-
-	secrets = append(secrets, envSecrets...)
-	secrets = append(secrets, fileSecrets...)
-
-	release = Release{
-		ProjectId:     project.Id,
-		HeadFeatureId: f.Id,
-		HeadFeature:   f,
-		UserId:        u.Id,
-		User:          u,
-		State:         plugins.Waiting,
-		Secrets:       secrets,
-	}
-
-	if err := GetCurrentlyDeployedFeature(project.Id, &tailFeature); err != nil {
-		release.TailFeatureId = f.Id
-		release.TailFeature = f
-	} else {
-		release.TailFeatureId = tailFeature.Id
-		release.TailFeature = tailFeature
-	}
-
-	if err := CreateRelease(&release); err != nil {
-		log.Println("Create release error")
-		return release, err
-	}
-
-	return release, nil
-}
-
-func (x *Codeflow) CreateDeploy(r *Release) {
-	var err error
-	var project Project
-	var build Build
-	var releaseServices []Service
-
-	if project, err = GetProjectById(r.ProjectId); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	if releaseServices, err = GetReleaseServices(r.ProjectId); err != nil {
-		log.Println(err.Error())
-		fmt.Println("Service not found! Can't deploy without service")
-		return
-	}
-
-	if build, err = GetBuildByHashAndState(r.HeadFeature.Hash, plugins.Complete); err != nil {
-		log.Println(err.Error())
-		fmt.Println("Build not found!")
-		return
-	}
-
-	headFeature := plugins.Feature{
-		Hash:       r.HeadFeature.Hash,
-		ParentHash: r.HeadFeature.ParentHash,
-		User:       r.HeadFeature.User,
-		Message:    r.HeadFeature.Message,
-	}
-
-	tailFeature := plugins.Feature{
-		Hash:       r.TailFeature.Hash,
-		ParentHash: r.TailFeature.ParentHash,
-		User:       r.TailFeature.User,
-		Message:    r.TailFeature.Message,
-	}
-
-	var services []plugins.Service
-
-	for _, service := range releaseServices {
-		var listeners []plugins.Listener
-
-		for _, listener := range service.Listeners {
-			listeners = append(listeners, plugins.Listener{
-				Port:     int32(listener.Port),
-				Protocol: listener.Protocol,
-			})
-		}
-
-		var action plugins.Action
-		switch service.State {
-		case plugins.Waiting:
-			action = plugins.Create
-		case plugins.Deleting:
-			action = plugins.Destroy
-		default:
-			action = plugins.Update
-		}
-
-		services = append(services, plugins.Service{
-			Action:    action,
-			Name:      service.Name,
-			Command:   service.Command,
-			Listeners: listeners,
-			Replicas:  int64(service.Count),
-		})
-	}
-
-	var secrets []plugins.Secret
-
-	for _, secret := range r.Secrets {
-		newS := plugins.Secret{
-			Key:   secret.Key,
-			Value: secret.Value,
-			Type:  secret.Type,
-		}
-		secrets = append(secrets, newS)
-	}
-
-	dockerDeployEvent := plugins.DockerDeploy{
-		Action: plugins.Create,
-		Project: plugins.Project{
-			Slug:       project.Slug,
-			Repository: project.Repository,
-		},
-		Release: plugins.Release{
-			Id:          r.Id.Hex(),
-			HeadFeature: headFeature,
-			TailFeature: tailFeature,
-		},
-		Docker: plugins.Docker{
-			Image: build.Image,
-			Registry: plugins.DockerRegistry{
-				Host:     "",
-				Username: "",
-				Password: "",
-				Email:    "",
-			},
-		},
-		Services:    services,
-		Secrets:     secrets,
-		Environment: "development",
-	}
-
-	event := agent.NewEvent(dockerDeployEvent, nil)
-	x.events <- event
-}
-
-func (x *Codeflow) LoadBalancerStatus(lb *plugins.LoadBalancer) {
-	var err error
-	var project Project
-	var extension LoadBalancer
-
-	if project, err = GetProjectByRepository(lb.Project.Repository); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	if extension, err = GetExtensionByProjectIdAndName(project.Id, lb.Name); err != nil {
-		fmt.Printf("LoadBalancer %s not found!\n", lb.Name)
-		log.Println(err.Error())
-		return
-	}
-
-	extension.DNSName = lb.DNSName
-	extension.State = lb.State
-	extension.StateMessage = lb.StateMessage
-
-	if err = UpdateExtension(extension.Id, &extension); err != nil {
-		log.Println(err.Error())
-		return
-	}
-}
-
-func (x *Codeflow) DockerDeployStatus(e *plugins.DockerDeploy) {
-	var err error
-	var release Release
-
-	if release, err = GetReleaseById(bson.ObjectIdHex(e.Release.Id)); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	release.State = e.State
-
-	if err = UpdateRelease(release.Id, &release); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	if release.State == plugins.Complete {
-		x.ReleasePromoted(&release)
-		x.FeatureUpdated(&release)
-	}
-
-	x.ReleaseUpdated(&release)
-}
-
-func (x *Codeflow) ReleaseUpdated(r *Release) {
-	var err error
-
-	if err = PopulateRelease(r); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	wsMsg := plugins.WebsocketMsg{
-		Channel: "releases",
-		Payload: r,
-	}
-
-	x.events <- agent.NewEvent(wsMsg, nil)
-}
-
-func (x *Codeflow) FeatureUpdated(r *Release) {
-	var err error
-
-	if err = PopulateRelease(r); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	wsMsg := plugins.WebsocketMsg{
-		Channel: "features",
-		Payload: r.HeadFeature,
-	}
-
-	x.events <- agent.NewEvent(wsMsg, nil)
-}
-
-func (x *Codeflow) ReleasePromoted(r *Release) {
-	var err error
-
-	if err = PopulateRelease(r); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	wsMsg := plugins.WebsocketMsg{
-		Channel: "releases/promote",
-		Payload: r,
-	}
-
-	x.events <- agent.NewEvent(wsMsg, nil)
-}
-
-func (x *Codeflow) BookmarksUpdated(u *User) {
-	var err error
-	var bookmarks []Bookmark
-
-	if bookmarks, err = GetUserBookmarks(u.Id); err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	wsMsg := plugins.WebsocketMsg{
-		Channel: "bookmarks/" + u.Id.Hex(),
-		Payload: bookmarks,
-	}
-
-	event := agent.NewEvent(wsMsg, nil)
-	x.events <- event
 }

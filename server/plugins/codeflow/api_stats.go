@@ -21,11 +21,11 @@ func (x *Stats) Register(api *rest.Api) []*rest.Route {
 }
 
 func (x *Stats) stats(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var stats Statistics
+	stats := Statistics{}
 
-	if stats, err = CollectStats(false); err != nil {
+	if err := CollectStats(false, &stats); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	w.WriteJson(stats)

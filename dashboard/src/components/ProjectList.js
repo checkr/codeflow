@@ -27,12 +27,12 @@ class ProjectList extends Component {
 
   handleBookmarkCreate = (project, e) => {
     e.preventDefault()
-    this.props.createBookmarks({ projectId: project.id })
+    this.props.createBookmarks({ projectId: project._id })
   }
 
   handleBookmarkDelete = (project, e) => {
     e.preventDefault()
-    this.props.deleteBookmarks({ projectId: project.id })
+    this.props.deleteBookmarks({ projectId: project._id })
   }
 
   render() {
@@ -49,13 +49,13 @@ class ProjectList extends Component {
     records.forEach(function (project) {
       let star = 'star-o'
       let action = that.handleBookmarkCreate
-      let bookmark = _.findWhere(bookmarks, { projectId: project.id })
+      let bookmark = _.findWhere(bookmarks, { projectId: project._id })
       if (!_.isEmpty(bookmark)) {
         star = 'star'
         action = that.handleBookmarkDelete
       }
       projects_jsx.push(
-        <li className="list-group-item" key={project.id}>
+        <li className="list-group-item" key={project._id}>
           <div className="feed-element">
             <Link to={'/projects/'+project.slug}>
               <div className="media-body ">
@@ -72,7 +72,7 @@ class ProjectList extends Component {
         <ul className="list-group search-results">
           {projects_jsx}
         </ul>
-        <Pagination onChange={(p,s) => this.paginate(p,s)} totalPages={pagination.total_pages} page={pagination.page} count={pagination.count} queryParam="projects_page"/>
+        <Pagination onChange={(p,s) => this.paginate(p,s)} totalPages={pagination.totalPages} page={pagination.current} count={pagination.recordsOnPage} queryParam="projects_page"/>
       </div>
     )
   }

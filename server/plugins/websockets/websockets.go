@@ -113,7 +113,7 @@ func (x *Websockets) Stop() {
 	log.Println("Stopping Websockets")
 }
 
-func (x *Websockets) Subscribe(e agent.Event) []string {
+func (x *Websockets) Subscribe() []string {
 	return []string{
 		"plugins.WebsocketMsg",
 	}

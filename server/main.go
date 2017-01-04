@@ -24,6 +24,7 @@ import (
 var cfgFile string
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	Execute()
 }
 

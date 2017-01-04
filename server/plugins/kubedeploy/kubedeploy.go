@@ -34,7 +34,7 @@ func (x *KubeDeploy) Stop() {
 	log.Println("Stopping Kubedeploy")
 }
 
-func (x *KubeDeploy) Subscribe(e agent.Event) []string {
+func (x *KubeDeploy) Subscribe() []string {
 	return []string{
 		"plugins.DockerDeploy:create",
 		"plugins.DockerDeploy:update",

@@ -7,10 +7,13 @@ import (
 	"net/http"
 	"time"
 
+	"gopkg.in/mgo.v2/bson"
+
 	"github.com/ant0ine/go-json-rest/rest"
 	jwt_m "github.com/cheungpat/go-json-rest-middleware-jwt"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/lestrrat/go-jwx/jwk"
+	"github.com/maxwellhealth/bongo"
 	"github.com/spf13/viper"
 )
 
@@ -123,13 +126,23 @@ func (o *Okta) oktaCallbackEventHandler(writer rest.ResponseWriter, request *res
 			Email:    email,
 		}
 
-		if u, err := GetUserByEmail(user.Email); err != nil {
-			if err := CreateUser(&user); err != nil {
+		usersCol := db.Collection("users")
+		if err := usersCol.FindOne(bson.M{"email": user.Email}, &user); err != nil {
+			if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+				log.Printf("Users::FindOne::DocumentNotFound: email: `%v`", user.Email)
+				log.Printf("Creating new user: email: `%v`", user.Email)
+				if err := usersCol.Save(&user); err != nil {
+					log.Printf("Users::Save::Error: %v", err.Error())
+					rest.Error(writer, err.Error(), http.StatusInternalServerError)
+				}
+			} else {
+				log.Printf("Users::FindOne::Error: %v", err.Error())
 				rest.Error(writer, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		} else {
-			if err := UpdateUser(u.Id, &user); err != nil {
+			if err := usersCol.Save(&user); err != nil {
+				log.Printf("Users::Save::Error: %v", err.Error())
 				rest.Error(writer, err.Error(), http.StatusInternalServerError)
 				return
 			}

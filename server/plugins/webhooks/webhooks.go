@@ -86,7 +86,7 @@ func (rb *Webhooks) Stop() {
 	log.Println("Stopping the Webhooks service")
 }
 
-func (rb *Webhooks) Subscribe(e agent.Event) []string {
+func (rb *Webhooks) Subscribe() []string {
 	return []string{}
 }
 
