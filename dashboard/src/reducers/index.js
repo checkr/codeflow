@@ -54,13 +54,13 @@ const projectServices = (state = [], action = {}) => {
     case ActionTypes.PROJECT_SERVICE_FETCH_REQUEST:
       return []
     case ActionTypes.PROJECT_SERVICE_UPDATE_SUCCESS:
-      _.extend(_.findWhere(state, { id: action.payload.id }), action.payload)
+      _.extend(_.findWhere(state, { _id: action.payload._id }), action.payload)
       return _.extend([], state)
     case ActionTypes.PROJECT_SERVICE_CREATE_SUCCESS: {
       return _.union([], state, [action.payload])
     }
     case ActionTypes.PROJECT_SERVICE_DELETE_SUCCESS: {
-      return _.without(state, _.findWhere(state, { id: action.payload.id }))
+      return _.without(state, _.findWhere(state, { _id: action.payload._id }))
     }
     case ActionTypes.PROJECT_SERVICE_FETCH_SUCCESS:
       return action.payload
@@ -74,13 +74,13 @@ const projectExtensions = (state = [], action = {}) => {
     case ActionTypes.PROJECT_EXTENSION_FETCH_REQUEST:
       return []
     case ActionTypes.PROJECT_EXTENSION_UPDATE_SUCCESS:
-      _.extend(_.findWhere(state, { id: action.payload.id }), action.payload)
+      _.extend(_.findWhere(state, { _id: action.payload._id }), action.payload)
       return _.extend([], state)
     case ActionTypes.PROJECT_EXTENSION_CREATE_SUCCESS: {
       return _.union([], state, [action.payload])
     }
     case ActionTypes.PROJECT_EXTENSION_DELETE_SUCCESS: {
-      return _.without(state, _.findWhere(state, { id: action.payload.id }))
+      return _.without(state, _.findWhere(state, { _id: action.payload._id }))
     }
     case ActionTypes.PROJECT_EXTENSION_FETCH_SUCCESS:
       return action.payload
@@ -111,7 +111,7 @@ const bookmarks = (state = [], action = {}) => {
     case ActionTypes.BOOKMARKS_DELETE_SUCCESS:
       return action.payload
     case ActionTypes.WS_MESSAGE_RECEIVED:
-      if (action.message.channel === `bookmarks/${action.meta.me.id}`) {
+      if (action.message.channel === `bookmarks/${action.meta.me._id}`) {
         return action.message.data
       }
       return state
@@ -131,7 +131,7 @@ const features = (state = {}, action = {}) => {
       return action.payload
     case ActionTypes.WS_MESSAGE_RECEIVED: {
       if (action.message.channel === 'features') {
-        if (_.isEqual(action.meta.project.id, action.message.data.projectId)) {
+        if (_.isEqual(action.meta.project._id, action.message.data.projectId)) {
           return Object.assign({dirty: true}, state)
         }
       }
@@ -150,7 +150,7 @@ const currentRelease = (state = {}, action = {}) => {
       return action.payload
     case ActionTypes.WS_MESSAGE_RECEIVED: {
       if (action.message.channel === 'releases/promote') {
-        if (_.isEqual(action.meta.project.id, action.message.data.projectId)) {
+        if (_.isEqual(action.meta.project._id, action.message.data.projectId)) {
           return action.message.data
         }
       }
@@ -176,7 +176,7 @@ const releases = (state = {}, action = {}) => {
     }
     case ActionTypes.WS_MESSAGE_RECEIVED: {
       if (action.message.channel === 'releases') {
-        if (_.isEqual(action.meta.project.id, action.message.data.projectId)) {
+        if (_.isEqual(action.meta.project._id, action.message.data.projectId)) {
           return Object.assign({dirty: true}, state)
         }
       }

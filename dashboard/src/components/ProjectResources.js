@@ -32,7 +32,7 @@ class ProjectResources extends Component {
 
   renderService(service) {
     return(
-      <li className="list-group-item service" key={service.id}>
+      <li className="list-group-item service" key={service._id}>
         <div className="feed-element">
           <div className="media-body">
             <div className="row">
@@ -44,7 +44,7 @@ class ProjectResources extends Component {
                     </h5> 
                   </div>
                   <div className="col-xs-2">
-                    <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-edit-resource" onClick={() => this.onEditService(service.id)}>
+                    <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-edit-resource" onClick={() => this.onEditService(service._id)}>
                       <i className="fa fa-pencil" aria-hidden="true" /> Edit
                     </button>
                   </div>
@@ -62,11 +62,11 @@ class ProjectResources extends Component {
   
   renderEditService(service) {
     let edit = false
-    if (service.id) {
+    if (service._id) {
       edit = true 
     }
     return(
-      <li className="list-group-item" key={service.id}>
+      <li className="list-group-item" key={service._id}>
         <div className="feed-element">
           <div className="media-body ">
             <ProjectServiceForm initialValues={service} edit={edit} onSave={() => this.onSaveService()} onCancel={() => this.onCancelEditService()} onDelete={() => this.onDeleteService()}/>
@@ -81,7 +81,7 @@ class ProjectResources extends Component {
     let services_jsx = []
 
     _.forEach(services, service => {
-      if (this.state.edit && this.state.edit === service.id) {
+      if (this.state.edit && this.state.edit === service._id) {
         services_jsx.push(this.renderEditService(service))
       } else {
         services_jsx.push(this.renderService(service))
@@ -115,7 +115,7 @@ class ProjectResources extends Component {
     let extensions_jsx = []
 
     _.forEach(extensions, extension => {
-      if (this.state.editExtension && this.state.extensionId === extension.id) {
+      if (this.state.editExtension && this.state.extensionId === extension._id) {
         extensions_jsx.push(this.renderEditExtension(extension))
       } else {
         extensions_jsx.push(this.renderExtension(extension))
@@ -133,7 +133,7 @@ class ProjectResources extends Component {
     let { services } = this.props
     var Extension = Extensions[extension.extension + 'Extension']
     return (
-      <li className="list-group-item service" key={extension.id}>
+      <li className="list-group-item service" key={extension._id}>
         <div className="feed-element">
           <div className="media-body">
             <div className="row">
@@ -143,7 +143,7 @@ class ProjectResources extends Component {
                     <Extension extension={extension} services={services}/>
                   </div>
                   <div className="col-xs-2">
-                    <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-edit-resource" onClick={(e) => this.onEditExtension(extension.id, e)}>
+                    <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-edit-resource" onClick={(e) => this.onEditExtension(extension._id, e)}>
                       <i className="fa fa-pencil" aria-hidden="true" /> Edit
                     </button>
                   </div>
@@ -160,10 +160,10 @@ class ProjectResources extends Component {
     let { services } = this.props
     var Extension = Extensions[extension.extension + 'Extension']
     return(
-      <li className="list-group-item" key={extension.id+''}>
+      <li className="list-group-item" key={extension._id + ''}>
         <div className="feed-element">
           <div className="media-body ">
-            <Extension key={extension.id} services={services} edit initialValues={extension} onSave={() => this.onSaveExtension()} onCancel={() => this.onCancelEditExtension()} onDelete={() => this.onDeleteExtension()}/>
+            <Extension key={extension._id} services={services} edit initialValues={extension} onSave={() => this.onSaveExtension()} onCancel={() => this.onCancelEditExtension()} onDelete={() => this.onDeleteExtension()}/>
           </div>
         </div>
       </li>
@@ -181,7 +181,7 @@ class ProjectResources extends Component {
 
   onSaveService() {
     const { project } = this.props
-    if(this.props.projectService.values.id) {
+    if(this.props.projectService.values._id) {
       this.props.updateProjectService(project.slug, this.props.projectService.values)
     } else {
       this.props.createProjectService(project.slug, this.props.projectService.values)
@@ -211,7 +211,7 @@ class ProjectResources extends Component {
 
   onSaveExtension() {
     const { project } = this.props
-    if(this.props.projectExtension.values.id) {
+    if(this.props.projectExtension.values._id) {
       this.props.updateProjectExtension(project.slug, this.props.projectExtension.values)
     } else {
       this.props.createProjectExtension(project.slug, this.props.projectExtension.values)

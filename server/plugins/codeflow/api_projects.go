@@ -8,17 +8,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/checkr/codeflow/server/agent"
 	"github.com/checkr/codeflow/server/plugins"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/extemporalgenome/slug"
+	"github.com/maxwellhealth/bongo"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -54,61 +54,48 @@ func (x *Projects) Register(api *rest.Api) []*rest.Route {
 }
 
 func (x *Projects) projects(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var pageResults PageResults
+	projects := []Project{}
+	pageResults := PageResults{}
 	currentPage, _ := strconv.Atoi(r.URL.Query().Get("projects_page"))
-	itemsLimit := 20
+	perPage := 20
 
-	if pageResults, err = GetProjectsWithPagination(currentPage, itemsLimit); err != nil {
+	results := db.Collection("projects").Find(bson.M{})
+	if pagination, err := results.Paginate(perPage, currentPage); err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	} else {
+		pageResults.Pagination = *pagination
 	}
+
+	results.Query.Sort("-$natural").All(&projects)
+	pageResults.Records = projects
 
 	w.WriteJson(pageResults)
 }
 
 func (x *Projects) project(w rest.ResponseWriter, r *rest.Request) {
-	project, err := CurrentProject(r)
-	if err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	project := Project{}
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	w.WriteJson(project)
 }
 
 func (x *Projects) createProjects(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var user User
-	var project Project
+	user := User{}
+	project := Project{}
+	bookmark := Bookmark{}
 
-	err = r.DecodeJsonPayload(&project)
-	if err != nil {
+	if err := r.DecodeJsonPayload(&project); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if user, err = CurrentUser(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
+	if err := CurrentUser(r, &user); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	err = validate.Struct(project)
-	if err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	gitSshUrlRegex, _ := regexp.Compile("(?:git|ssh|git@[\\w\\.]+):((?:\\/\\/)?[\\w\\.@:\\/~_-]+)\\.git(?:\\/?|\\#[\\d\\w\\.\\-_]+?)$")
-
-	if !gitSshUrlRegex.MatchString(project.GitSshUrl) {
-		rest.Error(w, "Wrong Git SSH url", http.StatusBadRequest)
-		return
-	}
-
-	repository := gitSshUrlRegex.FindStringSubmatch(project.GitSshUrl)[1]
-	project.Name = repository
-	project.Repository = repository
-	project.Slug = slug.Slug(repository)
 	project.Secret = agent.RandomString(30)
 
 	// priv *rsa.PrivateKey;
@@ -144,374 +131,418 @@ func (x *Projects) createProjects(w rest.ResponseWriter, r *rest.Request) {
 	project.RsaPrivateKey = string(pem.EncodeToMemory(&priv_blk))
 	project.RsaPublicKey = string(ssh.MarshalAuthorizedKey(pub))
 
-	if err := CreateProject(&project); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
 	// TODO: make this dynamic based on type of the project
 	project.Workflows = []string{"build/DockerImage"}
 
+	if err := db.Collection("projects").Save(&project); err != nil {
+		if vErr, ok := err.(*bongo.ValidationError); ok {
+			rest.Error(w, "Validation error", http.StatusBadRequest)
+			spew.Dump(vErr)
+			return
+		} else {
+			log.Printf("Projects::Save::Error: %v", err.Error())
+		}
+		return
+	}
+
 	// Bookmark
 	if project.Bokmarked {
-		if err := CreateUserBookmark(user.Id, project.Id); err != nil {
-			log.Println(err.Error())
+		bookmark.ProjectId = project.Id
+		bookmark.UserId = user.Id
+
+		if err := db.Collection("bookmarks").Save(&bookmark); err != nil {
+			log.Printf("Bookmarks::Save::Error: %v", err.Error())
 		} else {
-			cf.BookmarksUpdated(&user)
+			BookmarksUpdated(&user)
 		}
 	}
 
-	cf.ProjectCreated(&project)
+	ProjectCreated(&project)
+
 	w.WriteJson(project)
 }
 
 func (x *Projects) services(w rest.ResponseWriter, r *rest.Request) {
-	slug := r.PathParam("slug")
 	project := Project{}
+	services := []Service{}
+	service := Service{}
 
-	projectCol := db.C("projects")
-	if err := projectCol.Find(bson.M{"slug": slug}).One(&project); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	services := []Service{}
-
-	serviceCol := db.C("services")
-	if err := serviceCol.Find(bson.M{"projectId": project.Id}).All(&services); err != nil {
+	results := db.Collection("services").Find(bson.M{"projectId": project.Id})
+	for results.Next(&service) {
+		services = append(services, service)
 	}
 
 	w.WriteJson(services)
 }
 
 func (x *Projects) createServices(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var project Project
-	var service Service
+	project := Project{}
+	service := Service{}
 
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	err = r.DecodeJsonPayload(&service)
-	if err != nil {
+	if err := CurrentProject(r, &project); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	service.Id = bson.NewObjectId()
+	if err := r.DecodeJsonPayload(&service); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	service.Name = slug.Slug(service.Name)
 	service.State = plugins.Waiting
 	service.ProjectId = project.Id
-	service.CreatedAt = time.Now()
-	service.UpdatedAt = time.Now()
 
-	if err := CreateService(&service); err != nil {
+	if err := db.Collection("services").Save(&service); err != nil {
+		log.Printf("Services::Save::Error: %v", err.Error())
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	cf.ServiceCreated(&service)
+	ServiceCreated(&service)
+
 	w.WriteJson(service)
 }
 
 func (x *Projects) updateServices(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var project Project
-	var service Service
+	project := Project{}
+	service := Service{}
 
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	err = r.DecodeJsonPayload(&service)
-	if err != nil {
+	if err := r.DecodeJsonPayload(&service); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	service.ProjectId = project.Id
-	service.State = plugins.Running
-	service.UpdatedAt = time.Now()
 
-	if err := UpdateService(service.Id, &service); err != nil {
+	if err := db.Collection("services").Save(&service); err != nil {
+		log.Printf("Services::Save::Error: %v", err.Error())
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	cf.ServiceUpdated(&service)
+	ServiceUpdated(&service)
+
 	w.WriteJson(service)
 }
 
 func (x *Projects) deleteServices(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var project Project
-	var service Service
+	project := Project{}
+	service := Service{}
 
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	err = r.DecodeJsonPayload(&service)
-	if err != nil {
+	if err := CurrentProject(r, &project); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if service.ProjectId != project.Id {
-		rest.Error(w, fmt.Sprintf("Service does not belong to %v", project.Repository), http.StatusInternalServerError)
+	if err := r.DecodeJsonPayload(&service); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	service.State = plugins.Deleting
 
-	if err := UpdateService(service.Id, &service); err != nil {
+	if err := db.Collection("services").Save(&service); err != nil {
+		log.Printf("Services::Save::Error: %v", err.Error())
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	cf.ServiceDeleted(&service)
+	ServiceDeleted(&service)
+
 	w.WriteJson(service)
 }
 
 func (x *Projects) extensions(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var project Project
-	var extensions []LoadBalancer
+	project := Project{}
+	extensions := []LoadBalancer{}
+	extension := LoadBalancer{}
 
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if extensions, err = GetExtensions(project.Id); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	results := db.Collection("extensions").Find(bson.M{"projectId": project.Id})
+	for results.Next(&extension) {
+		extensions = append(extensions, extension)
 	}
 
 	w.WriteJson(extensions)
 }
 
 func (x *Projects) createExtensions(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var project Project
-	var service Service
-
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
+	project := Project{}
 	extension := LoadBalancer{}
+	service := Service{}
 
-	err = r.DecodeJsonPayload(&extension)
-	if err != nil {
+	if err := CurrentProject(r, &project); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if service, err = GetServiceById(extension.ServiceId); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
+	if err := r.DecodeJsonPayload(&extension); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := db.Collection("services").FindById(extension.ServiceId, &service); err != nil {
+		log.Printf("Services::FindById::Error: %v, serviceId: %v", err.Error(), extension.ServiceId)
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	extension.Id = bson.NewObjectId()
-	lbIDTrimmed := strings.ToLower(extension.Id.Hex())[0:5]
-	extension.Name = fmt.Sprintf("%v-%v-%v-%v", project.Slug, service.Name, extension.Type, lbIDTrimmed)
+	shortId := strings.ToLower(extension.Id.Hex())[0:5]
+	extension.Name = fmt.Sprintf("%v-%v-%v-%v", project.Slug, service.Name, extension.Type, shortId)
 	extension.ProjectId = project.Id
-	extension.CreatedAt = time.Now()
-	extension.UpdatedAt = time.Now()
 
-	if err := CreateExtension(&extension); err != nil {
+	if err := db.Collection("extensions").Save(&extension); err != nil {
+		log.Printf("Extensions::Save::Error: %v", err.Error())
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	cf.ExtensionCreated(&extension)
+	ExtensionCreated(&extension)
+
 	w.WriteJson(extension)
 }
 
 func (x *Projects) updateExtensions(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var project Project
+	project := Project{}
+	extension := LoadBalancer{}
 
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	extension := LoadBalancer{}
-
-	err = r.DecodeJsonPayload(&extension)
-	if err != nil {
+	if err := r.DecodeJsonPayload(&extension); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	extension.ProjectId = project.Id
 
-	if err := UpdateExtension(extension.Id, &extension); err != nil {
+	if err := db.Collection("extensions").Save(&extension); err != nil {
+		log.Printf("Extensions::Save::Error: %v", err.Error())
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	cf.ExtensionUpdated(&extension)
+	ExtensionUpdated(&extension)
+
 	w.WriteJson(extension)
 }
 
 func (x *Projects) deleteExtensions(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var project Project
-
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
+	project := Project{}
 	extension := LoadBalancer{}
 
-	err = r.DecodeJsonPayload(&extension)
-	if err != nil {
+	if err := CurrentProject(r, &project); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if extension.ProjectId != project.Id {
-		rest.Error(w, fmt.Sprintf("Extension does not belong to %v", project.Repository), http.StatusInternalServerError)
+	if err := r.DecodeJsonPayload(&extension); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	extension.State = plugins.Deleting
 
-	if err := UpdateExtension(extension.Id, &extension); err != nil {
+	if err := db.Collection("extensions").Save(&extension); err != nil {
+		log.Printf("Extensions::Save::Error: %v", err.Error())
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	cf.ExtensionDeleted(&extension)
+	ExtensionDeleted(&extension)
 
 	w.WriteJson(extension)
 }
 
 func (x *Projects) features(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var pageResults PageResults
-	var project Project
+	features := []Feature{}
+	feature := Feature{}
+	project := Project{}
+	pageResults := PageResults{}
+	currentRelease := Release{}
 	currentPage, _ := strconv.Atoi(r.URL.Query().Get("features_page"))
-	itemsLimit := 5
+	perPage := 5
 
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if pageResults, err = GetFeaturesWithPagination(project.Id, currentPage, itemsLimit); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	query := bson.M{"projectId": project.Id}
+	if err := GetCurrentRelease(project.Id, &currentRelease); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			// nothing to do
+		} else {
+			log.Printf("GetCurrentRelease::Error: %s", err.Error())
+			rest.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	} else {
+		// Find only undeployed features
+		query = bson.M{"projectId": project.Id, "_id": bson.M{"$gt": currentRelease.HeadFeatureId}}
 	}
 
-	w.WriteJson(&pageResults)
+	results := db.Collection("features").Find(query)
+
+	if pagination, err := results.Paginate(perPage, currentPage); err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+	} else {
+		pageResults.Pagination = *pagination
+	}
+
+	results.Query.Sort("-$natural")
+	for results.Next(&feature) {
+		features = append(features, feature)
+	}
+
+	pageResults.Records = features
+
+	w.WriteJson(pageResults)
 }
 
 func (x *Projects) releases(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var project Project
-	var pageResults PageResults
+	releases := []Release{}
+	release := Release{}
+	project := Project{}
+	pageResults := PageResults{}
 	currentPage, _ := strconv.Atoi(r.URL.Query().Get("releases_page"))
-	itemsLimit := 5
+	perPage := 5
 
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if pageResults, err = GetReleasesWithPagination(project.Id, currentPage, itemsLimit); err != nil {
+	results := db.Collection("releases").Find(bson.M{"projectId": project.Id})
+	if pagination, err := results.Paginate(perPage, currentPage); err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	} else {
+		pageResults.Pagination = *pagination
 	}
 
-	w.WriteJson(&pageResults)
+	results.Query.Sort("-$natural")
+	for results.Next(&release) {
+		releases = append(releases, release)
+	}
+
+	pageResults.Records = releases
+
+	w.WriteJson(pageResults)
 }
 
 func (x *Projects) currentRelease(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var release Release
-	var project Project
+	release := Release{}
+	project := Project{}
 
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if release, err = GetCurrentRelease(project.Id); err != nil {
-		w.WriteJson(&release)
-		return
+	if err := GetCurrentRelease(project.Id, &release); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			// Nothing to do here
+		} else {
+			log.Printf("GetCurrentRelease::Error: %s", err.Error())
+			rest.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.WriteJson(&release)
 }
 
 func (x *Projects) createReleases(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var headFeature Feature
-	var release Release
+	user := User{}
+	headFeature := Feature{}
+	release := Release{}
 
-	user, _ := CurrentUser(r)
-
-	err = r.DecodeJsonPayload(&headFeature)
-	if err != nil {
+	if err := CurrentUser(r, &user); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if release, err = cf.NewRelease(headFeature, user); err != nil {
+	if err := r.DecodeJsonPayload(&headFeature); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := NewRelease(headFeature, user, &release); err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := ReleaseCreated(&release); err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	cf.ReleaseCreated(&release)
 	w.WriteJson(release)
 }
 
 func (x *Projects) createReleasesRollback(w rest.ResponseWriter, r *rest.Request) {
-	var release Release
+	release := Release{}
 
-	err := r.DecodeJsonPayload(&release)
-	if err != nil {
+	if err := r.DecodeJsonPayload(&release); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if err = PopulateRelease(&release); err != nil {
+	if err := db.Collection("releases").FindById(release.Id, &release); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Releases::FindById::DocumentNotFoundError: _id: `%v`", release.Id)
+		} else {
+			log.Printf("Releases::FindById::Error: %s", err.Error())
+		}
+		return
+	}
+
+	release.Id = bson.NewObjectId()
+	release.State = plugins.Waiting
+
+	if err := db.Collection("releases").Save(&release); err != nil {
+		log.Printf("Releases::Save::Error: %v", err.Error())
+		log.Printf("Releases::FindById::Error: %s", err.Error())
+		return
+	}
+
+	if err := ReleaseCreated(&release); err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := CreateRelease(&release); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	cf.ReleaseCreated(&release)
 	w.WriteJson(release)
 }
 
 func (x *Projects) settings(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var project Project
-	var secrets []Secret
+	project := Project{}
+	secrets := []Secret{}
+	secret := Secret{}
 
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	if secrets, err = GetSecretsByProjectId(project.Id); err != nil {
-		log.Println(err.Error())
-		return
+	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "deleted": false})
+	for results.Next(&secret) {
+		secrets = append(secrets, secret)
 	}
 
 	settings := ProjectSettings{
@@ -526,8 +557,8 @@ func (x *Projects) settings(w rest.ResponseWriter, r *rest.Request) {
 }
 
 func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
-	var project Project
-	var projectSettingsRequest ProjectSettings
+	project := Project{}
+	projectSettingsRequest := ProjectSettings{}
 
 	err := r.DecodeJsonPayload(&projectSettingsRequest)
 	if err != nil {
@@ -535,28 +566,11 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	if project, err = CurrentProject(r); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	// Update project
-	if projectSettingsRequest.GitSshUrl != "" && project.GitSshUrl != projectSettingsRequest.GitSshUrl {
-		gitSshUrlRegex, _ := regexp.Compile("(?:git|ssh|git@[\\w\\.]+):((?:\\/\\/)?[\\w\\.@:\\/~_-]+)\\.git(?:\\/?|\\#[\\d\\w\\.\\-_]+?)$")
-
-		if !gitSshUrlRegex.MatchString(project.GitSshUrl) {
-			rest.Error(w, "Wrong Git SSH url", http.StatusBadRequest)
-			return
-		}
-
-		repository := gitSshUrlRegex.FindStringSubmatch(projectSettingsRequest.GitSshUrl)[1]
-
-		project.Name = repository
-		project.Repository = repository
-		project.Slug = slug.Slug(repository)
-		project.GitSshUrl = projectSettingsRequest.GitSshUrl
-
-	}
+	project.GitSshUrl = projectSettingsRequest.GitSshUrl
 
 	project.ContinuousIntegration = projectSettingsRequest.ContinuousIntegration
 	if project.ContinuousIntegration {
@@ -577,8 +591,8 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 
 	project.ContinuousDelivery = projectSettingsRequest.ContinuousDelivery
 
-	if err := UpdateProject(project.Id, &project); err != nil {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
+	if err := db.Collection("projects").Save(&project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -587,10 +601,9 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 		if secret.Id.Valid() {
 			secret.ProjectId = project.Id
 			secret.Deleted = true
-			secret.DeletedAt = time.Now()
 
-			if err := UpdateSecret(secret.Id, &secret); err != nil {
-				rest.Error(w, err.Error(), http.StatusBadRequest)
+			if err := db.Collection("secrets").Save(&secret); err != nil {
+				rest.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
@@ -604,9 +617,14 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 
 		if secret.Id.Valid() {
 			s := Secret{}
-			if s, err = GetSecretById(secret.Id); err != nil {
+
+			if err := db.Collection("secrets").FindById(secret.Id, &s); err != nil {
+				if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+					log.Printf("Secrets::FindById::DocumentNotFoundError: _id: `%v`", secret.Id)
+				} else {
+					log.Printf("Secrets::FindById::Error: %s", err.Error())
+				}
 				rest.Error(w, err.Error(), http.StatusBadRequest)
-				return
 			}
 
 			if s.Type == secret.Type && s.Key == secret.Key && s.Value == secret.Value {
@@ -619,26 +637,26 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 
 			s.Deleted = true
 
-			if err := UpdateSecret(secret.Id, &s); err != nil {
-				rest.Error(w, err.Error(), http.StatusBadRequest)
+			if err := db.Collection("secrets").Save(&s); err != nil {
+				rest.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
 
 		secret.Id = bson.NewObjectId()
 		secret.ProjectId = project.Id
-		secret.CreatedAt = time.Now()
 
-		if err := CreateSecret(&secret); err != nil {
-			rest.Error(w, err.Error(), http.StatusBadRequest)
+		if err := db.Collection("secrets").Save(&secret); err != nil {
+			rest.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
 
 	secrets := []Secret{}
-	if secrets, err = GetSecretsByProjectId(project.Id); err != nil {
-		log.Println(err.Error())
-		return
+	secret := Secret{}
+	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "deleted": false})
+	for results.Next(&secret) {
+		secrets = append(secrets, secret)
 	}
 
 	projectSettingsResponse := ProjectSettings{
@@ -647,7 +665,6 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 		ContinuousIntegration: project.ContinuousIntegration,
 		ContinuousDelivery:    project.ContinuousDelivery,
 		Secrets:               secrets,
-		UpdatedAt:             time.Now(),
 	}
 
 	w.WriteJson(projectSettingsResponse)

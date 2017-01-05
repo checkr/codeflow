@@ -39,7 +39,7 @@ func (b *DockerBuild) Stop() {
 	log.Println("Stopping Git Docker Build")
 }
 
-func (b *DockerBuild) Subscribe(e agent.Event) []string {
+func (b *DockerBuild) Subscribe() []string {
 	return []string{
 		"plugins.DockerBuild:create",
 	}

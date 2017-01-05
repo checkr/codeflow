@@ -81,7 +81,7 @@ func (x *Heartbeat) Stop() {
 	log.Println("Stopping Heartbeat")
 }
 
-func (x *Heartbeat) Subscribe(e agent.Event) []string {
+func (x *Heartbeat) Subscribe() []string {
 	return []string{}
 }
 

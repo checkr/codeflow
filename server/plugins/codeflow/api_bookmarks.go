@@ -4,7 +4,10 @@ import (
 	"log"
 	"net/http"
 
+	"gopkg.in/mgo.v2/bson"
+
 	"github.com/ant0ine/go-json-rest/rest"
+	"github.com/maxwellhealth/bongo"
 )
 
 type Bookmarks struct {
@@ -23,33 +26,44 @@ func (x *Bookmarks) Register(api *rest.Api) []*rest.Route {
 }
 
 func (x *Bookmarks) bookmarks(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var user User
-	var bookmarks []Bookmark
+	user := User{}
+	bookmarks := []Bookmark{}
+	bookmark := Bookmark{}
 
-	if user, err = CurrentUser(r); err != nil {
+	if err := CurrentUser(r, &user); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if bookmarks, err = GetUserBookmarks(user.Id); err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	} else {
-		w.WriteJson(bookmarks)
+	results := db.Collection("bookmarks").Find(bson.M{"userId": user.Id})
+	for results.Next(&bookmark) {
+		if dnfError, ok := results.Error.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Bookmarks::Next::DocumentNotFoundError: %s", dnfError.Error())
+			continue
+		}
+		bookmarks = append(bookmarks, bookmark)
 	}
+
+	w.WriteJson(bookmarks)
 }
 
 func (x *Bookmarks) createBookmarks(w rest.ResponseWriter, r *rest.Request) {
-	user, _ := CurrentUser(r)
-	var bookmark Bookmark
+	user := User{}
+	bookmark := Bookmark{}
+
+	if err := CurrentUser(r, &user); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 
 	if err := r.DecodeJsonPayload(&bookmark); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if err := CreateUserBookmark(user.Id, bookmark.ProjectId); err != nil {
+	bookmark.UserId = user.Id
+
+	if err := db.Collection("bookmarks").Save(&bookmark); err != nil {
+		log.Printf("Bookmarks::Save::Error: %v", err.Error())
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -58,21 +72,19 @@ func (x *Bookmarks) createBookmarks(w rest.ResponseWriter, r *rest.Request) {
 }
 
 func (x *Bookmarks) deleteBookmarks(w rest.ResponseWriter, r *rest.Request) {
-	var err error
-	var user User
-	var bookmark Bookmark
+	user := User{}
+	bookmark := Bookmark{}
 
-	if user, err = CurrentUser(r); err != nil {
+	if err := CurrentUser(r, &user); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	if err := r.DecodeJsonPayload(&bookmark); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if err = r.DecodeJsonPayload(&bookmark); err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if err = DeleteUserBookmark(user.Id, bookmark.ProjectId); err != nil {
+	if err := db.Collection("bookmarks").DeleteOne(bson.M{"projectId": bookmark.ProjectId, "userId": user.Id}); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

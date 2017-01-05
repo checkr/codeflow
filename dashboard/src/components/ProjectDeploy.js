@@ -91,11 +91,11 @@ class ProjectDeploy extends Component {
 
     let includedClass = ""
     records.forEach(feature => {
-      if (this.state.featureHover === feature.id) {
+      if (this.state.featureHover === feature._id) {
         includedClass = " feature-included"
       }
       features_jsx.push(
-        <li className={"list-group-item" + includedClass} key={feature.hash} onMouseEnter={() => this.onFeatureMouseEnterHandler(feature.id)} onMouseLeave={() => this.onFeatureMouseLeaveHandler()}>
+        <li className={"list-group-item" + includedClass} key={feature.hash} onMouseEnter={() => this.onFeatureMouseEnterHandler(feature._id)} onMouseLeave={() => this.onFeatureMouseLeaveHandler()}>
           <div className="feed-element">
             <div className="row media-body">
               <div className="col-xs-10">
@@ -103,7 +103,7 @@ class ProjectDeploy extends Component {
                 <small className="text-muted">by <strong>{feature.user}</strong> {moment(feature.createdAt).fromNow() } - {moment(feature.createdAt).format('MMMM Do YYYY, h:mm:ss A')} </small>
               </div>
               <div className="col-xs-2 flex-xs-middle">
-                {this.state.featureHover === feature.id && 
+                {this.state.featureHover === feature._id && 
                 <button type="button" className="btn btn-secondary btn-sm float-xs-right" onClick={(e) => this.onDeployFeature(feature, e)}>Deploy</button> }
               </div>
             </div>
@@ -115,7 +115,7 @@ class ProjectDeploy extends Component {
     return (
       <div>
         <ul className="list-group">{features_jsx}</ul>
-        <Pagination onChange={(p,s) => this.paginateFeatures(p,s)} totalPages={pagination.total_pages} page={pagination.page} count={pagination.count} queryParam="features_page"/>
+        <Pagination onChange={(p,s) => this.paginateFeatures(p,s)} totalPages={pagination.totalPages} page={pagination.current} count={pagination.recordsOnPage} queryParam="features_page"/>
       </div>
     )
   }
@@ -151,15 +151,15 @@ class ProjectDeploy extends Component {
     let flows = _.map(release.workflow, (wf) => {
       switch(wf.state) {
         case 'running':
-          return <span className="tag tag-warning flow" key={wf.id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-warning flow" key={wf._id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
         case 'building':
-          return <span className="tag tag-warning flow" key={wf.id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-warning flow" key={wf._id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
         case 'complete':
-          return <span className="tag tag-success flow" key={wf.id}><i className="fa fa-check fa-lg" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-success flow" key={wf._id}><i className="fa fa-check fa-lg" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
         case 'failed':
-          return <span className="tag tag-danger flow" key={wf.id}><i className="fa fa-times fa-lg" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-danger flow" key={wf._id}><i className="fa fa-times fa-lg" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
         default:
-          return <span className="tag tag-info flow" key={wf.id}><i className="fa fa-cog fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-info flow" key={wf._id}><i className="fa fa-cog fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
       }
     })
     
@@ -175,7 +175,7 @@ class ProjectDeploy extends Component {
   }
 
   onReleaseMouseEnterHandler(release) {
-    this.setState({releaseHover: release.id});
+    this.setState({releaseHover: release._id});
   }
 
   onReleaseMouseLeaveHandler() {
@@ -197,7 +197,7 @@ class ProjectDeploy extends Component {
 
     records.forEach((release, i) => {
       releases_jsx.push(
-        <li className="list-group-item" key={release.id} onMouseEnter={() => this.onReleaseMouseEnterHandler(release)} onMouseLeave={() => this.onReleaseMouseLeaveHandler()}>
+        <li className="list-group-item" key={release._id} onMouseEnter={() => this.onReleaseMouseEnterHandler(release)} onMouseLeave={() => this.onReleaseMouseLeaveHandler()}>
           <div className="feed-element">
             <div className="row media-body">
               <div className="col-xs-10">
@@ -227,7 +227,7 @@ class ProjectDeploy extends Component {
     return (
       <div>
         <ul className="list-group">{releases_jsx}</ul>
-        <Pagination onChange={(p,s) => this.paginateReleases(p,s)} totalPages={pagination.total_pages} page={pagination.page} count={pagination.count} queryParam="releases_page"/>
+        <Pagination onChange={(p,s) => this.paginateReleases(p,s)} totalPages={pagination.totalPages} page={pagination.current} count={pagination.recordsOnPage} queryParam="releases_page"/>
       </div>
     )
   }
@@ -236,7 +236,7 @@ class ProjectDeploy extends Component {
     let { currentRelease } = this.props
     let releases_jsx = [] 
     releases_jsx.push(
-      <li className="list-group-item" key={currentRelease.id} onMouseEnter={() => this.onReleaseMouseEnterHandler(currentRelease)} onMouseLeave={() => this.onReleaseMouseLeaveHandler()}>
+      <li className="list-group-item" key={currentRelease._id} onMouseEnter={() => this.onReleaseMouseEnterHandler(currentRelease)} onMouseLeave={() => this.onReleaseMouseLeaveHandler()}>
         <div className="feed-element">
           <div className="row media-body">
             <div className="col-xs-10">
@@ -285,7 +285,7 @@ class ProjectDeploy extends Component {
           {this.renderFeatures()}
         </div>
 
-        { !_.isEmpty(currentRelease.id) && <div className="clearfix">
+        { !_.isEmpty(currentRelease._id) && <div className="clearfix">
           <div className="hr-divider m-t-md m-b">
             <h3 className="hr-divider-content hr-divider-heading">Current Release</h3>
           </div>

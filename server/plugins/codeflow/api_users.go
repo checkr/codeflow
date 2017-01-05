@@ -2,6 +2,7 @@ package codeflow
 
 import (
 	"log"
+	"net/http"
 
 	"github.com/ant0ine/go-json-rest/rest"
 )
@@ -20,6 +21,10 @@ func (x *Users) Register(api *rest.Api) []*rest.Route {
 }
 
 func (x *Users) me(w rest.ResponseWriter, r *rest.Request) {
-	user, _ := CurrentUser(r)
+	user := User{}
+	if err := CurrentUser(r, &user); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteJson(user)
 }

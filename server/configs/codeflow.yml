@@ -20,10 +20,7 @@ plugins:
       - "https://codeflow.checkrhq.net"
     mongodb:
       database: "codeflow"
-      username: ""
-      password: ""
-      ssl: false
-      uri: "localhost:27017"
+      uri: "mongodb://localhost:27017"
     service_address: ":3001"
     builds:
       path: "/builds"
