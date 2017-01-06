@@ -356,7 +356,7 @@ func FeatureCreated(f *Feature, e agent.Event) error {
 		}
 	}
 
-	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "type": plugins.Build})
+	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "type": plugins.Build, "deleted": false})
 	secret := Secret{}
 	for results.Next(&secret) {
 		secrets = append(secrets, secret)
@@ -480,7 +480,7 @@ func NewRelease(f Feature, u User, release *Release) error {
 	services := []Service{}
 	service := Service{}
 
-	results := db.Collection("secrets").Find(bson.M{"projectId": f.ProjectId, "type": bson.M{"$in": []plugins.Type{plugins.Env, plugins.File}}})
+	results := db.Collection("secrets").Find(bson.M{"projectId": f.ProjectId, "type": bson.M{"$in": []plugins.Type{plugins.Env, plugins.File}}, "deleted": false})
 	for results.Next(&secret) {
 		secrets = append(secrets, secret)
 	}
