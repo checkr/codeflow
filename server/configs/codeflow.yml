@@ -21,6 +21,7 @@ plugins:
     mongodb:
       database: "codeflow"
       uri: "mongodb://localhost:27017"
+      ssl: false
     service_address: ":3001"
     builds:
       path: "/builds"

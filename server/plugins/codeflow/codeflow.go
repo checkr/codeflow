@@ -1,16 +1,20 @@
 package codeflow
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"reflect"
+	"time"
 
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/checkr/codeflow/server/agent"
 	"github.com/checkr/codeflow/server/plugins"
 	"github.com/maxwellhealth/bongo"
 	"github.com/spf13/viper"
+	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -119,6 +123,20 @@ func (x *Codeflow) Start(events chan agent.Event) error {
 	config := &bongo.Config{
 		ConnectionString: viper.GetString("plugins.codeflow.mongodb.uri"),
 		Database:         viper.GetString("plugins.codeflow.mongodb.database"),
+	}
+
+	if viper.GetBool("plugins.codeflow.mongodb.ssl") {
+		if config.DialInfo, err = mgo.ParseURL(config.ConnectionString); err != nil {
+			panic(fmt.Sprintf("cannot parse given URI %s due to error: %s", config.ConnectionString, err.Error()))
+		}
+
+		tlsConfig := &tls.Config{}
+		config.DialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
+			conn, err := tls.Dial("tcp", addr.String(), tlsConfig)
+			return conn, err
+		}
+
+		config.DialInfo.Timeout = time.Second * 3
 	}
 
 	db, err = bongo.Connect(config)
