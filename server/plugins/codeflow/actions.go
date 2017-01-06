@@ -461,7 +461,7 @@ func DockerBuildStatus(br *plugins.DockerBuild) error {
 func UpdateInProgessReleases(f *Feature) error {
 	release := Release{}
 
-	results := db.Collection("releases").Find(bson.M{"featureId": f.Id, "state": plugins.Waiting})
+	results := db.Collection("releases").Find(bson.M{"headFeatureId": f.Id, "state": plugins.Waiting})
 	for results.Next(&release) {
 		if err := CheckWorkflows(&release); err != nil {
 			log.Printf("CheckWorkflows::Error: %s, releaseId: %v"+err.Error(), release.Id)

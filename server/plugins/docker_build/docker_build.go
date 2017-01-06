@@ -114,6 +114,7 @@ func (b *DockerBuild) Process(e agent.Event) error {
 	}
 
 	build.State = plugins.Complete
+	build.BuildLog = outputBuffer.String()
 	event = e.NewEvent(build, nil)
 	b.events <- event
 
@@ -127,8 +128,5 @@ func (b *DockerBuild) Process(e agent.Event) error {
 		return err
 	}
 
-	build.BuildLog = outputBuffer.String()
-	event = e.NewEvent(build, nil)
-	b.events <- event
 	return nil
 }

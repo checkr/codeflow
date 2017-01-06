@@ -54,8 +54,8 @@ type Project struct {
 
 type Git struct {
 	SshUrl        string `json:"gitSshUrl"`
-	RsaPrivateKey string `json:"rsaPrivateKey"`
-	RsaPublicKey  string `json:"rsaPublicKey"`
+	RsaPrivateKey string `json:"rsaPrivateKey" role:"secret"`
+	RsaPublicKey  string `json:"rsaPublicKey" role:"secret"`
 }
 
 type GitCommit struct {

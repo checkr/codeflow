@@ -112,10 +112,10 @@ func (a *Agent) addPlugin(name string) error {
 			event.Error = fmt.Errorf("PayloadModel not found: %s. Did you add it to ApiRegistry?", event.PayloadModel)
 		}
 
-		plugin.Process(event)
-
 		// For debugging purposes
 		event.Dump()
+
+		plugin.Process(event)
 	}
 
 	rp := &RunningPlugin{

@@ -59,7 +59,8 @@ func (x *Codeflow) Description() string {
 
 func (x *Codeflow) Listen() {
 	api := rest.NewApi()
-	api.Use(rest.DefaultDevStack...)
+	//api.Use(rest.DefaultProdStack...)
+	api.Use(&rest.AccessLogJsonMiddleware{})
 	api.Use(&rest.CorsMiddleware{
 		RejectNonCorsRequests: false,
 		OriginValidator: func(origin string, request *rest.Request) bool {
