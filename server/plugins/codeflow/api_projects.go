@@ -273,7 +273,7 @@ func (x *Projects) extensions(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	results := db.Collection("extensions").Find(bson.M{"projectId": project.Id})
+	results := db.Collection("extensions").Find(bson.M{"projectId": project.Id, "state": bson.M{"$in": []plugins.State{plugins.Waiting, plugins.Running, plugins.Complete}}})
 	for results.Next(&extension) {
 		extensions = append(extensions, extension)
 	}
@@ -303,8 +303,8 @@ func (x *Projects) createExtensions(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	extension.Id = bson.NewObjectId()
-	shortId := strings.ToLower(extension.Id.Hex())[0:5]
-	extension.Name = fmt.Sprintf("%v-%v-%v-%v", project.Slug, service.Name, extension.Type, shortId)
+	extension.State = plugins.Waiting
+	extension.Name = fmt.Sprintf("%v-%v", extension.Type, extension.Id.Hex())
 	extension.ProjectId = project.Id
 
 	if err := db.Collection("extensions").Save(&extension); err != nil {

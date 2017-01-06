@@ -24,6 +24,7 @@ const (
 	Complete       = "complete"
 	Failed         = "failed"
 	Deleting       = "deleting"
+	Deleted        = "deleted"
 )
 
 type Type string

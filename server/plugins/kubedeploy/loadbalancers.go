@@ -31,19 +31,6 @@ func (x *KubeDeploy) sendLBResponse(e agent.Event, service plugins.Service, stat
 	x.events <- event
 }
 
-func (x *KubeDeploy) sendLBSuccessResponseWithDNS(e agent.Event, service plugins.Service, dnsName string) {
-	x.sendLBResponse(e, service, plugins.Complete, "", dnsName)
-}
-
-func (x *KubeDeploy) sendLBSuccessResponse(e agent.Event, service plugins.Service) {
-	x.sendLBResponse(e, service, plugins.Complete, "", "")
-}
-
-func (x *KubeDeploy) sendLBErrorResponse(e agent.Event, service plugins.Service, failureMessage string) {
-	log.Printf("ERROR managing loadbalancer %s: %s", service.Name, failureMessage)
-	x.sendLBResponse(e, service, plugins.Failed, failureMessage, "")
-}
-
 func (x *KubeDeploy) doDeleteLoadBalancer(e agent.Event) error {
 	// Codeflow will load the kube config from a file, specified by KUBECONFIG environment variable
 	kubeconfig := os.Getenv("KUBECONFIG")
@@ -69,14 +56,16 @@ func (x *KubeDeploy) doDeleteLoadBalancer(e agent.Event) error {
 		svcDeleteErr := coreInterface.Services(namespace).Delete(payload.Name, &v1.DeleteOptions{})
 		if svcDeleteErr != nil {
 			failMessage := fmt.Sprintf("Error '%s' deleting service %s", svcDeleteErr, payload.Name)
-			x.sendLBErrorResponse(e, payload.Service, failMessage)
+			log.Printf("ERROR managing loadbalancer %s: %s", payload.Service.Name, failMessage)
+			x.sendLBResponse(e, payload.Service, plugins.Failed, failMessage, "")
 			return nil
 		}
-		x.sendLBSuccessResponse(e, payload.Service)
+		x.sendLBResponse(e, payload.Service, plugins.Deleted, "", "")
 	} else {
 		// Send failure message that we couldn't find the service to delete
 		failMessage := fmt.Sprintf("Error finding %s service: '%s'", payload.Name, svcGetErr)
-		x.sendLBErrorResponse(e, payload.Service, failMessage)
+		log.Printf("ERROR managing loadbalancer %s: %s", payload.Service.Name, failMessage)
+		x.sendLBResponse(e, payload.Service, plugins.Failed, failMessage, "")
 	}
 	return nil
 }
@@ -107,7 +96,7 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 	namespace := genNamespaceName(payload.Environment, payload.Project.Slug)
 	createNamespaceErr := x.createNamespaceIfNotExists(namespace, coreInterface)
 	if createNamespaceErr != nil {
-		x.sendLBErrorResponse(e, payload.Service, createNamespaceErr.Error())
+		x.sendLBResponse(e, payload.Service, plugins.Failed, createNamespaceErr.Error(), "")
 		return nil
 	}
 
@@ -179,19 +168,19 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 		serviceParams.Spec.ClusterIP = svc.Spec.ClusterIP
 		_, err = service.Update(&serviceParams)
 		if err != nil {
-			x.sendLBErrorResponse(e, payload.Service, fmt.Sprintf("Error: failed to update service: %s", err.Error()))
+			x.sendLBResponse(e, payload.Service, plugins.Failed, fmt.Sprintf("Error: failed to update service: %s", err.Error()), "")
 			return nil
 		}
 		log.Printf("Service updated: %s", payload.Name)
 	case errors.IsNotFound(err):
 		_, err = service.Create(&serviceParams)
 		if err != nil {
-			x.sendLBErrorResponse(e, payload.Service, fmt.Sprintf("Error: failed to create service: %s", err.Error()))
+			x.sendLBResponse(e, payload.Service, plugins.Failed, fmt.Sprintf("Error: failed to create service: %s", err.Error()), "")
 			return nil
 		}
 		log.Printf("Service created: %s", payload.Name)
 	default:
-		x.sendLBErrorResponse(e, payload.Service, fmt.Sprintf("Unexpected error: %s", err.Error()))
+		x.sendLBResponse(e, payload.Service, plugins.Failed, fmt.Sprintf("Unexpected error: %s", err.Error()), "")
 		return nil
 	}
 
@@ -213,7 +202,7 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 				}
 				if timeout <= 0 {
 					failMessage := fmt.Sprintf("Error: timeout waiting for ELB DNS name for: %s", payload.Name)
-					x.sendLBErrorResponse(e, payload.Service, failMessage)
+					x.sendLBResponse(e, payload.Service, plugins.Failed, failMessage, "")
 					return nil
 				}
 			}
@@ -221,7 +210,7 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 			timeout -= 5
 		}
 	}
-	x.sendLBSuccessResponseWithDNS(e, payload.Service, ELBDNSName)
+	x.sendLBResponse(e, payload.Service, plugins.Complete, "", ELBDNSName)
 
 	return nil
 }

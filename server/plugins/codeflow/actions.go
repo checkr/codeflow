@@ -303,6 +303,7 @@ func loadBalancer(lb *LoadBalancer, action plugins.Action) error {
 	loadBalancerEvent := plugins.LoadBalancer{
 		Name:   lb.Name,
 		Action: action,
+		State:  lb.State,
 		Type:   StringToLoadBalancerType(lb.Type),
 		Project: plugins.Project{
 			Slug:       project.Slug,
