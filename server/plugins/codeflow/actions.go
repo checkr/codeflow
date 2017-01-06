@@ -155,7 +155,7 @@ func CheckWorkflows(r *Release) error {
 		switch flow.Type {
 		case "build":
 			var build Build
-			if err := db.Collection("builds").FindOne(bson.M{"hash": r.HeadFeature.Hash, "type": flow.Name}, &build); err != nil {
+			if err := db.Collection("builds").FindOne(bson.M{"featureHash": r.HeadFeature.Hash, "type": flow.Name}, &build); err != nil {
 				if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 					log.Printf("Builds::FindOne::DocumentNotFoundError: hash: `%v`, type: %v", r.HeadFeature.Hash, flow.Name)
 				} else {
@@ -343,7 +343,7 @@ func FeatureCreated(f *Feature, e agent.Event) error {
 		State:       plugins.Waiting,
 	}
 
-	if err := db.Collection("builds").FindOne(bson.M{"hash": f.Hash}, &build); err != nil {
+	if err := db.Collection("builds").FindOne(bson.M{"featureHash": f.Hash}, &build); err != nil {
 		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 			log.Printf("Builds::Save: hash: `%v`", f.Hash)
 			if err := db.Collection("builds").Save(&build); err != nil {
