@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"time"
 
+	json "github.com/bww/go-json"
 	"github.com/pborman/uuid"
 )
 
@@ -87,4 +88,9 @@ func (e *Event) NewEvent(payload interface{}, err error) Event {
 	}
 
 	return event
+}
+
+func (e *Event) Dump() {
+	event, _ := json.MarshalRole("dummy", e)
+	fmt.Println(string(event))
 }

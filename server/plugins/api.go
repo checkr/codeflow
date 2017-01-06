@@ -116,7 +116,7 @@ type Service struct {
 type DockerRegistry struct {
 	Host     string `json:"host"`
 	Username string `json:"username"`
-	Password string `json:"password"`
+	Password string `json:"password" role:"secret"`
 	Email    string `json:"email"`
 }
 
@@ -127,7 +127,7 @@ type Docker struct {
 
 type Secret struct {
 	Key   string `json:"key"`
-	Value string `json:"value"`
+	Value string `json:"value" role:"secret"`
 	Type  Type   `json:"type"`
 }
 
