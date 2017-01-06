@@ -100,7 +100,7 @@ class ProjectDeploy extends Component {
             <div className="row media-body">
               <div className="col-xs-10">
                 <strong>{this.renderFeatureHash(feature)} - {feature.message}</strong> <br/>
-                <small className="text-muted">by <strong>{feature.user}</strong> {moment(feature.createdAt).fromNow() } - {moment(feature.createdAt).format('MMMM Do YYYY, h:mm:ss A')} </small>
+                <small className="text-muted">by <strong>{feature.user}</strong> {moment(feature._created).fromNow() } - {moment(feature._created).format('MMMM Do YYYY, h:mm:ss A')} </small>
               </div>
               <div className="col-xs-2 flex-xs-middle">
                 {this.state.featureHover === feature._id && 
@@ -208,7 +208,7 @@ class ProjectDeploy extends Component {
                     </strong> <br/>
                   </div>
                   <div className="col-xs-12">
-                    <small className="text-muted">by <strong>{release.headFeature.user}</strong> {moment(release.createdAt).fromNow() } - {moment(release.createdAt).format('MMMM Do YYYY, h:mm:ss A')} </small>
+                    <small className="text-muted">by <strong>{release.headFeature.user}</strong> {moment(release._created).fromNow() } - {moment(release._created).format('MMMM Do YYYY, h:mm:ss A')} </small>
                   </div>
                   <div className="col-xs-12">
                     {this.renderReleaseWorkflow(release)}
@@ -247,7 +247,7 @@ class ProjectDeploy extends Component {
                   </strong> <br/>
                 </div>
                 <div className="col-xs-12">
-                  <small className="text-muted">by <strong>{currentRelease.headFeature.user}</strong> {moment(currentRelease.createdAt).fromNow() } - {moment(currentRelease.createdAt).format('MMMM Do YYYY, h:mm:ss A')} </small>
+                  <small className="text-muted">by <strong>{currentRelease.headFeature.user}</strong> {moment(currentRelease._created).fromNow() } - {moment(currentRelease._created).format('MMMM Do YYYY, h:mm:ss A')} </small>
                 </div>
                 <div className="col-xs-12">
                   {this.renderReleaseWorkflow(currentRelease)}
