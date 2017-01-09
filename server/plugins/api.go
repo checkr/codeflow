@@ -134,7 +134,7 @@ type Secret struct {
 
 type Arg struct {
 	Key   string `json:"key"`
-	Value string `json:"value"`
+	Value string `json:"value" role:"secret"`
 }
 
 type DockerBuild struct {

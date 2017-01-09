@@ -801,7 +801,7 @@ func CollectStats(save bool, stats *Statistics) error {
 	}
 
 	// Feature stats
-	if count, err := db.Collection("projects").Collection().Find(bson.M{}).Count(); err != nil {
+	if count, err := db.Collection("features").Collection().Find(bson.M{}).Count(); err != nil {
 		return err
 	} else {
 		stats.Features = count
