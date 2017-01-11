@@ -107,10 +107,14 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 	case plugins.External:
 		serviceType = v1.ServiceTypeLoadBalancer
 		serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-backend-protocol"] = "tcp"
+		serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-connection-draining-enabled"] = "true"
+		serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-connection-draining-timeout"] = "300"
 	case plugins.Office:
 		serviceType = v1.ServiceTypeLoadBalancer
 		serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-internal"] = "0.0.0.0/0"
 		serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-backend-protocol"] = "tcp"
+		serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-connection-draining-enabled"] = "true"
+		serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-connection-draining-timeout"] = "300"
 	}
 	var sslPorts []string
 	for _, p := range payload.ListenerPairs {
