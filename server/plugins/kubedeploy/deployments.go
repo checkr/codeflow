@@ -27,7 +27,7 @@ import (
 )
 
 func genNamespaceName(suggestedEnvironment string, projectSlug string) string {
-	return fmt.Sprintf("%s", projectSlug)
+	return fmt.Sprintf("%s-%s", projectSlug, suggestedEnvironment)
 }
 
 func genDeploymentName(repoName string, serviceName string) string {
