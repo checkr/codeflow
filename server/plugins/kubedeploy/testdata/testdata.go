@@ -166,7 +166,7 @@ func CreateSuccessMixedActionDeploy() agent.Event {
 func CreateFailDeploy() agent.Event {
 	deploy := DeployData("nginx-test-failure", plugins.Create)
 	// Set an Image that's invalid so we can test failure
-	deploy.Docker.Image = "jeremycheckr/deploy-test:INVALID"
+	deploy.Docker.Image = "checkr/deploy-test:INVALID"
 	event := agent.NewEvent(deploy, nil)
 	return event
 }
@@ -225,7 +225,7 @@ func DeployDataMixedActions(name string, actions []plugins.Action) plugins.Docke
 	}
 
 	docker := plugins.Docker{
-		Image: "jeremycheckr/deploy-test:latest",
+		Image: "checkr/deploy-test:latest",
 	}
 
 	kubeDeploy := plugins.DockerDeploy{
@@ -299,7 +299,7 @@ func DeployData(name string, action plugins.Action) plugins.DockerDeploy {
 	})
 
 	docker := plugins.Docker{
-		Image: "jeremycheckr/deploy-test:latest",
+		Image: "checkr/deploy-test:latest",
 	}
 
 	kubeDeploy := plugins.DockerDeploy{

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -26,13 +27,7 @@ import (
 )
 
 func genNamespaceName(suggestedEnvironment string, projectSlug string) string {
-	var environment string
-	if viper.IsSet("plugins.kubedeploy.environment") {
-		environment = viper.GetString("plugins.kubedeploy.environment")
-	} else {
-		environment = suggestedEnvironment
-	}
-	return fmt.Sprintf("%s-%s", environment, projectSlug)
+	return fmt.Sprintf("%s", projectSlug)
 }
 
 func genDeploymentName(repoName string, serviceName string) string {
@@ -389,6 +384,15 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 			commandArgs = commandArray[1:]
 		}
 
+		// Node selector
+		var nodeSelector *metav1.LabelSelector
+		if viper.IsSet("plugins_kubedeploy_node_selector") {
+			arrayKeyValue := strings.SplitAfterN(viper.GetString("plugins_kubedeploy_node_selector"), "=", 2)
+			nodeSelector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{arrayKeyValue[0]: arrayKeyValue[1]},
+			}
+		}
+
 		var revisionHistoryLimit int32 = 10
 		terminationGracePeriodSeconds := int64(600)
 		deployParams := &v1beta1.Deployment{
@@ -400,6 +404,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				Name: deploymentName,
 			},
 			Spec: v1beta1.DeploymentSpec{
+				Selector:             nodeSelector,
 				Replicas:             &replicas,
 				Strategy:             deployStrategy,
 				RevisionHistoryLimit: &revisionHistoryLimit,
