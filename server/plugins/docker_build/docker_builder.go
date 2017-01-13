@@ -121,14 +121,19 @@ func (b *DockerBuilder) build(build *plugins.DockerBuild) error {
 		return err
 	}
 
-	if err := b.dockerClient.TagImage(name, docker.TagImageOptions{
+	return nil
+}
+
+func (b *DockerBuilder) tag(build *plugins.DockerBuild) error {
+	name := fmt.Sprintf("%s/%s:%s.%s", build.Registry.Host, build.Project.Repository, build.Feature.Hash, "codeflow")
+	tagOptions := docker.TagImageOptions{
 		Repo:  fmt.Sprintf("%s/%s", build.Registry.Host, build.Project.Repository),
 		Tag:   "latest",
 		Force: true,
-	}); err != nil {
+	}
+	if err := b.dockerClient.TagImage(name, tagOptions); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -150,19 +155,7 @@ func (b *DockerBuilder) push(build *plugins.DockerBuild) error {
 		return err
 	}
 
-	b.outputBuffer.Write([]byte(fmt.Sprintf("Pushing %s...", "latest")))
-	err = b.dockerClient.PushImage(docker.PushImageOptions{
-		Name:         name,
-		Tag:          "latest",
-		OutputStream: b.outputBuffer,
-	}, docker.AuthConfiguration{
-		Username: build.Registry.Username,
-		Password: build.Registry.Password,
-		Email:    build.Registry.Email,
-	})
-	if err != nil {
-		return err
-	}
+	build.Image = fmt.Sprintf("%s/%s:%s.%s", build.Registry.Host, build.Project.Repository, build.Feature.Hash, "codeflow")
 
 	return nil
 }
