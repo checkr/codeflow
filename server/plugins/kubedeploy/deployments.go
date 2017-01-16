@@ -27,8 +27,8 @@ import (
 )
 
 func genNamespaceName(suggestedEnvironment string, projectSlug string) string {
-	if viper.IsSet("plugins_kubedeploy_environment") {
-		return fmt.Sprintf("%s-%s", viper.GetString("plugins_kubedeploy_environment"), projectSlug)
+	if viper.IsSet("plugins.kubedeploy.environment") {
+		return fmt.Sprintf("%s-%s", viper.GetString("plugins.kubedeploy.environment"), projectSlug)
 	}
 	return fmt.Sprintf("%s-%s", suggestedEnvironment, projectSlug)
 }
