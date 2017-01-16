@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -388,13 +387,13 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 		}
 
 		// Node selector
-		var nodeSelector *metav1.LabelSelector
+		/* var nodeSelector *metav1.LabelSelector
 		if viper.IsSet("plugins.kubedeploy.node.selector") {
 			arrayKeyValue := strings.SplitN(viper.GetString("plugins.kubedeploy.node.selector"), "=", 2)
 			nodeSelector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{arrayKeyValue[0]: arrayKeyValue[1]},
 			}
-		}
+		} */
 
 		var revisionHistoryLimit int32 = 10
 		terminationGracePeriodSeconds := int64(600)
@@ -407,7 +406,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				Name: deploymentName,
 			},
 			Spec: v1beta1.DeploymentSpec{
-				Selector:             nodeSelector,
+				//Selector:             nodeSelector,
 				Replicas:             &replicas,
 				Strategy:             deployStrategy,
 				RevisionHistoryLimit: &revisionHistoryLimit,
