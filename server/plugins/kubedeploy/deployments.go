@@ -390,7 +390,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 		// Node selector
 		var nodeSelector *metav1.LabelSelector
 		if viper.IsSet("plugins_kubedeploy_node_selector") {
-			arrayKeyValue := strings.SplitAfterN(viper.GetString("plugins_kubedeploy_node_selector"), "=", 2)
+			arrayKeyValue := strings.SplitN(viper.GetString("plugins_kubedeploy_node_selector"), "=", 2)
 			nodeSelector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{arrayKeyValue[0]: arrayKeyValue[1]},
 			}
