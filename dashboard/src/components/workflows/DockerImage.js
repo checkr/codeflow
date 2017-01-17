@@ -64,7 +64,7 @@ class DockerImage extends Component {
   render() {
     let { build } = this.props
     return (
-      <div>
+      <span>
         {this.renderBtn()}
         <Modal isOpen={this.state.modal} toggle={this.toggle} className={this.props.className}>
           <ModalHeader toggle={this.toggle}>Docker Image Build Log</ModalHeader>
@@ -77,7 +77,7 @@ class DockerImage extends Component {
             <Button color="secondary" onClick={(e) => this.onCancel(e)}>Close</Button>
           </ModalFooter>
         </Modal>
-      </div>
+      </span>
     )
   }
 }
