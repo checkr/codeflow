@@ -174,7 +174,7 @@ func (x *Projects) services(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	results := db.Collection("services").Find(bson.M{"projectId": project.Id})
+	results := db.Collection("services").Find(bson.M{"projectId": project.Id, "state": bson.M{"$in": []plugins.State{plugins.Waiting, plugins.Running}}})
 	for results.Next(&service) {
 		services = append(services, service)
 	}
@@ -252,7 +252,7 @@ func (x *Projects) deleteServices(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	service.State = plugins.Deleting
+	service.State = plugins.Deleted
 
 	if err := db.Collection("services").Save(&service); err != nil {
 		log.Printf("Services::Save::Error: %v", err.Error())

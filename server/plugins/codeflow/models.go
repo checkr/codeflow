@@ -125,6 +125,7 @@ type Release struct {
 	UserId             bson.ObjectId `bson:"userId" json:"-"`
 	User               User          `bson:"-" json:"user"`
 	State              plugins.State `bson:"state" json:"state"`
+	StateMessage       string        `bson:"stateMessage" json:"stateMessage"`
 	Secrets            []Secret      `bson:"secrets" json:"-"`
 	Services           []Service     `bson:"services" json:"-"`
 	Workflow           []Flow        `bson:"-" json:"workflow"`
