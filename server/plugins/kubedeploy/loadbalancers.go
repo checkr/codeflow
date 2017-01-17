@@ -144,7 +144,7 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 			TargetPort: convPort,
 			Protocol:   v1.Protocol(realProto),
 		}
-		if p.Destination.Protocol == "HTTPS" {
+		if p.Destination.Protocol == "HTTPS" || p.Destination.Protocol == "SSL" {
 			sslPorts = append(sslPorts, fmt.Sprintf("%d", p.Source.Port))
 		}
 		servicePorts = append(servicePorts, newPort)
