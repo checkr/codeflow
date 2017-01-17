@@ -154,6 +154,11 @@ const currentRelease = (state = {}, action = {}) => {
           return action.message.data
         }
       }
+      if (action.message.channel === 'releases') {
+        if (_.isEqual(action.meta.project._id, action.message.data.projectId) && _.isEqual(action.message.data._id, state._id)) {
+          return action.message.data
+        }
+      }
       return state
     }
     default:
@@ -293,6 +298,17 @@ const stats = (state = {}, action = {}) => {
   }
 }
 
+const build = (state = {}, action = {}) => {
+  switch (action.type) {
+    case ActionTypes.BUILD_FETCH_REQUEST:
+      return {}
+    case ActionTypes.BUILD_FETCH_SUCCESS:
+      return action.payload
+    default:
+      return state
+  }
+}
+
 const rootReducer = combineReducers({
   me,
   projects,
@@ -309,7 +325,8 @@ const rootReducer = combineReducers({
   routing,
   form,
   appConfig,
-  stats
+  stats,
+  build
 })
 
 export default rootReducer

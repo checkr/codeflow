@@ -604,3 +604,42 @@ export const fetchStats = (slug = "") => {
     }
   }
 }
+
+export const BUILD_FETCH_REQUEST = 'BUILD_FETCH_REQUEST'
+export const BUILD_FETCH_SUCCESS = 'BUILD_FETCH_SUCCESS'
+export const BUILD_FETCH_FAILURE = 'BUILD_FETCH_FAILURE'
+
+export const fetchBuild = (project_slug, id) => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/projects/${project_slug}/releases/${id}/build`,
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [ BUILD_FETCH_REQUEST, BUILD_FETCH_SUCCESS, BUILD_FETCH_FAILURE ]
+    }
+  }
+}
+
+export const BUILD_UPDATE_REQUEST = 'BUILD_UPDATE_REQUEST'
+export const BUILD_UPDATE_SUCCESS = 'BUILD_UPDATE_SUCCESS'
+export const BUILD_UPDATE_FAILURE = 'BUILD_UPDATE_FAILURE'
+
+export const updateBuild = (project_slug, id) => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/projects/${project_slug}/releases/${id}/build`,
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [ BUILD_UPDATE_REQUEST, BUILD_UPDATE_SUCCESS, BUILD_UPDATE_FAILURE ]
+    }
+  }
+}
+

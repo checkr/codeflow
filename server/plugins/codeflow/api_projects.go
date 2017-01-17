@@ -47,6 +47,8 @@ func (x *Projects) Register(api *rest.Api) []*rest.Route {
 		rest.Get(x.Path+"/#slug/features", x.features),
 		rest.Get(x.Path+"/#slug", x.project),
 		rest.Post(x.Path, x.createProjects),
+		rest.Get(x.Path+"/#slug/releases/#id/build", x.releaseBuild),
+		rest.Post(x.Path+"/#slug/releases/#id/build", x.updateReleaseBuild),
 	)
 
 	log.Printf("Started the codeflow projects handler on %s\n", x.Path)
@@ -668,4 +670,78 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	w.WriteJson(projectSettingsResponse)
+}
+
+func (x *Projects) releaseBuild(w rest.ResponseWriter, r *rest.Request) {
+	release := Release{}
+	project := Project{}
+	build := Build{}
+	releaseId := r.PathParam("id")
+
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := db.Collection("releases").FindById(bson.ObjectIdHex(releaseId), &release); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Releases::FindOne::DocumentNotFoundError: releaseId: `%v`", releaseId)
+		} else {
+			log.Printf("Releases::FindOne::Error: %s", err.Error())
+		}
+
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := db.Collection("builds").FindOne(bson.M{"featureHash": release.HeadFeature.Hash}, &build); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Builds::FindOne::DocumentNotFoundError: featureHash: `%v`", release.HeadFeature.Hash)
+		} else {
+			log.Printf("Builds::FindOne::Error: %s", err.Error())
+		}
+	}
+
+	w.WriteJson(build)
+}
+
+func (x *Projects) updateReleaseBuild(w rest.ResponseWriter, r *rest.Request) {
+	release := Release{}
+	project := Project{}
+	build := Build{}
+	releaseId := r.PathParam("id")
+
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := db.Collection("releases").FindById(bson.ObjectIdHex(releaseId), &release); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Releases::FindOne::DocumentNotFoundError: releaseId: `%v`", releaseId)
+		} else {
+			log.Printf("Releases::FindOne::Error: %s", err.Error())
+		}
+
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	release.State = plugins.Waiting
+	if err := db.Collection("releases").Save(&release); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := db.Collection("builds").FindOne(bson.M{"featureHash": release.HeadFeature.Hash}, &build); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Builds::FindOne::DocumentNotFoundError: featureHash: `%v`", release.HeadFeature.Hash)
+		} else {
+			log.Printf("Builds::FindOne::Error: %s", err.Error())
+		}
+	}
+
+	DockerBuildRebuild(&release)
+
+	w.WriteJson(build)
 }

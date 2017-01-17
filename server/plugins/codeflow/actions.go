@@ -823,3 +823,90 @@ func CollectStats(save bool, stats *Statistics) error {
 
 	return nil
 }
+
+func DockerBuildRebuild(r *Release) error {
+	project := Project{}
+	secrets := []Secret{}
+
+	if err := db.Collection("projects").FindById(r.ProjectId, &project); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Projects::FindById::DocumentNotFoundError: _id: `%v`", r.ProjectId)
+		} else {
+			log.Printf("Projects::FindById::Error: %s", err.Error())
+		}
+		return err
+	}
+
+	// TODO: make type dynamic
+	build := Build{
+		FeatureHash: r.HeadFeature.Hash,
+		Type:        "DockerImage",
+		State:       plugins.Waiting,
+	}
+
+	if err := db.Collection("builds").FindOne(bson.M{"featureHash": r.HeadFeature.Hash}, &build); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Builds::Save: hash: `%v`", r.HeadFeatureId)
+			if err := db.Collection("builds").Save(&build); err != nil {
+				log.Printf("Builds::Save::Error: %v", err.Error())
+				return err
+			}
+		} else {
+			log.Printf("Builds::FindOne::Error: %s", err.Error())
+			return err
+		}
+	}
+
+	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "type": plugins.Build, "deleted": false})
+	secret := Secret{}
+	for results.Next(&secret) {
+		secrets = append(secrets, secret)
+	}
+
+	var buildArgs []plugins.Arg
+	for _, secret := range secrets {
+		arg := plugins.Arg{
+			Key:   secret.Key,
+			Value: secret.Value,
+		}
+		buildArgs = append(buildArgs, arg)
+	}
+
+	dockerBuildEvent := plugins.DockerBuild{
+		Action: plugins.Create,
+		State:  plugins.Waiting,
+		Project: plugins.Project{
+			Slug:       project.Slug,
+			Repository: project.Repository,
+		},
+		Git: plugins.Git{
+			SshUrl:        project.GitSshUrl,
+			RsaPrivateKey: project.RsaPrivateKey,
+			RsaPublicKey:  project.RsaPublicKey,
+		},
+		Feature: plugins.Feature{
+			Hash:       r.HeadFeature.Hash,
+			ParentHash: r.HeadFeature.ParentHash,
+			User:       r.HeadFeature.User,
+			Message:    r.HeadFeature.Message,
+		},
+		Registry: plugins.DockerRegistry{
+			Host:     viper.GetString("plugins.docker_build.registry_host"),
+			Username: viper.GetString("plugins.docker_build.registry_username"),
+			Password: viper.GetString("plugins.docker_build.registry_password"),
+			Email:    viper.GetString("plugins.docker_build.registry_user_email"),
+		},
+		BuildArgs: buildArgs,
+	}
+
+	cf.Events <- agent.NewEvent(dockerBuildEvent, nil)
+
+	wsMsg := plugins.WebsocketMsg{
+		Channel: "releases",
+		Payload: r,
+	}
+
+	cf.Events <- agent.NewEvent(wsMsg, nil)
+
+	return nil
+}

@@ -5,6 +5,7 @@ import { Alert } from 'reactstrap'
 import { fetchProjectFeatures, createProjectRelease, createProjectRollbackTo, fetchProjectReleases, fetchProjectCurrentRelease } from '../actions'
 import moment from 'moment'
 import Pagination from './Pagination'
+import DockerImage from './workflows/DockerImage'
 
 const loadData = props => {
   if (props.project.slug) {
@@ -149,6 +150,10 @@ class ProjectDeploy extends Component {
     }
 
     let flows = _.map(release.workflow, (wf) => {
+      if (wf.name === "DockerImage") {
+        return <DockerImage workflow={wf}/>
+      }
+
       switch(wf.state) {
         case 'running':
           return <span className="tag tag-warning flow" key={wf._id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
