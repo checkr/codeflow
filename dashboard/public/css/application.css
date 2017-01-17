@@ -406,6 +406,11 @@ a {
 .flows .flow {
   padding: 7px 5px;
   margin-right: 10px;
+  border-color: #ffffff;
+}
+
+.flows .flow:hover {
+  border-color: #cccccc;
 }
 
 .flows {
