@@ -22,6 +22,19 @@ const renderSelect = field => {
   )
 }
 
+const renderProtocolSelect = field => {
+  return (
+    <select {...field.input} name={field.name} className="form-control">
+      <option disabled value="">Choose protocol</option>
+      <option key="http" value="HTTP">HTTP</option>
+      <option key="https" value="HTTPS">HTTPS</option>
+      <option key="ssl" value="SSL">SSL</option>
+      <option key="tcp" value="TCP">TCP</option>
+      <option key="udp" value="UDP">UDP</option>
+    </select>
+  )
+}
+
 const renderListenerSelect = field => {
   if (_.isEmpty(field.service.listeners)) {
     return null
@@ -45,44 +58,32 @@ const renderListeners = ({ fields, service }) => {
   <div className="col-xs-12">
     { (fields.length > 0) &&
     <div className="row">
-      <div className="col-xs-3">
+      <div className="col-xs-4">
         <label>Port</label>
       </div>
-      <div className="col-xs-3">
+      <div className="col-xs-4">
         <label>Service Port</label>
       </div>
       <div className="col-xs-3">
         <label>Service Protocol</label>
       </div>
-      <div className="col-xs-3" />
+      <div className="col-xs-1" />
     </div>
     }
     {fields.map((s, i) =>
     <div className="row" key={i}>
-      <div className="col-xs-3">
+      <div className="col-xs-4">
         <div className="form-group">
           <Field name={'listenerPairs['+i+'].source.port'} component={renderInput} type="number" step="1" min="0" max="65535" normalize={normalizeInt}/>
         </div>
       </div>
-      <div className="col-xs-3">
+      <div className="col-xs-4">
         <div className="form-group">
           <Field className="form-control" name={'listenerPairs['+i+'].destination.port'} service={service} component={renderListenerSelect} normalize={normalizeInt}/>
         </div>
       </div>
-      <div className="col-xs-5">
-        <div className="form-group">
-          <div className="form-group destination-protocol">
-            <label className="form-check-inline">
-              <Field className="form-check-input" name={'listenerPairs['+i+'].destination.protocol'} component={renderInput} type="radio" value="HTTPS"/> HTTPS
-            </label>
-            <label className="form-check-inline">
-              <Field className="form-check-input" name={'listenerPairs['+i+'].destination.protocol'} component={renderInput} type="radio" value="TCP"/> TCP
-            </label>
-            <label className="form-check-inline">
-              <Field className="form-check-input" name={'listenerPairs['+i+'].destination.protocol'} component={renderInput} type="radio" value="UDP"/> UDP
-            </label>
-          </div>
-        </div>
+      <div className="col-xs-3">
+        <Field className="form-control" name={'listenerPairs['+i+'].destination.protocol'} component={renderProtocolSelect}/>
       </div>
       <div className="col-xs-1">
         <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-service-action-right" onClick={() => fields.remove(i)}>
