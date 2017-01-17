@@ -74,10 +74,23 @@ class Pagination extends Component {
   // render all page buttons with active page based on props
   renderPageButtons() {
     let buttons = []
-    for (var i=0; i<this.props.totalPages; i++) {
-      buttons.push(i === (this.props.page-1) ?
-        <PaginationItem key={i} className="active"><PaginationLink disabled href="#">{i+1}</PaginationLink></PaginationItem>:
-        <PaginationItem key={i}><PaginationLink href="#" onClick={(e) => this.handlePageClick(e)}>{i+1}</PaginationLink></PaginationItem>)
+    for (var i=1; i<=this.props.totalPages; i++) {
+      if (this.props.totalPages > 7) {
+        if (i === 4) {
+          if (this.props.page > 3 && this.props.page < this.props.totalPages - 3) {
+            buttons.push(<PaginationItem key={i} className="active"><PaginationLink disabled href="#">... {this.props.page} ...</PaginationLink></PaginationItem>)
+          } else {
+            buttons.push(<PaginationItem key={i}><PaginationLink disabled href="#">...</PaginationLink></PaginationItem>)
+          }
+        }
+        if (i > 3 && i < this.props.totalPages - 3) {
+          continue
+        }
+      }
+      buttons.push(i === (this.props.page) ?
+        <PaginationItem key={i} className="active"><PaginationLink disabled href="#">{i}</PaginationLink></PaginationItem>:
+        <PaginationItem key={i}><PaginationLink href="#" onClick={(e) => this.handlePageClick(e)}>{i}</PaginationLink></PaginationItem>
+      )
     }
 
     return buttons

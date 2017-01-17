@@ -151,7 +151,7 @@ class ProjectDeploy extends Component {
 
     let flows = _.map(release.workflow, (wf) => {
       if (wf.name === "DockerImage") {
-        return <DockerImage workflow={wf}/>
+        return <DockerImage key={wf._id} workflow={wf}/>
       }
 
       switch(wf.state) {
