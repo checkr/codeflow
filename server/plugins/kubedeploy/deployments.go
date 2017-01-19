@@ -164,21 +164,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 	}
 	curTime := 0
 
-	var rollbackTargets []plugins.Service
-	var allDeleteSuccess int
-	totalDeploysRequested := 0
-	var totalDeletesRequested int
-	for _, service := range data.Services {
-		switch service.Action {
-		case plugins.Create:
-			totalDeploysRequested++
-		case plugins.Update:
-			totalDeploysRequested++
-		case plugins.Destroy:
-			totalDeploysRequested++
-			totalDeletesRequested++
-		}
-	}
+	totalDeploysRequested := len(data.Services)
 
 	createNamespaceErr := x.createNamespaceIfNotExists(namespace, coreInterface)
 	if createNamespaceErr != nil {
@@ -465,12 +451,8 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				log.Printf("Failed to create service deployment %s, with error: %s", deploymentName, myError)
 				data.Services[index].State = plugins.Failed
 				data.Services[index].StateMessage = fmt.Sprintf("Error creating deployment: %s", myError)
-				// continue so that rollback can happen for all services
-				// shorten the timeout in this case so that we can rollback without waiting
+				// shorten the timeout in this case so that we can fail without waiting
 				curTime = timeout
-			} else {
-				// Track rollbackTargets to exclude services that failed to create/updates from the coming rollback.
-				rollbackTargets = append(rollbackTargets, service)
 			}
 		} else {
 			// Deployment exists, update deployment with new configuration
@@ -479,12 +461,8 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				log.Printf("Failed to update service deployment %s, with error: %s", deploymentName, myError)
 				data.Services[index].State = plugins.Failed
 				data.Services[index].StateMessage = fmt.Sprintf("Failed to update deployment %s, with error: %s", deploymentName, myError)
-				// continue so that rollback can happen for all services
-				// shorten the timeout in this case so that we can rollback without waiting
+				// shorten the timeout in this case so that we can fail without waiting
 				curTime = timeout
-			} else {
-				// Track rollbackTargets to exclude services that failed to create/update from the coming rollback.
-				rollbackTargets = append(rollbackTargets, service)
 			}
 		}
 	} // All service deployments initiated.
@@ -521,97 +499,81 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 			if successfulDeploys == totalDeploysRequested {
 				// all success!
 				log.Printf("All deployments successful.")
-				// delete the deployments that were requested to be deleted
-				//  if anything fails to delete, we need to initiate rollback also.
-				allDeleteSuccess = 0
-				for di, dService := range data.Services {
-					if dService.Action != plugins.Destroy {
-						continue
-					}
-					deleteName := genDeploymentName(data.Project.Slug, dService.Name)
-					deleteError := depInterface.Deployments(namespace).Delete(deleteName, &v1.DeleteOptions{})
-					if deleteError != nil {
-						// If the deletion of a service fails, break out of the loop and continue toward rollback.
-						errMessage := fmt.Sprintf("Error when deleting, aborting deploy: %s", deleteError)
-						data.Services[di].State = plugins.Failed
-						data.Services[di].StateMessage = errMessage
-						break
-					} else {
-						data.Services[di].State = plugins.Complete
-						allDeleteSuccess++
-					}
-				}
-				if allDeleteSuccess == totalDeletesRequested {
-					// send success message and return.
-					x.sendDDSuccessResponse(e, data.Services)
+				x.sendDDSuccessResponse(e, data.Services)
+
+				// cleanup Orphans! (these are deployments leftover from rename or etc.)
+				allDeploymentsList, listErr := depInterface.Deployments(namespace).List(v1.ListOptions{})
+				if listErr != nil {
+					// If we can't list the deployments just return.  We have already sent the success message.
+					log.Printf("Fatal Error listing deployments during cleanup.  %s", listErr)
 					return nil
 				}
+				var foundIt bool
+				var orphans []v1beta1.Deployment
+				for _, deployment := range allDeploymentsList.Items {
+					foundIt = false
+					for _, service := range data.Services {
+						if deployment.Name == genDeploymentName(data.Project.Slug, service.Name) {
+							foundIt = true
+						}
+					}
+					if foundIt == false {
+						orphans = append(orphans, deployment)
+					}
+				}
+				// Preload list of all replica sets
+				repSets, repErr := depInterface.ReplicaSets(namespace).List(v1.ListOptions{})
+				if repErr != nil {
+					log.Printf("Error retrieving list of replicasets for %s", namespace)
+					return nil
+				}
+				// Preload list of all pods
+				allPods, podErr := coreInterface.Pods(namespace).List(v1.ListOptions{})
+				if podErr != nil {
+					log.Printf("Error retrieving list of pods for %s", namespace)
+					return nil
+				}
+				// Delete the deployments
+				for _, deleteThis := range orphans {
+					log.Printf("Deleting deployment orphan: %s", deleteThis.Name)
+					deleteError := depInterface.Deployments(namespace).Delete(deleteThis.Name, &v1.DeleteOptions{})
+					if deleteError != nil {
+						log.Printf("Error when deleting: %s", deleteError)
+					}
+					// Delete the replicasets (cascade)
+					for _, repSet := range repSets.Items {
+						if repSet.ObjectMeta.Labels["app"] == deleteThis.Name {
+							log.Printf("Deleting replicaset orphan: %s", repSet.Name)
+							repDelErr := depInterface.ReplicaSets(namespace).Delete(repSet.Name, &v1.DeleteOptions{})
+							if repDelErr != nil {
+								log.Printf("Error '%s' while deleting replica set %s", repDelErr, repSet.Name)
+							}
+						}
+					}
+					// Delete the pods (cascade) or scale down the repset
+					for _, pod := range allPods.Items {
+						if pod.ObjectMeta.Labels["app"] == deleteThis.Name {
+							log.Printf("Deleting pod orphan: %s", pod.Name)
+							podDelErr := coreInterface.Pods(namespace).Delete(pod.Name, &v1.DeleteOptions{})
+							if podDelErr != nil {
+								log.Printf("Error '%s' while deleting pod %s", podDelErr, pod.Name)
+							}
+						}
+					}
+				}
+				// Already sent success, return.
+				return nil
 			}
 		}
 		if curTime >= timeout {
 			// timeout and get ready to rollback!
 			log.Printf("Error, timeout reached waiting for all deployments to succeed.")
+			x.sendDDErrorResponse(e, data.Services, "Error: One or more deployments failed.")
 			break
 		}
 		time.Sleep(5 * time.Second)
 		curTime += 5
 	}
 
-	// Rollback ALL services if anything went wrong.
-	successfulRollbacks := 0
-	if successfulDeploys != totalDeploysRequested || allDeleteSuccess != totalDeletesRequested {
-		log.Printf("Rolling back all deployments for project %s", data.Project.Slug)
-		for _, service := range rollbackTargets {
-			deploymentName := genDeploymentName(data.Project.Slug, service.Name)
-			switch service.Action {
-			case plugins.Create:
-				// Delete the service
-				deleteError := depInterface.Deployments(namespace).Delete(deploymentName, &v1.DeleteOptions{})
-				if deleteError != nil {
-					log.Printf("Error during rollback when deleting: %s", deleteError)
-				} else {
-					successfulRollbacks++
-				}
-			case plugins.Destroy:
-				// Rollback the service to the previous version
-				deploymentRollback := &v1beta1.DeploymentRollback{
-					TypeMeta: metav1.TypeMeta{
-						Kind:       "Deployment",
-						APIVersion: "extensions/v1beta1",
-					},
-					Name: deploymentName,
-					RollbackTo: v1beta1.RollbackConfig{
-						Revision: 0,
-					},
-				}
-				rollbackError := depInterface.Deployments(namespace).Rollback(deploymentRollback)
-				if rollbackError != nil {
-					log.Printf("Error '%s' rolling back deployment for %s", rollbackError, deploymentName)
-				} else {
-					successfulRollbacks++
-				}
-			case plugins.Update:
-				// Rollback the service to the previous version
-				deploymentRollback := &v1beta1.DeploymentRollback{
-					TypeMeta: metav1.TypeMeta{
-						Kind:       "Deployment",
-						APIVersion: "extensions/v1beta1",
-					},
-					Name: deploymentName,
-					RollbackTo: v1beta1.RollbackConfig{
-						Revision: 0,
-					},
-				}
-				rollbackError := depInterface.Deployments(namespace).Rollback(deploymentRollback)
-				if rollbackError != nil {
-					log.Printf("Error '%s' rolling back deployment for %s", rollbackError, deploymentName)
-				} else {
-					successfulRollbacks++
-				}
-			}
-		}
-		// Send fail message
-		x.sendDDErrorResponse(e, data.Services, "Error: One or more deployments failed. Rollback initiated.")
-	} // All rollbacks initiated.
 	return nil
 }

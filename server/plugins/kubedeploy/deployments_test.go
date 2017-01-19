@@ -59,6 +59,26 @@ func (suite *TestDeployments) TestFailedDeployment() {
 	}
 }
 
+func (suite *TestDeployments) TestStragglerDeployment() {
+	var e agent.Event
+	// Create a successful deploy
+	suite.agent.Events <- testdata.CreateSuccessDeploy()
+	// Consume the in-progress message
+	e = suite.agent.GetTestEvent("plugins.DockerDeploy:status", 120)
+	assert.Equal(suite.T(), string(plugins.Running), string(e.Payload.(plugins.DockerDeploy).State))
+	// Consume the success message
+	e = suite.agent.GetTestEvent("plugins.DockerDeploy:status", 120)
+	assert.Equal(suite.T(), string(plugins.Complete), string(e.Payload.(plugins.DockerDeploy).State))
+	// Rename the services and re-deploy
+	suite.agent.Events <- testdata.CreateSuccessDeployRenamed()
+	// Consume the in-progress message
+	e = suite.agent.GetTestEvent("plugins.DockerDeploy:status", 120)
+	assert.Equal(suite.T(), string(plugins.Running), string(e.Payload.(plugins.DockerDeploy).State))
+	// Consume the success message
+	e = suite.agent.GetTestEvent("plugins.DockerDeploy:status", 120)
+	assert.Equal(suite.T(), string(plugins.Complete), string(e.Payload.(plugins.DockerDeploy).State))
+}
+
 func TestKubeDeployDeployments(t *testing.T) {
 	suite.Run(t, new(TestDeployments))
 }

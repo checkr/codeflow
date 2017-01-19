@@ -74,7 +74,7 @@ func LBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalancer {
 	lbe := plugins.LoadBalancer{
 		Name:        "nginx-test-lb-asdf1234",
 		Action:      action,
-		Environment: "testing",
+		Environment: "testing2",
 		Type:        t,
 		Project:     project,
 		Service:     service,
@@ -112,7 +112,7 @@ func UpdateLBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalan
 	lbe := plugins.LoadBalancer{
 		Name:        "nginx-test-lb-asdf1234",
 		Action:      action,
-		Environment: "testing",
+		Environment: "testing2",
 		Type:        t,
 		Project:     project,
 		Service:     service,
@@ -150,9 +150,15 @@ func CreateSuccessDeploy() agent.Event {
 	return event
 }
 
+func CreateSuccessDeployRenamed() agent.Event {
+	deploy := DeployDataRenamed("nginx-test-success", plugins.Create)
+	event := agent.NewEvent(deploy, nil)
+	return event
+}
+
 func CreateDockerSocketDeploy() agent.Event {
 	deploy := DeployData("checkr-codeflow", plugins.Create)
-	deploy.Environment = "testing"
+	deploy.Environment = "testing2"
 	event := agent.NewEvent(deploy, nil)
 	return event
 }
@@ -231,7 +237,81 @@ func DeployDataMixedActions(name string, actions []plugins.Action) plugins.Docke
 	kubeDeploy := plugins.DockerDeploy{
 		Action:      plugins.Create,
 		Docker:      docker,
-		Environment: "testing",
+		Environment: "testing2",
+		Project:     project,
+		Timeout:     60,
+		Release:     release,
+		Services:    serviceArray,
+		Secrets: []plugins.Secret{
+			plugins.Secret{
+				Key:   "MY_SECRET_KEY",
+				Value: "MY_SECRET_VALUE",
+				Type:  plugins.Env,
+			},
+		},
+	}
+	return kubeDeploy
+}
+
+func DeployDataRenamed(name string, action plugins.Action) plugins.DockerDeploy {
+	project := plugins.Project{
+		Slug: name,
+	}
+
+	headFeature := plugins.Feature{
+		Message:    "test1",
+		User:       "jeremy@checkr.com",
+		Hash:       "112",
+		ParentHash: "112",
+	}
+
+	tailFeature := plugins.Feature{
+		Message:    "test2",
+		User:       "jeremy@checkr.com",
+		Hash:       "456",
+		ParentHash: "456",
+	}
+
+	release := plugins.Release{
+		HeadFeature: headFeature,
+		TailFeature: tailFeature,
+	}
+
+	listener := plugins.Listener{
+		Port:     80,
+		Protocol: "TCP",
+	}
+
+	var serviceArray []plugins.Service
+
+	// Two web services
+	for i := 0; i < 2; i++ {
+		serviceArray = append(serviceArray, plugins.Service{
+			Action:    action,
+			Name:      fmt.Sprintf("newguy%d", i),
+			Command:   "nginx -g 'daemon off;'",
+			Listeners: []plugins.Listener{listener},
+			State:     plugins.Waiting,
+			Replicas:  1,
+		})
+	}
+	// One worker
+	serviceArray = append(serviceArray, plugins.Service{
+		Action:   action,
+		Name:     "worker",
+		Command:  "/bin/sh -c 'while(/bin/true); do sleep 1; echo waiting forever...; done'",
+		State:    plugins.Waiting,
+		Replicas: 1,
+	})
+
+	docker := plugins.Docker{
+		Image: "checkr/deploy-test:latest",
+	}
+
+	kubeDeploy := plugins.DockerDeploy{
+		Action:      action,
+		Docker:      docker,
+		Environment: "testing2",
 		Project:     project,
 		Timeout:     60,
 		Release:     release,
@@ -305,7 +385,7 @@ func DeployData(name string, action plugins.Action) plugins.DockerDeploy {
 	kubeDeploy := plugins.DockerDeploy{
 		Action:      action,
 		Docker:      docker,
-		Environment: "testing",
+		Environment: "testing2",
 		Project:     project,
 		Timeout:     60,
 		Release:     release,
