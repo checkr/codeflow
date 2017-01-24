@@ -275,7 +275,7 @@ func (x *Projects) extensions(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	results := db.Collection("extensions").Find(bson.M{"projectId": project.Id, "state": bson.M{"$in": []plugins.State{plugins.Waiting, plugins.Running, plugins.Complete}}})
+	results := db.Collection("extensions").Find(bson.M{"projectId": project.Id, "state": bson.M{"$in": []plugins.State{plugins.Waiting, plugins.Running, plugins.Complete, plugins.Failed}}})
 	for results.Next(&extension) {
 		extensions = append(extensions, extension)
 	}
