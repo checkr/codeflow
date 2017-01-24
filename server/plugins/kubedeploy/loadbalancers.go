@@ -108,11 +108,21 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 		serviceType = v1.ServiceTypeLoadBalancer
 		serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-connection-draining-enabled"] = "true"
 		serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-connection-draining-timeout"] = "300"
+		if viper.IsSet("plugins.kubedeploy.access_log_s3_bucket") {
+			serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-access-log-enabled"] = "true"
+			serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name"] = viper.GetString("plugins.kubedeploy.access_log_s3_bucket")
+			serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix"] = fmt.Sprintf("%s/%s", payload.Project.Slug, payload.Service.Name)
+		}
 	case plugins.Office:
 		serviceType = v1.ServiceTypeLoadBalancer
 		serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-internal"] = "0.0.0.0/0"
 		serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-connection-draining-enabled"] = "true"
 		serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-connection-draining-timeout"] = "300"
+		if viper.IsSet("plugins.kubedeploy.access_log_s3_bucket") {
+			serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-access-log-enabled"] = "true"
+			serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name"] = viper.GetString("plugins.kubedeploy.access_log_s3_bucket")
+			serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix"] = fmt.Sprintf("%s/%s", payload.Project.Slug, payload.Service.Name)
+		}
 	}
 	var sslPorts []string
 	for _, p := range payload.ListenerPairs {
@@ -221,6 +231,8 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 			time.Sleep(time.Second * 5)
 			timeout -= 5
 		}
+	} else {
+		ELBDNSName = fmt.Sprintf("%s.%s", payload.Name, genNamespaceName(payload.Environment, payload.Project.Slug))
 	}
 	x.sendLBResponse(e, payload.Service, plugins.Complete, "", ELBDNSName)
 
