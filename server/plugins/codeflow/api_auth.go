@@ -22,8 +22,12 @@ type Auth struct {
 }
 
 func (a *Auth) Register(api *rest.Api) []*rest.Route {
+	if viper.GetString("plugins.codeflow.jwt_secret_key") == "" {
+		panic("plugins.codeflow.jwt_secret_key is empty")
+	}
+
 	jwt_middleware := &jwt_m.JWTMiddleware{
-		Key:        []byte("secret key"),
+		Key:        []byte(viper.GetString("plugins.codeflow.jwt_secret_key")),
 		Realm:      "jwt auth",
 		Timeout:    time.Hour * 24,
 		MaxRefresh: time.Hour * 48,
