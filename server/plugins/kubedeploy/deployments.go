@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/pkg/api/errors"
 	"k8s.io/client-go/pkg/api/resource"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/util"
 	"k8s.io/client-go/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
@@ -89,7 +89,7 @@ func (x *KubeDeploy) createDockerIOSecretIfNotExists(namespace string, coreInter
 					Kind:       "Secret",
 					APIVersion: "v1",
 				},
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "docker-io",
 					Namespace: namespace,
 				},
@@ -119,7 +119,7 @@ func (x *KubeDeploy) createNamespaceIfNotExists(namespace string, coreInterface 
 					Kind:       "Namespace",
 					APIVersion: "v1",
 				},
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name: namespace,
 				},
 			}
@@ -193,7 +193,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%v-", data.Project.Slug),
 			Namespace:    namespace,
 		},
@@ -387,7 +387,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				Kind:       "Deployment",
 				APIVersion: "extensions/v1beta1",
 			},
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: deploymentName,
 			},
 			Spec: v1beta1.DeploymentSpec{
@@ -395,7 +395,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				Strategy:             deployStrategy,
 				RevisionHistoryLimit: &revisionHistoryLimit,
 				Template: v1.PodTemplateSpec{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:   deploymentName,
 						Labels: map[string]string{"app": deploymentName},
 					},
@@ -502,7 +502,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				x.sendDDSuccessResponse(e, data.Services)
 
 				// cleanup Orphans! (these are deployments leftover from rename or etc.)
-				allDeploymentsList, listErr := depInterface.Deployments(namespace).List(v1.ListOptions{})
+				allDeploymentsList, listErr := depInterface.Deployments(namespace).List(metav1.ListOptions{})
 				if listErr != nil {
 					// If we can't list the deployments just return.  We have already sent the success message.
 					log.Printf("Fatal Error listing deployments during cleanup.  %s", listErr)
@@ -522,13 +522,13 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 					}
 				}
 				// Preload list of all replica sets
-				repSets, repErr := depInterface.ReplicaSets(namespace).List(v1.ListOptions{})
+				repSets, repErr := depInterface.ReplicaSets(namespace).List(metav1.ListOptions{})
 				if repErr != nil {
 					log.Printf("Error retrieving list of replicasets for %s", namespace)
 					return nil
 				}
 				// Preload list of all pods
-				allPods, podErr := coreInterface.Pods(namespace).List(v1.ListOptions{})
+				allPods, podErr := coreInterface.Pods(namespace).List(metav1.ListOptions{})
 				if podErr != nil {
 					log.Printf("Error retrieving list of pods for %s", namespace)
 					return nil

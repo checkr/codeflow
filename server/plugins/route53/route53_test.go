@@ -9,6 +9,8 @@ import (
 	"github.com/checkr/codeflow/server/plugins/kubedeploy/testdata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+
+	_ "github.com/checkr/codeflow/server/plugins/kubedeploy"
 )
 
 type TestRoute53 struct {
