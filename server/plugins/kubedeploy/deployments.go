@@ -416,11 +416,11 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 								Ports:   deployPorts,
 								Resources: v1.ResourceRequirements{
 									Limits: v1.ResourceList{
-										v1.ResourceCPU:    resource.MustParse("500m"),
+										v1.ResourceCPU:    resource.MustParse("1000m"),
 										v1.ResourceMemory: resource.MustParse("1Gi"),
 									},
 									Requests: v1.ResourceList{
-										v1.ResourceCPU:    resource.MustParse("300m"),
+										v1.ResourceCPU:    resource.MustParse("500m"),
 										v1.ResourceMemory: resource.MustParse("512Mi"),
 									},
 								},
