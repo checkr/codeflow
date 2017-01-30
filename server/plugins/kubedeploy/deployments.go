@@ -367,11 +367,6 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 
 		// Command parsing into entrypoint vs. args
 		commandArray, _ := shlex.Split(service.Command)
-		commandEntryPoint := commandArray[0]
-		var commandArgs []string
-		if len(commandArray) > 1 {
-			commandArgs = commandArray[1:]
-		}
 
 		// Node selector
 		var nodeSelector map[string]string
@@ -409,18 +404,17 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 						},
 						Containers: []v1.Container{
 							v1.Container{
-								Name:    service.Name,
-								Image:   data.Docker.Image,
-								Command: []string{commandEntryPoint},
-								Args:    commandArgs,
-								Ports:   deployPorts,
+								Name:  service.Name,
+								Image: data.Docker.Image,
+								Ports: deployPorts,
+								Args:  commandArray,
 								Resources: v1.ResourceRequirements{
 									Limits: v1.ResourceList{
-										v1.ResourceCPU:    resource.MustParse("500m"),
+										v1.ResourceCPU:    resource.MustParse("1000m"),
 										v1.ResourceMemory: resource.MustParse("1Gi"),
 									},
 									Requests: v1.ResourceList{
-										v1.ResourceCPU:    resource.MustParse("300m"),
+										v1.ResourceCPU:    resource.MustParse("500m"),
 										v1.ResourceMemory: resource.MustParse("512Mi"),
 									},
 								},
@@ -438,6 +432,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				},
 			},
 		}
+
 		log.Printf("Getting list of deployments matching %s", deploymentName)
 		_, err := depInterface.Deployments(namespace).Get(deploymentName, metav1.GetOptions{})
 		var myError error
