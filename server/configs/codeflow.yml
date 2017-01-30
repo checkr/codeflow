@@ -13,6 +13,8 @@ plugins:
     github:
       path: "/github"
   codeflow:
+    logs_url: "https://example.com/##PROJECT-NAMESPACE##"
+    jwt_secret_key:
     workers: 1
     allowed_origins:
       - "http://localhost:3000"

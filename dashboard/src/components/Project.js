@@ -1,6 +1,6 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import { Nav } from 'reactstrap'
+import { Nav, NavLink } from 'reactstrap'
 import NavItem from '../components/NavItem'
 import ProjectInit from '../components/ProjectInit'
 import ProjectResources from '../components/ProjectResources'
@@ -71,6 +71,7 @@ class ProjectPage extends Component {
           <NavItem to={'/projects/' + project_slug + '/deploy'} classNames="nav-item">Deploy</NavItem>
           <NavItem to={'/projects/' + project_slug + '/resources'} classNames="nav-item">Resources</NavItem>
           <NavItem to={'/projects/' + project_slug + '/settings'} classNames="nav-item">Settings</NavItem>
+          <NavLink href={project.logsUrl} target="_blank" className="float-xs-right">Logs</NavLink>
         </Nav>
 
         {this.renderSection(project)} 

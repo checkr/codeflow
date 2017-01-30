@@ -16,15 +16,19 @@ import (
 func CurrentProject(r *rest.Request, project *Project) error {
 	slug := r.PathParam("slug")
 
-	if err := db.Collection("projects").FindOne(bson.M{"slug": slug}, &project); err != nil {
-		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
-			log.Printf("Projects::FindOne::DocumentNotFoundError: slug: `%v`", slug)
-		} else {
-			log.Printf("Projects::FindOne::Error: %s", err.Error())
-		}
-		return err
-	}
+	results := db.Collection("projects").Find(bson.M{"slug": slug})
+	results.Query.Limit(1)
+	hasNext := results.Next(project)
 
+	if !hasNext {
+		if results.Error != nil {
+			log.Printf("Users::Find::Error: %s", results.Error)
+			return results.Error
+		} else {
+			log.Printf("Users::FindOne::DocumentNotFoundError: username: `%v`", r.Env["REMOTE_USER"])
+			return &bongo.DocumentNotFoundError{}
+		}
+	}
 	return nil
 }
 

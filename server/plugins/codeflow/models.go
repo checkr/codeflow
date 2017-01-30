@@ -2,12 +2,15 @@ package codeflow
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"regexp"
+	"strings"
 
 	"github.com/checkr/codeflow/server/plugins"
 	"github.com/extemporalgenome/slug"
 	"github.com/maxwellhealth/bongo"
+	"github.com/spf13/viper"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -32,6 +35,12 @@ type Project struct {
 	ContinuousIntegration bool     `bson:"continuousIntegration" json:"continuousIntegration"`
 	ContinuousDelivery    bool     `bson:"continuousDelivery" json:"continuousDelivery"`
 	Workflows             []string `bson:"workflows" json:"workflows"`
+	LogsUrl               string   `bson:"-" json:"logsUrl"`
+}
+
+func (p *Project) AfterFind(*bongo.Collection) error {
+	p.LogsUrl = strings.Replace(viper.GetString("plugins.codeflow.logs_url"), "##PROJECT-NAMESPACE##", fmt.Sprintf("production-%v", p.Slug), -1)
+	return nil
 }
 
 func (p *Project) BeforeSave(collection *bongo.Collection) error {
