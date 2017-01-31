@@ -4,6 +4,7 @@ import { Form, FormGroup, Input } from 'reactstrap'
 import { Field, FieldArray, reduxForm } from 'redux-form'
 import _ from 'underscore'
 import ButtonConfirmAction from '../../components/ButtonConfirmAction'
+import { Tooltip } from 'reactstrap';
 
 const renderInput = field => {
   return (
@@ -53,7 +54,7 @@ const normalizeInt = (value, _previousValue) => {
   return parseInt(value, 10)
 }
 
-const renderListeners = ({ fields, service }) => {
+const renderListeners = ({ fields, service, tooltipServiceProtocolOpen, toggleServiceProtocol }) => {
   return (
   <div className="col-xs-12">
     { (fields.length > 0) &&
@@ -62,10 +63,17 @@ const renderListeners = ({ fields, service }) => {
         <label>Port</label>
       </div>
       <div className="col-xs-4">
-        <label>Service Port</label>
+        <label>Container Port</label>
       </div>
       <div className="col-xs-3">
-        <label>Service Protocol</label>
+        <label>Service Protocol</label> <i className="fa fa-question-circle" id="ToolTipServiceProtocol" aria-hidden="true"/>
+        <Tooltip placement="right" isOpen={tooltipServiceProtocolOpen} target="ToolTipServiceProtocol" toggle={toggleServiceProtocol}>
+          <b>HTTPS</b>: Serve HTTPS using a pre-existing certificate.<br/>
+          <b>HTTP</b>:  Plain HTTP (no SSL).<br/>
+          <b>SSL</b>:   Serve SSL encrypted TCP using a pre-existing certificate.  (Example: for use with websocket protocol wss://).<br/>
+          <b>TCP</b>:   Plain TCP (no SSL).<br/>
+          <b>UDP</b>:   Use UDP.  Only available for Internal service type.<br/>
+        </Tooltip>
       </div>
       <div className="col-xs-1" />
     </div>
@@ -149,7 +157,7 @@ class LoadBalancer extends Component {
                 </div>
                 <div className="col-xs-8">
                   <div className="form-group">
-                    <label>Access</label>
+                    <label>Access</label>  <i className="fa fa-question-circle" id="ToolTipAccess" aria-hidden="true"></i>
                     <div className="form-group service-protocol">
                       <label className="form-check-inline">
                         <Field className="form-check-input" name="type" component={renderInput} type="radio" value="internal"/> Internal
@@ -160,12 +168,19 @@ class LoadBalancer extends Component {
                       <label className="form-check-inline">
                         <Field className="form-check-input" name="type" component={renderInput} type="radio" value="external"/> External
                       </label>
+                      <div>
+                        <Tooltip placement="right" isOpen={this.state.tooltipAccessOpen} target="ToolTipAccess" toggle={this.toggleAccess}>
+                          <b>Internal</b>: Internal to kubernetes.  Normally used if other services need to connect to this service.<br/>
+                          <b>Office</b>: Exposes the service to the Office network (or VPN).<br/>
+                          <b>External</b>: Exposes the service to the public internet!<br/>
+                        </Tooltip>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
               <div className="row">
-                <FieldArray name="listenerPairs" props={{ service: service }} component={renderListeners}/>
+                <FieldArray name="listenerPairs" props={{ service: service, tooltipServiceProtocolOpen: this.state.tooltipServiceProtocolOpen, toggleServiceProtocol: this.toggleServiceProtocol }} component={renderListeners}/>
               </div>
             </div>
             <div className="col-xs-12">
@@ -183,6 +198,29 @@ class LoadBalancer extends Component {
         </FormGroup>
       </Form>
     )
+  }
+
+  constructor(props) {
+    super(props);
+
+    this.toggleAccess = this.toggleAccess.bind(this);
+    this.toggleServiceProtocol = this.toggleServiceProtocol.bind(this);
+    this.state = {
+      tooltipServiceProtocolOpen: false,
+      tooltipAccessOpen: false
+    };
+  }
+
+  toggleAccess() {
+    this.setState({
+      tooltipAccessOpen: !this.state.tooltipAccessOpen
+    })
+  }
+
+  toggleServiceProtocol() {
+    this.setState({
+      tooltipServiceProtocolOpen: !this.state.tooltipServiceProtocolOpen
+    })
   }
 
   render() {
