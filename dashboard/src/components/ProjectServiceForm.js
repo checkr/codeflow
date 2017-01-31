@@ -1,6 +1,7 @@
 import React, { Component } from 'react'
 import { Form, FormGroup, Input } from 'reactstrap'
 import { Field, FieldArray, reduxForm } from 'redux-form'
+import { Tooltip } from 'reactstrap';
 
 const renderInput = field => {
   return (
@@ -14,7 +15,7 @@ const normalizeInt = (value, _previousValue) => {
 
 const renderListeners = ({ fields }) => (
   <div className="col-xs-12">
-    { (fields.length > 0) && <label>Container listeners</label>}
+    { (fields.length > 0) && <label>Container ports</label>}
     {fields.map((service, i) =>
     <div className="row" key={i}>
       <div className="col-xs-4">
@@ -41,13 +42,28 @@ const renderListeners = ({ fields }) => (
     )}
     <div className="row">
       <div className="col-xs-2" style={{ position: 'absolute', zIndex: 100 }}>
-        <button type="button" className="btn btn-secondary btn-sm float-xs-left btn-service-action" onClick={() => fields.push({ protocol: 'TCP' })}>Add container port</button>
+        <button type="button" className="btn btn-secondary btn-sm float-xs-left btn-service-action" onClick={() => fields.push({ protocol: 'TCP' })}>Add container port </button>
       </div>
     </div>
   </div>
   )
 
 class ProjectServiceForm extends Component {
+  constructor(props) {
+    super(props);
+
+    this.toggleContainerPort = this.toggleContainerPort.bind(this);
+    this.state = {
+      tooltipContainerPortOpen: false
+    };
+  }
+
+  toggleContainerPort() {
+    this.setState({
+      tooltipContainerPortOpen: !this.state.tooltipContainerPortOpen
+    })
+  }
+
   render() {
     const { edit, onSave, onCancel, onDelete } = this.props
     return (
@@ -73,7 +89,14 @@ class ProjectServiceForm extends Component {
                   <label>Command</label>
                   <Field name="command" className="form-control" component={renderInput} type="text"/>
                 </div>
-
+                <div className="row">
+                  <div className="col-xs-12">
+                    <i className="fa fa-question-circle" id="ToolTipContainerPort" aria-hidden="true" style={{ position: 'absolute', zIndex: 100, bottom: '-20px', left: '175px' }}></i>
+                    <Tooltip placement="right" isOpen={this.state.tooltipContainerPortOpen} target="ToolTipContainerPort" toggle={this.toggleContainerPort}>
+                      If your application is a webserver then add the port that it listens on.
+                    </Tooltip>
+                  </div>
+                </div>
                 <div className="row">
                   <FieldArray name="listeners" component={renderListeners}/>
                 </div>
