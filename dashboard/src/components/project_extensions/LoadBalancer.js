@@ -227,9 +227,6 @@ class LoadBalancer extends Component {
               <div className="row">
                 <FieldArray name="listenerPairs" props={{ service: service, tooltipServiceProtocolOpen: this.state.tooltipServiceProtocolOpen, toggleServiceProtocol: this.toggleServiceProtocol }} component={renderListeners}/>
               </div>
-              <div className="row">
-                <FieldArray name="domains" props={{ service: service, formValues: formValues }} component={renderDomains}/>
-              </div>
             </div>
             <div className="col-xs-12">
               <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-service-action-right" onClick={() => onCancel()}>
