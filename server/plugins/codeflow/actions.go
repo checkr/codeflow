@@ -16,25 +16,21 @@ import (
 func CurrentProject(r *rest.Request, project *Project) error {
 	slug := r.PathParam("slug")
 
-	results := db.Collection("projects").Find(bson.M{"slug": slug})
-	results.Query.Limit(1)
-	hasNext := results.Next(project)
-
-	if !hasNext {
-		if results.Error != nil {
-			log.Printf("Users::Find::Error: %s", results.Error)
-			return results.Error
+	if err := db.Collection("projects").FindOne(bson.M{"slug": slug}, project); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Projects::FindOne::DocumentNotFoundError: slug: `%v`", slug)
 		} else {
-			log.Printf("Users::FindOne::DocumentNotFoundError: username: `%v`", r.Env["REMOTE_USER"])
-			return &bongo.DocumentNotFoundError{}
+			log.Printf("Projects::FindOne::Error: %s", err.Error())
 		}
+		return err
 	}
+
 	return nil
 }
 
 // CurrentUser returns current user identifed by JWT token
 func CurrentUser(r *rest.Request, user *User) error {
-	if err := db.Collection("users").FindOne(bson.M{"username": r.Env["REMOTE_USER"]}, &user); err != nil {
+	if err := db.Collection("users").FindOne(bson.M{"username": r.Env["REMOTE_USER"]}, user); err != nil {
 		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 			log.Printf("Users::FindOne::DocumentNotFoundError: username: `%v`", r.Env["REMOTE_USER"])
 		} else {
@@ -759,7 +755,6 @@ func GetCurrentRelease(projectId bson.ObjectId, release *Release) error {
 	results.Query.Sort("-$natural").Limit(1)
 
 	hasNext := results.Next(release)
-
 	if !hasNext {
 		// There could have been an error fetching the next one, which would set the Error property on the resultset
 		if results.Error != nil {
