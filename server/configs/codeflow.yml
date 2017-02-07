@@ -2,7 +2,7 @@
 redis:
   username: 
   password: 
-  server: "localhost:16379"
+  server: "redis:16379"
   database: "0"
   pool: "30"
   process: "1"
@@ -13,16 +13,16 @@ plugins:
     github:
       path: "/github"
   codeflow:
+    workers: 1
     logs_url: "https://example.com/##PROJECT-NAMESPACE##"
     jwt_secret_key:
-    workers: 1
     allowed_origins:
       - "http://localhost:3000"
       - "https://codeflow.checkrhq-dev.net"
       - "https://codeflow.checkrhq.net"
     mongodb:
       database: "codeflow"
-      uri: "mongodb://localhost:27017"
+      uri: "mongodb://mongo:27017"
       ssl: false
     service_address: ":3001"
     builds:

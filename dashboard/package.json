@@ -2,7 +2,7 @@
   "name": "codeflow",
   "version": "1.0.0",
   "license": "MIT",
-  "private": false,
+  "private": true,
   "devDependencies": {
     "babel-eslint": "^7.1.1",
     "eslint": "^3.12.2",
