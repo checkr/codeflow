@@ -481,7 +481,12 @@ func NewRelease(f Feature, u User, release *Release) error {
 	services := []Service{}
 	service := Service{}
 
-	results := db.Collection("secrets").Find(bson.M{"projectId": f.ProjectId, "type": bson.M{"$in": []plugins.Type{plugins.Env, plugins.File}}, "deleted": false})
+	results := db.Collection("secrets").Find(bson.M{"global": true, "type": bson.M{"$in": []plugins.Type{plugins.Env, plugins.File}}, "deleted": false})
+	for results.Next(&secret) {
+		secrets = append(secrets, secret)
+	}
+
+	results = db.Collection("secrets").Find(bson.M{"projectId": f.ProjectId, "type": bson.M{"$in": []plugins.Type{plugins.Env, plugins.File}}, "deleted": false})
 	for results.Next(&secret) {
 		secrets = append(secrets, secret)
 	}
