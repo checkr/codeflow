@@ -543,6 +543,7 @@ func (x *Projects) settings(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "deleted": false})
+	results.Query.Sort("$natural")
 	for results.Next(&secret) {
 		secrets = append(secrets, secret)
 	}
