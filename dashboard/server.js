@@ -13,8 +13,8 @@ var ncp = require('ncp').ncp;
 var path = require('path');
 var extname = path.extname;
 var replaceStream = require('replacestream');
-var build = "./build"
-var buildEnv = "./build-env"
+var build = __dirname + "/build"
+var buildEnv = __dirname + "/build-env"
 var config = {}
 
 // config
