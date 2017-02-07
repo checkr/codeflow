@@ -1,8 +1,0 @@
-redis:
-  image: redis
-  ports:
-    - "16379:6379"
-mongo:
-  image: mongo
-  ports:
-    - "27017:27017"

@@ -1,21 +1,25 @@
 FROM golang:alpine
 
-ENV NODE_ENV production
+ARG NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV}
+ENV APP_PATH /go/src/github.com/checkr/codeflow
+
+RUN mkdir -p $APP_PATH
+WORKDIR $APP_PATH
 
 RUN apk -U add alpine-sdk libgit2-dev git gcc nodejs
 RUN npm install -g yarn
-RUN mkdir -p /go/src/github.com/checkr/codeflow/dashboard
-COPY dashboard/package.json /go/src/github.com/checkr/codeflow/dashboard/package.json
-COPY dashboard/yarn.lock /go/src/github.com/checkr/codeflow/dashboard/yarn.lock
-COPY server/configs/codeflow.yml /etc/codeflow.yml
-
-WORKDIR /go/src/github.com/checkr/codeflow/dashboard
-RUN yarn install
-
-WORKDIR /go/src/github.com/checkr/codeflow/server
+COPY ./dashboard/package.json $APP_PATH/dashboard/package.json
+COPY ./dashboard/yarn.lock $APP_PATH/dashboard/yarn.lock
+COPY ./server/configs/codeflow.yml /etc/codeflow.yml
+RUN cd $APP_PATH/dashboard/ && yarn install
 COPY . /go/src/github.com/checkr/codeflow
-RUN go build -o /go/bin/codeflow .
 
-WORKDIR /go/src/github.com/checkr/codeflow/dashboard
+WORKDIR $APP_PATH/server
+RUN go build -i -o /go/bin/codeflow .
+RUN go get github.com/cespare/reflex
+
+WORKDIR $APP_PATH/dashboard
 RUN npm run build
-EXPOSE 3000 3001 3002 9000
+
+WORKDIR $APP_PATH

@@ -1,4 +1,4 @@
-import '../../node_modules/bootstrap/dist/css/bootstrap-flex.css'
+import '../../node_modules/bootstrap/dist/css/bootstrap.css'
 import '../../public/css/application.css'
 import '../../public/css/font-awesome.css'
 
