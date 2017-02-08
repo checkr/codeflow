@@ -606,6 +606,13 @@ func CreateDeploy(r *Release) error {
 	}
 
 	// Add CODEFLOW_ envs
+	slugSecret := plugins.Secret{
+		Key:   "CODEFLOW_SLUG",
+		Value: project.Slug,
+		Type:  plugins.Env,
+	}
+	secrets = append(secrets, slugSecret)
+
 	hashSecret := plugins.Secret{
 		Key:   "CODEFLOW_HASH",
 		Value: headFeature.Hash[0:7],
