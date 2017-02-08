@@ -3,6 +3,7 @@ package codeflow
 import (
 	"log"
 	"strings"
+	"time"
 
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/checkr/codeflow/server/agent"
@@ -357,8 +358,9 @@ func FeatureCreated(f *Feature, e agent.Event) error {
 		}
 	}
 
-	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "type": plugins.Build, "deleted": false})
 	secret := Secret{}
+
+	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "type": plugins.Build, "deleted": false})
 	for results.Next(&secret) {
 		secrets = append(secrets, secret)
 	}
@@ -602,6 +604,21 @@ func CreateDeploy(r *Release) error {
 		}
 		secrets = append(secrets, newS)
 	}
+
+	// Add CODEFLOW_ envs
+	hashSecret := plugins.Secret{
+		Key:   "CODEFLOW_HASH",
+		Value: headFeature.Hash[0:7],
+		Type:  plugins.Env,
+	}
+	secrets = append(secrets, hashSecret)
+
+	timeSecret := plugins.Secret{
+		Key:   "CODEFLOW_CREATED_AT",
+		Value: time.Now().Format(time.RFC3339),
+		Type:  plugins.Env,
+	}
+	secrets = append(secrets, timeSecret)
 
 	dockerDeployEvent := plugins.DockerDeploy{
 		Action: plugins.Create,
