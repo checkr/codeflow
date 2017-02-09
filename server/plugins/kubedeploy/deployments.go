@@ -410,12 +410,12 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 								Args:  commandArray,
 								Resources: v1.ResourceRequirements{
 									Limits: v1.ResourceList{
-										v1.ResourceCPU:    resource.MustParse(service.Spec.CpuBurst),
-										v1.ResourceMemory: resource.MustParse(service.Spec.MemoryBurst),
+										v1.ResourceCPU:    resource.MustParse(service.Spec.CpuLimit),
+										v1.ResourceMemory: resource.MustParse(service.Spec.MemoryLimit),
 									},
 									Requests: v1.ResourceList{
-										v1.ResourceCPU:    resource.MustParse(service.Spec.Cpu),
-										v1.ResourceMemory: resource.MustParse(service.Spec.Memory),
+										v1.ResourceCPU:    resource.MustParse(service.Spec.CpuRequest),
+										v1.ResourceMemory: resource.MustParse(service.Spec.MemoryRequest),
 									},
 								},
 								ImagePullPolicy: v1.PullIfNotPresent,

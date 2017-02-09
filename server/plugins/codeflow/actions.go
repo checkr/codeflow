@@ -597,17 +597,17 @@ func CreateDeploy(r *Release) error {
 			return err
 		}
 
-		if spec.Cpu == "" {
-			spec.Cpu = viper.GetString("plugins.codeflow.default_service_spec.cpu")
+		if spec.CpuRequest == "" {
+			spec.CpuRequest = viper.GetString("plugins.codeflow.default_service_spec.cpu_request")
 		}
-		if spec.CpuBurst == "" {
-			spec.CpuBurst = viper.GetString("plugins.codeflow.default_service_spec.cpu_burst")
+		if spec.CpuLimit == "" {
+			spec.CpuLimit = viper.GetString("plugins.codeflow.default_service_spec.cpu_limit")
 		}
-		if spec.Memory == "" {
-			spec.Memory = viper.GetString("plugins.codeflow.default_service_spec.memory")
+		if spec.MemoryRequest == "" {
+			spec.MemoryRequest = viper.GetString("plugins.codeflow.default_service_spec.memory_request")
 		}
-		if spec.MemoryBurst == "" {
-			spec.MemoryBurst = viper.GetString("plugins.codeflow.default_service_spec.memory_burst")
+		if spec.MemoryLimit == "" {
+			spec.MemoryLimit = viper.GetString("plugins.codeflow.default_service_spec.memory_limit")
 		}
 		if spec.TerminationGracePeriodSeconds == int64(0) {
 			spec.TerminationGracePeriodSeconds = viper.GetInt64("plugins.codeflow.default_service_spec.termination_grace_period_seconds")
@@ -620,10 +620,10 @@ func CreateDeploy(r *Release) error {
 			Listeners: listeners,
 			Replicas:  int64(service.Count),
 			Spec: plugins.ServiceSpec{
-				Cpu:                           spec.Cpu,
-				CpuBurst:                      spec.CpuBurst,
-				Memory:                        spec.Memory,
-				MemoryBurst:                   spec.MemoryBurst,
+				CpuRequest:                    spec.CpuRequest,
+				CpuLimit:                      spec.CpuLimit,
+				MemoryRequest:                 spec.MemoryRequest,
+				MemoryLimit:                   spec.MemoryLimit,
 				TerminationGracePeriodSeconds: spec.TerminationGracePeriodSeconds,
 			},
 		})

@@ -161,10 +161,10 @@ func (s *Service) AfterFind(collection *bongo.Collection) error {
 type ServiceSpec struct {
 	bongo.DocumentBase            `bson:",inline"`
 	Name                          string `bson:"name" json:"name"`
-	Cpu                           string `bson:"cpu" json:"cpu"`
-	CpuBurst                      string `bson:"cpuBurst" json:"cpuBurst"`
-	Memory                        string `bson:"memory" json:"memory"`
-	MemoryBurst                   string `bson:"memoryBurst" json:"memoryBurst"`
+	CpuRequest                    string `bson:"cpuRequest" json:"cpuRequest"`
+	CpuLimit                      string `bson:"cpuLimit" json:"cpuLimit"`
+	MemoryRequest                 string `bson:"memoryRequest" json:"memoryRequest"`
+	MemoryLimit                   string `bson:"memoryLimit" json:"memoryLimit"`
 	TerminationGracePeriodSeconds int64  `bson:"terminationGracePeriodSeconds" json:"terminationGracePeriodSeconds"`
 }
 

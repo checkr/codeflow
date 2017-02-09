@@ -116,10 +116,10 @@ type Service struct {
 }
 
 type ServiceSpec struct {
-	Cpu                           string `json:"cpu"`
-	CpuBurst                      string `json:"cpuBurst"`
-	Memory                        string `json:"memory"`
-	MemoryBurst                   string `json:"memoryBurst"`
+	CpuRequest                    string `json:"cpuRequest"`
+	CpuLimit                      string `json:"cpuLimit"`
+	MemoryRequest                 string `json:"memoryRequest"`
+	MemoryLimit                   string `json:"memoryLimit"`
 	TerminationGracePeriodSeconds int64  `json:"terminationGracePeriodSeconds"`
 }
 
