@@ -94,11 +94,78 @@ func (b *Bookmark) AfterFind(*bongo.Collection) error {
 type Service struct {
 	bongo.DocumentBase `bson:",inline"`
 	ProjectId          bson.ObjectId `bson:"projectId" json:"projectId"`
+	SpecId             bson.ObjectId `bson:"specId" json:"specId"`
 	State              plugins.State `bson:"state" json:"state"`
 	Name               string        `bson:"name" json:"name"`
 	Count              int           `bson:"count" json:"count"`
 	Command            string        `bson:"command" json:"command"`
 	Listeners          []Listener    `bson:"listeners" json:"listeners"`
+}
+
+func (s *Service) BeforeSave(collection *bongo.Collection) error {
+	spec := ServiceSpec{}
+	match := bson.M{"default": true}
+
+	if s.SpecId.Hex() != "" {
+		match = bson.M{"_id": s.SpecId}
+	}
+
+	if err := db.Collection("serviceSpecs").FindOne(match, &spec); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("ServiceSpec::FindOne: _id: `%v`", s.SpecId)
+			if err := db.Collection("serviceSpecs").FindOne(bson.M{"default": true}, &spec); err != nil {
+				if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+					log.Printf("ServiceSpec::FindOne: default: `%v`", true)
+				} else {
+					log.Printf("ServiceSpec::FindOne::Error: %s", err.Error())
+				}
+			}
+		} else {
+			log.Printf("ServiceSpec::FindOne::Error: %s", err.Error())
+		}
+	}
+
+	s.SpecId = spec.Id
+
+	return nil
+}
+
+func (s *Service) AfterFind(collection *bongo.Collection) error {
+	spec := ServiceSpec{}
+	match := bson.M{"default": true}
+
+	if s.SpecId.Hex() != "" {
+		match = bson.M{"_id": s.SpecId}
+	}
+
+	if err := db.Collection("serviceSpecs").FindOne(match, &spec); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("ServiceSpec::FindOne: _id: `%v`", s.SpecId)
+			if err := db.Collection("serviceSpecs").FindOne(bson.M{"default": true}, &spec); err != nil {
+				if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+					log.Printf("ServiceSpec::FindOne: default: `%v`", true)
+				} else {
+					log.Printf("ServiceSpec::FindOne::Error: %s", err.Error())
+				}
+			}
+		} else {
+			log.Printf("ServiceSpec::FindOne::Error: %s", err.Error())
+		}
+	}
+
+	s.SpecId = spec.Id
+
+	return nil
+}
+
+type ServiceSpec struct {
+	bongo.DocumentBase            `bson:",inline"`
+	Name                          string `bson:"name" json:"name"`
+	Cpu                           string `bson:"cpu" json:"cpu"`
+	CpuBurst                      string `bson:"cpuBurst" json:"cpuBurst"`
+	Memory                        string `bson:"memory" json:"memory"`
+	MemoryBurst                   string `bson:"memoryBurst" json:"memoryBurst"`
+	TerminationGracePeriodSeconds int64  `bson:"terminationGracePeriodSeconds" json:"terminationGracePeriodSeconds"`
 }
 
 type LoadBalancer struct {

@@ -48,6 +48,17 @@ const renderListeners = ({ fields }) => (
   </div>
   )
 
+const renderSpecsSelect = field => {
+  return (
+    <select {...field.input} name={field.name} className="form-control">
+      <option disabled value="">Choose service spec</option>
+      {field.serviceSpecs.map(function (spec) {
+        return <option key={spec._id} value={spec._id}>{spec.name}</option>
+      })}
+    </select>
+  )
+}
+
 class ProjectServiceForm extends Component {
   constructor(props) {
     super(props);
@@ -72,10 +83,16 @@ class ProjectServiceForm extends Component {
             <div className="row">
               <div className="col-xs-12">
                 <div className="row">
-                  <div className="col-xs-10">
+                  <div className="col-xs-6">
                     <div className="form-group">
                       <label>Name</label>
                       <Field name="name" className="form-control" component={renderInput} disabled={edit} type="text"/>
+                    </div>
+                  </div>
+                  <div className="col-xs-4">
+                    <div className="form-group">
+                      <label>Spec</label>
+                      <Field className="form-control" name="specId" serviceSpecs={this.props.serviceSpecs} component={renderSpecsSelect}/>
                     </div>
                   </div>
                   <div className="col-xs-2">

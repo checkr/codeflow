@@ -643,3 +643,21 @@ export const updateBuild = (project_slug, id) => {
   }
 }
 
+export const SERVICE_SPECS_FETCH_REQUEST = 'SERVICE_SPECS_FETCH_REQUEST'
+export const SERVICE_SPECS_FETCH_SUCCESS = 'SERVICE_SPECS_FETCH_SUCCESS'
+export const SERVICE_SPECS_FETCH_FAILURE = 'SERVICE_SPECS_FETCH_FAILURE'
+
+export const fetchServiceSpecs = (project_slug) => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/projects/${project_slug}/serviceSpecs`,
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [ SERVICE_SPECS_FETCH_REQUEST, SERVICE_SPECS_FETCH_SUCCESS, SERVICE_SPECS_FETCH_FAILURE ]
+    }
+  }
+}

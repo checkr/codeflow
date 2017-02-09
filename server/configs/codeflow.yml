@@ -20,6 +20,12 @@ plugins:
       - "http://localhost:3000"
       - "https://codeflow.checkrhq-dev.net"
       - "https://codeflow.checkrhq.net"
+    default_service_spec:
+      cpu: "500m"
+      cpu_burst: "1000m" 
+      memory: "512Mi"
+      memory_burst: "1Gi"
+      termination_grace_period_seconds: 600
     mongodb:
       database: "codeflow"
       uri: "mongodb://mongo:27017"
