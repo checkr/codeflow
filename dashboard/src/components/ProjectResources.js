@@ -50,7 +50,7 @@ class ProjectResources extends Component {
                       <i className="fa fa-pencil" aria-hidden="true" /> Edit
                     </button>
                   </div>
-                  <div className="col-xs-12">
+                  <div className="col-xs-10">
                     <div className="input-group">
                       <span className="input-group-addon">{service.count}x</span>
                       <input type="text" className="form-control" value={service.command} disabled="true"/>
