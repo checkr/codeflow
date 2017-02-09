@@ -68,7 +68,14 @@ func LBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalancer {
 				Protocol: "TCP",
 			},
 		},
-		State:    plugins.Waiting,
+		State: plugins.Waiting,
+		Spec: plugins.ServiceSpec{
+			CpuRequest:                    "500m",
+			CpuLimit:                      "1000m",
+			MemoryRequest:                 "512Mi",
+			MemoryLimit:                   "1Gi",
+			TerminationGracePeriodSeconds: int64(600),
+		},
 		Replicas: 1,
 	}
 	lbe := plugins.LoadBalancer{
@@ -106,7 +113,14 @@ func UpdateLBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalan
 				Protocol: "TCP",
 			},
 		},
-		State:    plugins.Waiting,
+		State: plugins.Waiting,
+		Spec: plugins.ServiceSpec{
+			CpuRequest:                    "500m",
+			CpuLimit:                      "1000m",
+			MemoryRequest:                 "512Mi",
+			MemoryLimit:                   "1Gi",
+			TerminationGracePeriodSeconds: int64(600),
+		},
 		Replicas: 1,
 	}
 	lbe := plugins.LoadBalancer{
@@ -226,7 +240,14 @@ func DeployDataMixedActions(name string, actions []plugins.Action) plugins.Docke
 			Command:   "nginx -g 'daemon off;'",
 			Listeners: []plugins.Listener{listener},
 			State:     plugins.Waiting,
-			Replicas:  1,
+			Spec: plugins.ServiceSpec{
+				CpuRequest:                    "500m",
+				CpuLimit:                      "1000m",
+				MemoryRequest:                 "512Mi",
+				MemoryLimit:                   "1Gi",
+				TerminationGracePeriodSeconds: int64(600),
+			},
+			Replicas: 1,
 		})
 	}
 
@@ -292,15 +313,29 @@ func DeployDataRenamed(name string, action plugins.Action) plugins.DockerDeploy 
 			Command:   "nginx -g 'daemon off;'",
 			Listeners: []plugins.Listener{listener},
 			State:     plugins.Waiting,
-			Replicas:  1,
+			Spec: plugins.ServiceSpec{
+				CpuRequest:                    "500m",
+				CpuLimit:                      "1000m",
+				MemoryRequest:                 "512Mi",
+				MemoryLimit:                   "1Gi",
+				TerminationGracePeriodSeconds: int64(600),
+			},
+			Replicas: 1,
 		})
 	}
 	// One worker
 	serviceArray = append(serviceArray, plugins.Service{
-		Action:   action,
-		Name:     "worker",
-		Command:  "/bin/sh -c 'while(/bin/true); do sleep 1; echo waiting forever...; done'",
-		State:    plugins.Waiting,
+		Action:  action,
+		Name:    "worker",
+		Command: "/bin/sh -c 'while(/bin/true); do sleep 1; echo waiting forever...; done'",
+		State:   plugins.Waiting,
+		Spec: plugins.ServiceSpec{
+			CpuRequest:                    "500m",
+			CpuLimit:                      "1000m",
+			MemoryRequest:                 "512Mi",
+			MemoryLimit:                   "1Gi",
+			TerminationGracePeriodSeconds: int64(600),
+		},
 		Replicas: 1,
 	})
 
@@ -366,15 +401,29 @@ func DeployData(name string, action plugins.Action) plugins.DockerDeploy {
 			Command:   "nginx -g 'daemon off;'",
 			Listeners: []plugins.Listener{listener},
 			State:     plugins.Waiting,
-			Replicas:  1,
+			Spec: plugins.ServiceSpec{
+				CpuRequest:                    "500m",
+				CpuLimit:                      "1000m",
+				MemoryRequest:                 "512Mi",
+				MemoryLimit:                   "1Gi",
+				TerminationGracePeriodSeconds: int64(600),
+			},
+			Replicas: 1,
 		})
 	}
 	// One worker
 	serviceArray = append(serviceArray, plugins.Service{
-		Action:   action,
-		Name:     "worker",
-		Command:  "/bin/sh -c 'while(/bin/true); do sleep 1; echo waiting forever...; done'",
-		State:    plugins.Waiting,
+		Action:  action,
+		Name:    "worker",
+		Command: "/bin/sh -c 'while(/bin/true); do sleep 1; echo waiting forever...; done'",
+		State:   plugins.Waiting,
+		Spec: plugins.ServiceSpec{
+			CpuRequest:                    "500m",
+			CpuLimit:                      "1000m",
+			MemoryRequest:                 "512Mi",
+			MemoryLimit:                   "1Gi",
+			TerminationGracePeriodSeconds: int64(600),
+		},
 		Replicas: 1,
 	})
 

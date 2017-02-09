@@ -105,13 +105,22 @@ type ListenerPair struct {
 }
 
 type Service struct {
-	Action       Action     `json:"action"`
-	Name         string     `json:"name"`
-	Command      string     `json:"command"`
-	Listeners    []Listener `json:"listeners"`
-	Replicas     int64      `json:"replicas"`
-	State        State      `json:"state"`
-	StateMessage string     `json:"stateMessage"`
+	Action       Action      `json:"action"`
+	Name         string      `json:"name"`
+	Command      string      `json:"command"`
+	Listeners    []Listener  `json:"listeners"`
+	Replicas     int64       `json:"replicas"`
+	State        State       `json:"state"`
+	StateMessage string      `json:"stateMessage"`
+	Spec         ServiceSpec `json:"spec"`
+}
+
+type ServiceSpec struct {
+	CpuRequest                    string `json:"cpuRequest"`
+	CpuLimit                      string `json:"cpuLimit"`
+	MemoryRequest                 string `json:"memoryRequest"`
+	MemoryLimit                   string `json:"memoryLimit"`
+	TerminationGracePeriodSeconds int64  `json:"terminationGracePeriodSeconds"`
 }
 
 type DockerRegistry struct {

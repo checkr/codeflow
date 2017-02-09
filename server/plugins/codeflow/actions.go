@@ -586,12 +586,46 @@ func CreateDeploy(r *Release) error {
 			action = plugins.Update
 		}
 
+		spec := ServiceSpec{}
+		if err := db.Collection("serviceSpecs").FindOne(bson.M{"_id": service.SpecId}, &spec); err != nil {
+			if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+				log.Printf("ServiceSpec::FindOne::DocumentNotFoundError: specId: `%v`", service.SpecId)
+			} else {
+				log.Printf("ServiceSpec::FindOne::Error: %s", err.Error())
+			}
+
+			return err
+		}
+
+		if spec.CpuRequest == "" {
+			spec.CpuRequest = viper.GetString("plugins.codeflow.default_service_spec.cpu_request")
+		}
+		if spec.CpuLimit == "" {
+			spec.CpuLimit = viper.GetString("plugins.codeflow.default_service_spec.cpu_limit")
+		}
+		if spec.MemoryRequest == "" {
+			spec.MemoryRequest = viper.GetString("plugins.codeflow.default_service_spec.memory_request")
+		}
+		if spec.MemoryLimit == "" {
+			spec.MemoryLimit = viper.GetString("plugins.codeflow.default_service_spec.memory_limit")
+		}
+		if spec.TerminationGracePeriodSeconds == int64(0) {
+			spec.TerminationGracePeriodSeconds = viper.GetInt64("plugins.codeflow.default_service_spec.termination_grace_period_seconds")
+		}
+
 		services = append(services, plugins.Service{
 			Action:    action,
 			Name:      service.Name,
 			Command:   service.Command,
 			Listeners: listeners,
 			Replicas:  int64(service.Count),
+			Spec: plugins.ServiceSpec{
+				CpuRequest:                    spec.CpuRequest,
+				CpuLimit:                      spec.CpuLimit,
+				MemoryRequest:                 spec.MemoryRequest,
+				MemoryLimit:                   spec.MemoryLimit,
+				TerminationGracePeriodSeconds: spec.TerminationGracePeriodSeconds,
+			},
 		})
 	}
 

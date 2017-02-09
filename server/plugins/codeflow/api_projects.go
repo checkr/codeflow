@@ -49,10 +49,23 @@ func (x *Projects) Register(api *rest.Api) []*rest.Route {
 		rest.Post(x.Path, x.createProjects),
 		rest.Get(x.Path+"/#slug/releases/#id/build", x.releaseBuild),
 		rest.Post(x.Path+"/#slug/releases/#id/build", x.updateReleaseBuild),
+		rest.Get(x.Path+"/#slug/serviceSpecs", x.serviceSpecs),
 	)
 
 	log.Printf("Started the codeflow projects handler on %s\n", x.Path)
 	return routes
+}
+
+func (x *Projects) serviceSpecs(w rest.ResponseWriter, r *rest.Request) {
+	specs := []ServiceSpec{}
+	spec := ServiceSpec{}
+
+	results := db.Collection("serviceSpecs").Find(bson.M{})
+	for results.Next(&spec) {
+		specs = append(specs, spec)
+	}
+
+	w.WriteJson(specs)
 }
 
 func (x *Projects) projects(w rest.ResponseWriter, r *rest.Request) {

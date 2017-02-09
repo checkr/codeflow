@@ -49,6 +49,17 @@ const project = (state = {}, action = {}) => {
   }
 }
 
+const serviceSpecs = (state = [], action = {}) => {
+  switch (action.type) {
+    case ActionTypes.SERVICE_SPECS_FETCH_REQUEST:
+      return []
+    case ActionTypes.SERVICE_SPECS_FETCH_SUCCESS:
+      return action.payload
+    default:
+      return state
+  }
+}
+
 const projectServices = (state = [], action = {}) => {
   switch (action.type) {
     case ActionTypes.PROJECT_SERVICE_FETCH_REQUEST:
@@ -316,6 +327,7 @@ const rootReducer = combineReducers({
   projectServices,
   projectExtensions,
   projectSettings,
+  serviceSpecs,
   bookmarks,
   features,
   releases,

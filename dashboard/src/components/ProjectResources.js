@@ -2,13 +2,14 @@ import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import _ from 'underscore'
 import ProjectServiceForm from '../components/ProjectServiceForm'
-import { fetchProjectServices, createProjectService, updateProjectService, deleteProjectService } from '../actions'
+import { fetchServiceSpecs, fetchProjectServices, createProjectService, updateProjectService, deleteProjectService } from '../actions'
 import { fetchProjectExtensions, createProjectExtension, updateProjectExtension, deleteProjectExtension } from '../actions'
 import * as Extensions from '../components/project_extensions/'
 
 const loadData = props => {
   props.fetchProjectServices(props.project.slug)
   props.fetchProjectExtensions(props.project.slug)
+  props.fetchServiceSpecs(props.project.slug)
 }
 
 class ProjectResources extends Component {
@@ -65,11 +66,14 @@ class ProjectResources extends Component {
     if (service._id) {
       edit = true 
     }
+
+    let { serviceSpecs } = this.props
+
     return(
-      <li className="list-group-item" key={service._id}>
+      <li className="list-group-item" key={"service-" + service._id}>
         <div className="feed-element">
           <div className="media-body ">
-            <ProjectServiceForm initialValues={service} edit={edit} onSave={() => this.onSaveService()} onCancel={() => this.onCancelEditService()} onDelete={() => this.onDeleteService()}/>
+            <ProjectServiceForm initialValues={service} serviceSpecs={serviceSpecs} edit={edit} onSave={() => this.onSaveService()} onCancel={() => this.onCancelEditService()} onDelete={() => this.onDeleteService()}/>
           </div>
         </div>
       </li>
@@ -259,6 +263,7 @@ class ProjectResources extends Component {
 
 const mapStateToProps = (state, ownProps) => ({
   projectService: state.form.projectService,
+  serviceSpecs: state.serviceSpecs,
   projectExtension: state.form.projectExtension,
   services: state.projectServices,
   extensions: state.projectExtensions
@@ -272,5 +277,6 @@ export default connect(mapStateToProps, {
   fetchProjectExtensions, 
   createProjectExtension, 
   updateProjectExtension, 
-  deleteProjectExtension
+  deleteProjectExtension,
+  fetchServiceSpecs
 })(ProjectResources)

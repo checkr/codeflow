@@ -376,7 +376,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 		}
 
 		var revisionHistoryLimit int32 = 10
-		terminationGracePeriodSeconds := int64(600)
+		terminationGracePeriodSeconds := service.Spec.TerminationGracePeriodSeconds
 		deployParams := &v1beta1.Deployment{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Deployment",
@@ -410,12 +410,12 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 								Args:  commandArray,
 								Resources: v1.ResourceRequirements{
 									Limits: v1.ResourceList{
-										v1.ResourceCPU:    resource.MustParse("1000m"),
-										v1.ResourceMemory: resource.MustParse("1Gi"),
+										v1.ResourceCPU:    resource.MustParse(service.Spec.CpuLimit),
+										v1.ResourceMemory: resource.MustParse(service.Spec.MemoryLimit),
 									},
 									Requests: v1.ResourceList{
-										v1.ResourceCPU:    resource.MustParse("500m"),
-										v1.ResourceMemory: resource.MustParse("512Mi"),
+										v1.ResourceCPU:    resource.MustParse(service.Spec.CpuRequest),
+										v1.ResourceMemory: resource.MustParse(service.Spec.MemoryRequest),
 									},
 								},
 								ImagePullPolicy: v1.PullIfNotPresent,
