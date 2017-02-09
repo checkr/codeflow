@@ -5,6 +5,7 @@ import ProjectServiceForm from '../components/ProjectServiceForm'
 import { fetchServiceSpecs, fetchProjectServices, createProjectService, updateProjectService, deleteProjectService } from '../actions'
 import { fetchProjectExtensions, createProjectExtension, updateProjectExtension, deleteProjectExtension } from '../actions'
 import * as Extensions from '../components/project_extensions/'
+import { Input } from 'reactstrap'
 
 const loadData = props => {
   props.fetchProjectServices(props.project.slug)
@@ -41,7 +42,7 @@ class ProjectResources extends Component {
                 <div className="row">
                   <div className="col-xs-10">
                     <h5>
-                      <span className="tag tag-default">{service.count}x</span> {service.name}
+                      <i className="fa fa-server" aria-hidden="true"></i> {service.name}
                     </h5> 
                   </div>
                   <div className="col-xs-2">
@@ -50,7 +51,10 @@ class ProjectResources extends Component {
                     </button>
                   </div>
                   <div className="col-xs-12">
-                    <i className="fa fa-terminal" aria-hidden="true" /><code>{service.command}</code>
+                    <div className="input-group">
+                      <span className="input-group-addon">{service.count}x</span>
+                      <input type="text" className="form-control" value={service.command} disabled="true"/>
+                    </div>
                   </div>
                 </div>
               </div>
