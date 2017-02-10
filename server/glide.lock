@@ -1,5 +1,5 @@
-hash: 544702d34da5c7bf193dd54df11330a23f2819c5a29c4d731ad7ca6cc13e9a02
-updated: 2017-02-10T11:23:29.615395382-08:00
+hash: 81c57950bfb2b01f4141db5f3fc5b68e80e7dfd7bc2608853e247aefefe2f66a
+updated: 2017-02-10T11:27:31.104579202-08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -161,7 +161,7 @@ imports:
   - jwa
   - jwk
 - name: github.com/libgit2/git2go
-  version: 4a14260153072e1e0d8e32d9270b30e3acca7c80
+  version: b8a9efd21f5ea094976ff2c53c4aec1cf6014876
 - name: github.com/magiconair/properties
   version: b3b15ef068fd0b17ddf408a23669f20811d194d2
 - name: github.com/mailru/easyjson
