@@ -19,6 +19,7 @@ import (
 	_ "github.com/checkr/codeflow/server/plugins/kubedeploy"
 	_ "github.com/checkr/codeflow/server/plugins/webhooks"
 	_ "github.com/checkr/codeflow/server/plugins/websockets"
+	_ "github.com/checkr/codeflow/server/plugins/slack"
 )
 
 var cfgFile string

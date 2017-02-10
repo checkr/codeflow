@@ -1,7 +1,7 @@
 ---
 redis:
-  username: 
-  password: 
+  username:
+  password:
   server: "redis:16379"
   database: "0"
   pool: "30"
@@ -22,7 +22,7 @@ plugins:
       - "https://codeflow.checkrhq.net"
     default_service_spec:
       cpu: "500m"
-      cpu_burst: "1000m" 
+      cpu_burst: "1000m"
       memory: "512Mi"
       memory_burst: "1Gi"
       termination_grace_period_seconds: 600
@@ -51,7 +51,7 @@ plugins:
   docker_build:
     workers: 1
     registry_host: "docker.io"
-    registry_username: ""  
+    registry_username: ""
     registry_password: ""
     registry_user_email: ""
     build_path: "/tmp"
@@ -61,3 +61,6 @@ plugins:
   websockets:
     workers: 1
     service_address: ":3003"
+  slack:
+    workers: 1
+    webhook_url: ""

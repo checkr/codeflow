@@ -141,6 +141,11 @@ class ProjectSettings extends Component {
           </Label>
         </FormGroup>
 
+        <FormGroup>
+          <Label for="notifyChannels">Notify Channels (Slack)</Label>
+          <Field name="notifyChannels" component={this.renderInput} type="text" placeholder="#eng,#devops"/>
+        </FormGroup>
+
         <FieldArray name="secrets" component={this.renderConfigVars}/>
 
         <br/>

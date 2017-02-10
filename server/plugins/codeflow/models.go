@@ -36,6 +36,7 @@ type Project struct {
 	ContinuousDelivery    bool     `bson:"continuousDelivery" json:"continuousDelivery"`
 	Workflows             []string `bson:"workflows" json:"workflows"`
 	LogsUrl               string   `bson:"-" json:"logsUrl"`
+	NotifyChannels        string   `bson:"notifyChannels" json:"notifyChannels"`
 }
 
 func (p *Project) AfterFind(*bongo.Collection) error {
@@ -299,6 +300,7 @@ type ProjectSettings struct {
 	GitSshUrl             string        `json:"gitSshUrl"`
 	Secrets               []Secret      `json:"secrets"`
 	DeletedSecrets        []Secret      `json:"deletedSecrets"`
+	NotifyChannels        string        `json:"notifyChannels"`
 	ContinuousIntegration bool          `json:"continuousIntegration"`
 	ContinuousDelivery    bool          `json:"continuousDelivery"`
 }

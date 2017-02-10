@@ -3,6 +3,7 @@ package plugins
 import "github.com/checkr/codeflow/server/agent"
 
 func init() {
+	agent.RegisterApi(Project{})
 	agent.RegisterApi(GitPing{})
 	agent.RegisterApi(GitCommit{})
 	agent.RegisterApi(GitStatus{})
@@ -49,8 +50,10 @@ const (
 )
 
 type Project struct {
-	Slug       string `json:"slug"`
-	Repository string `json:"repository"`
+	Action         Action   `json:"action,omitempty"`
+	Slug           string   `json:"slug"`
+	Repository     string   `json:"repository"`
+	NotifyChannels []string `json:"notifyChannels,omitempty"`
 }
 
 type Git struct {

@@ -5,7 +5,6 @@ import ProjectServiceForm from '../components/ProjectServiceForm'
 import { fetchServiceSpecs, fetchProjectServices, createProjectService, updateProjectService, deleteProjectService } from '../actions'
 import { fetchProjectExtensions, createProjectExtension, updateProjectExtension, deleteProjectExtension } from '../actions'
 import * as Extensions from '../components/project_extensions/'
-import { Input } from 'reactstrap'
 
 const loadData = props => {
   props.fetchProjectServices(props.project.slug)
