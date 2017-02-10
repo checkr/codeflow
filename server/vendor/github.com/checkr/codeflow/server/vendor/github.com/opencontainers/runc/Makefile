@@ -91,7 +91,7 @@ localtest:
 	make localunittest localintegration
 
 unittest: runcimage
-	docker run -e TESTFLAGS -ti --privileged --rm -v $(CURDIR):/go/src/$(PROJECT) $(RUNC_IMAGE) make localunittest
+	docker run -e TESTFLAGS -t --privileged --rm -v $(CURDIR):/go/src/$(PROJECT) $(RUNC_IMAGE) make localunittest
 
 localunittest: all
 	go test -timeout 3m -tags "$(BUILDTAGS)" ${TESTFLAGS} -v ./...
@@ -130,6 +130,7 @@ clean:
 	rm -f $(RUNC_LINK)
 	rm -rf $(GOPATH)/pkg
 	rm -rf $(RELEASE_DIR)
+	rm -rf $(MAN_DIR)
 
 validate:
 	script/validate-gofmt

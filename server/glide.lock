@@ -21,7 +21,7 @@ imports:
 - name: github.com/bww/go-json
   version: 2855ca2724ff4b10bb71bee4ad6c2815dc9b1438
 - name: github.com/checkr/codeflow
-  version: 8b720d99c580de42185059ec77be70b2c30b19ef
+  version: 292f075b1ab1a0844dadd1e5de091fbfea9676d5
   subpackages:
   - server/agent
   - server/plugins
