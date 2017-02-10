@@ -1,4 +1,4 @@
-package: github.com/checkr/codeflow/server
+package: github.com/checkr/codeflow
 import:
 - package: github.com/ant0ine/go-json-rest
   subpackages:
@@ -48,12 +48,3 @@ import:
   - pkg/util
   - pkg/util/intstr
   - tools/clientcmd
-testImport:
-- package: github.com/checkr/codeflow
-  subpackages:
-  - plugins/webhooks/github
-- package: github.com/jarcoal/httpmock
-- package: github.com/stretchr/testify
-  subpackages:
-  - assert
-  - suite
