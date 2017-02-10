@@ -27,6 +27,7 @@ import:
 - package: github.com/pborman/uuid
 - package: github.com/spf13/cobra
 - package: github.com/spf13/viper
+  version: 5ed0fc3
 - package: golang.org/x/crypto
   version: 5b4074c
   subpackages:

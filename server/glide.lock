@@ -1,5 +1,5 @@
-hash: 685174a28c2f679b9d520014839f8015fb80bd242c16d30b5926be3986eabb25
-updated: 2017-02-10T10:28:07.821328272-08:00
+hash: ca5ce907c24dbe758ed92b269beaf768e4b627fe398bb3de5d2aec68bd72cd1c
+updated: 2017-02-10T10:48:29.934038579-08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -20,6 +20,19 @@ imports:
   version: da1a8928f709389522c8023062a3739f3b4af419
 - name: github.com/bww/go-json
   version: 2855ca2724ff4b10bb71bee4ad6c2815dc9b1438
+- name: github.com/checkr/codeflow
+  version: 8b720d99c580de42185059ec77be70b2c30b19ef
+  subpackages:
+  - server/agent
+  - server/plugins
+  - server/plugins/codeflow
+  - server/plugins/docker_build
+  - server/plugins/heartbeat
+  - server/plugins/kubedeploy
+  - server/plugins/kubedeploy/testdata
+  - server/plugins/webhooks
+  - server/plugins/webhooks/github
+  - server/plugins/websockets
 - name: github.com/cheungpat/go-json-rest-middleware-jwt
   version: aee0ac42cba93b4a44838c4b21e31c64e9cdf894
 - name: github.com/coreos/go-oidc
@@ -395,10 +408,6 @@ imports:
   - tools/metrics
   - transport
 testImports:
-- name: github.com/checkr/codeflow
-  version: 8b720d99c580de42185059ec77be70b2c30b19ef
-  subpackages:
-  - plugins/webhooks/github
 - name: github.com/jarcoal/httpmock
   version: 4442edb3db31196622da56482fd8d0fa375fba4d
 - name: github.com/pmezard/go-difflib
