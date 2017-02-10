@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/checkr/codeflow/plugins/webhooks/github"
+	"github.com/checkr/codeflow/server/plugins/webhooks/github"
 )
 
 func TestAvailableWebhooks(t *testing.T) {
