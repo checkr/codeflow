@@ -438,18 +438,20 @@ type Container struct {
 //
 // See https://goo.gl/Y6fXUy for more details.
 type UpdateContainerOptions struct {
-	BlkioWeight       int           `json:"BlkioWeight"`
-	CPUShares         int           `json:"CpuShares"`
-	CPUPeriod         int           `json:"CpuPeriod"`
-	CPUQuota          int           `json:"CpuQuota"`
-	CpusetCpus        string        `json:"CpusetCpus"`
-	CpusetMems        string        `json:"CpusetMems"`
-	Memory            int           `json:"Memory"`
-	MemorySwap        int           `json:"MemorySwap"`
-	MemoryReservation int           `json:"MemoryReservation"`
-	KernelMemory      int           `json:"KernelMemory"`
-	RestartPolicy     RestartPolicy `json:"RestartPolicy,omitempty"`
-	Context           context.Context
+	BlkioWeight        int           `json:"BlkioWeight"`
+	CPUShares          int           `json:"CpuShares"`
+	CPUPeriod          int           `json:"CpuPeriod"`
+	CPURealtimePeriod  int64         `json:"CpuRealtimePeriod"`
+	CPURealtimeRuntime int64         `json:"CpuRealtimeRuntime"`
+	CPUQuota           int           `json:"CpuQuota"`
+	CpusetCpus         string        `json:"CpusetCpus"`
+	CpusetMems         string        `json:"CpusetMems"`
+	Memory             int           `json:"Memory"`
+	MemorySwap         int           `json:"MemorySwap"`
+	MemoryReservation  int           `json:"MemoryReservation"`
+	KernelMemory       int           `json:"KernelMemory"`
+	RestartPolicy      RestartPolicy `json:"RestartPolicy,omitempty"`
+	Context            context.Context
 }
 
 // UpdateContainer updates the container at ID with the options
@@ -712,6 +714,8 @@ type HostConfig struct {
 	CPUSetMEMs           string                 `json:"CpusetMems,omitempty" yaml:"CpusetMems,omitempty"`
 	CPUQuota             int64                  `json:"CpuQuota,omitempty" yaml:"CpuQuota,omitempty"`
 	CPUPeriod            int64                  `json:"CpuPeriod,omitempty" yaml:"CpuPeriod,omitempty"`
+	CPURealtimePeriod    int64                  `json:"CpuRealtimePeriod,omitempty" yaml:"CpuRealtimePeriod,omitempty"`
+	CPURealtimeRuntime   int64                  `json:"CpuRealtimeRuntime,omitempty" yaml:"CpuRealtimeRuntime,omitempty"`
 	BlkioWeight          int64                  `json:"BlkioWeight,omitempty" yaml:"BlkioWeight,omitempty"`
 	BlkioWeightDevice    []BlockWeight          `json:"BlkioWeightDevice,omitempty" yaml:"BlkioWeightDevice,omitempty"`
 	BlkioDeviceReadBps   []BlockLimit           `json:"BlkioDeviceReadBps,omitempty" yaml:"BlkioDeviceReadBps,omitempty"`
@@ -781,10 +785,10 @@ func (c *Client) startContainer(id string, hostConfig *HostConfig, opts doOption
 		}
 		return err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotModified {
 		return &ContainerAlreadyRunning{ID: id}
 	}
-	resp.Body.Close()
 	return nil
 }
 
@@ -814,10 +818,10 @@ func (c *Client) stopContainer(id string, timeout uint, opts doOptions) error {
 		}
 		return err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotModified {
 		return &ContainerNotRunning{ID: id}
 	}
-	resp.Body.Close()
 	return nil
 }
 

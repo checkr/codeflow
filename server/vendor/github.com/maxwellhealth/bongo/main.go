@@ -3,7 +3,6 @@ package bongo
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"gopkg.in/mgo.v2"
 )
@@ -21,12 +20,14 @@ type Connection struct {
 	Config  *Config
 	Session *mgo.Session
 	// collection []Collection
+	Context *Context
 }
 
 // Create a new connection and run Connect()
 func Connect(config *Config) (*Connection, error) {
 	conn := &Connection{
-		Config: config,
+		Config:  config,
+		Context: &Context{},
 	}
 
 	err := conn.Connect()
@@ -66,34 +67,21 @@ func (m *Connection) Connect() (err error) {
 
 	m.Session.SetMode(mgo.Monotonic, true)
 
-	go m.autoReconnect(session)
-
 	return nil
 }
 
-func (m *Connection) autoReconnect(session *mgo.Session) {
-	var err error
-	for {
-		err = session.Ping()
-		if err != nil {
-			fmt.Println("Lost connection to MongoDB!!")
-			session.Refresh()
-			err = session.Ping()
-			if err == nil {
-				fmt.Println("Reconnect to MongoDB successful.")
-			} else {
-				panic("Reconnect to MongoDB failed!!")
-			}
-		}
-		time.Sleep(time.Second * 10)
+// CollectionFromDatabase ...
+func (m *Connection) CollectionFromDatabase(name string, database string) *Collection {
+	// Just create a new instance - it's cheap and only has name and a database name
+	return &Collection{
+		Connection: m,
+		Context:    m.Context,
+		Database:   database,
+		Name:       name,
 	}
 }
 
+// Collection ...
 func (m *Connection) Collection(name string) *Collection {
-
-	// Just create a new instance - it's cheap and only has name
-	return &Collection{
-		Connection: m,
-		Name:       name,
-	}
+	return m.CollectionFromDatabase(name, m.Config.Database)
 }
