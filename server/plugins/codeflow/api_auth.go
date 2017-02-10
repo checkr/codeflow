@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
 	"gopkg.in/mgo.v2/bson"
@@ -43,10 +44,13 @@ func (a *Auth) Register(api *rest.Api) []*rest.Route {
 
 	api.Use(&rest.IfMiddleware{
 		Condition: func(request *rest.Request) bool {
-			switch request.URL.Path {
-			case a.Path + "/callback/okta":
+			var mockEvents = regexp.MustCompile(`/mockEvents/*`)
+			switch {
+			case (request.URL.Path == (a.Path + "/callback/okta")):
 				return false
-			case "/ws":
+			case request.URL.Path == "/ws":
+				return false
+			case mockEvents.MatchString(request.URL.Path):
 				return false
 			default:
 				return true

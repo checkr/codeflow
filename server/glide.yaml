@@ -49,3 +49,5 @@ import:
   - pkg/util
   - pkg/util/intstr
   - tools/clientcmd
+- package: github.com/ashwanthkumar/slack-go-webhook
+  version: 6174793

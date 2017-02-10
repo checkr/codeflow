@@ -567,6 +567,7 @@ func (x *Projects) settings(w rest.ResponseWriter, r *rest.Request) {
 		Secrets:               secrets,
 		ContinuousIntegration: project.ContinuousIntegration,
 		ContinuousDelivery:    project.ContinuousDelivery,
+		NotifyChannels:        project.NotifyChannels,
 	}
 
 	w.WriteJson(settings)
@@ -606,6 +607,8 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	project.ContinuousDelivery = projectSettingsRequest.ContinuousDelivery
+
+	project.NotifyChannels = projectSettingsRequest.NotifyChannels
 
 	if err := db.Collection("projects").Save(&project); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
@@ -681,6 +684,7 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 		ContinuousIntegration: project.ContinuousIntegration,
 		ContinuousDelivery:    project.ContinuousDelivery,
 		Secrets:               secrets,
+		NotifyChannels:        project.NotifyChannels,
 	}
 
 	w.WriteJson(projectSettingsResponse)

@@ -1,5 +1,5 @@
-hash: 81c57950bfb2b01f4141db5f3fc5b68e80e7dfd7bc2608853e247aefefe2f66a
-updated: 2017-02-10T11:27:31.104579202-08:00
+hash: b85da683a3b7b567c6f1f3bc0563db416977b027cb43af3a1637b4bbcca8b87a
+updated: 2017-02-10T14:58:31.172954242-08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -12,6 +12,8 @@ imports:
   - rest
   - rest/test
   - rest/trie
+- name: github.com/ashwanthkumar/slack-go-webhook
+  version: 617479350161ea9827ad9a093ab20ac86f67e288
 - name: github.com/Azure/go-ansiterm
   version: fa152c58bc15761d0200cb75fe958b89a9d4888e
   subpackages:
@@ -178,6 +180,8 @@ imports:
   version: fff283ad5116362ca252298cfc9b95828956d85d
 - name: github.com/mitchellh/mapstructure
   version: db1efb556f84b25a0a13a04aad883943538ad2e0
+- name: github.com/moul/http2curl
+  version: 4e24498b31dba4683efb9d35c1c8a91e2eda28c8
 - name: github.com/oleiade/reflections
   version: 0e86b3c98b2ff33e30c85cfe97d9a63d439fe7eb
 - name: github.com/opencontainers/runc
@@ -185,6 +189,8 @@ imports:
   subpackages:
   - libcontainer/system
   - libcontainer/user
+- name: github.com/parnurzeal/gorequest
+  version: f441e24175ffc865a6354b65375e537201c51382
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
 - name: github.com/pelletier/go-buffruneio
@@ -232,6 +238,7 @@ imports:
   - http2/hpack
   - idna
   - lex/httplex
+  - publicsuffix
 - name: golang.org/x/oauth2
   version: 3c3a985cb79f52a3190fbc056984415ca6763d01
   subpackages:

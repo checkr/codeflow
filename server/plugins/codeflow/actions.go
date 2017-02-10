@@ -44,6 +44,14 @@ func CurrentUser(r *rest.Request, user *User) error {
 }
 
 func ProjectCreated(p *Project) error {
+	projectMsg := plugins.Project{
+		Action:     plugins.Create,
+		Slug:       p.Slug,
+		Repository: p.Repository,
+	}
+
+	cf.Events <- agent.NewEvent(projectMsg, nil)
+
 	wsMsg := plugins.WebsocketMsg{
 		Channel: "projects",
 		Payload: p,
@@ -664,8 +672,9 @@ func CreateDeploy(r *Release) error {
 	dockerDeployEvent := plugins.DockerDeploy{
 		Action: plugins.Create,
 		Project: plugins.Project{
-			Slug:       project.Slug,
-			Repository: project.Repository,
+			Slug:           project.Slug,
+			Repository:     project.Repository,
+			NotifyChannels: strings.Split(project.NotifyChannels, ","),
 		},
 		Release: plugins.Release{
 			Id:          r.Id.Hex(),

@@ -33,11 +33,12 @@ type Codeflow struct {
 	ServiceAddress string `mapstructure:"service_address"`
 	Events         chan agent.Event
 
-	Projects  *Projects
-	Auth      *Auth
-	Users     *Users
-	Bookmarks *Bookmarks
-	Stats     *Stats
+	Projects   *Projects
+	Auth       *Auth
+	Users      *Users
+	Bookmarks  *Bookmarks
+	Stats      *Stats
+	MockEvents *MockEvents
 }
 
 func NewCodeflow() *Codeflow {
@@ -101,6 +102,7 @@ func (x *Codeflow) AvailableCodeflowHandlers() []CodeflowHandler {
 	s := reflect.ValueOf(x).Elem()
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
+
 		if !f.CanInterface() {
 			continue
 		}
