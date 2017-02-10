@@ -91,6 +91,7 @@ func LBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalancer {
 				Destination: plugins.Listener{Port: 80, Protocol: "TCP"},
 			},
 		},
+		Route53DNS: "nginx-testing.checkrhq-dev.net",
 	}
 	return lbe
 }

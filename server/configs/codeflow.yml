@@ -61,3 +61,6 @@ plugins:
   websockets:
     workers: 1
     service_address: ":3003"
+  route53:
+    workers: 1
+    hosted_zone_id: ""

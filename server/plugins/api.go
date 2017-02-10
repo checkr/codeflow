@@ -191,6 +191,16 @@ type LoadBalancer struct {
 	ListenerPairs []ListenerPair `json:"portPairs"`
 	DNSName       string         `json:"dnsName"`
 	Environment   string         `json:"environment"`
+	Route53DNS    string         `json:"json:route53DNS"`
+}
+
+// Route53
+type Route53 struct {
+	State        State   `json:"state"`
+	StateMessage string  `json:"stateMessage"`
+	DNSName      string  `json:"dnsName"`
+	Route53DNS   string  `json:"json:route53DNS"`
+	Service      Service `json:"service"`
 }
 
 type WebsocketMsg struct {

@@ -77,7 +77,8 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 
 	if err != nil {
-		panic(err.Error())
+		log.Printf("ERROR: %s; you must set the environment variable KUBECONFIG=/path/to/kubeconfig", err.Error())
+		os.Exit(1)
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
