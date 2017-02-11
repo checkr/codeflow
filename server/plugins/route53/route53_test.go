@@ -47,8 +47,8 @@ func (suite *TestRoute53) TestRoute53Update() {
 	viper.SetEnvPrefix("CF")
 	viper.AutomaticEnv()
 
-	if !viper.IsSet("plugins.route53.hosted_zone_id") {
-		log.Println("You must set CF_PLUGINS_ROUTE53_HOSTED_ZONE_ID to run this test.")
+	if !viper.IsSet("plugins.route53.hosted_zone_id") || !viper.IsSet("plugins.route53.hosted_zone_name") {
+		log.Println("You must set CF_PLUGINS_ROUTE53_HOSTED_ZONE_ID and CF_PLUGINS_ROUTE53_HOSTED_ZONE_NAME to run this test.")
 	}
 	var e agent.Event
 	suite.agent.Events <- testdata.CreateLBHTTPS(plugins.External)

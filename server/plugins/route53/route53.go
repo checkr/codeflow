@@ -69,6 +69,12 @@ func (x *Route53) sendRoute53Response(e agent.Event, state plugins.State, failur
 
 func (x *Route53) updateRoute53(e agent.Event) error {
 	payload := e.Payload.(plugins.LoadBalancer)
+	// Sanity checks
+	if payload.DNSName == "" {
+		failMessage := fmt.Sprintf("DNSName was blank for %s, skipping Route53.", payload.Project.Slug)
+		x.sendRoute53Response(e, plugins.Failed, failMessage, payload)
+		return nil
+	}
 	names := strings.Split(payload.Project.Repository, "/")
 	route53Name := fmt.Sprintf("%s.%s", names[1], viper.GetString("plugins.route53.hosted_zone_name"))
 	if payload.State == plugins.Complete {
