@@ -87,7 +87,7 @@ func (x *Slack) Process(e agent.Event) error {
 	case "plugins.DockerDeploy:status":
 		payload := e.Payload.(plugins.DockerDeploy)
 
-		if payload.State != plugins.Complete || payload.State != plugins.Failed {
+		if payload.State != plugins.Complete && payload.State != plugins.Failed {
 			return nil
 		}
 
