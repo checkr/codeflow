@@ -87,14 +87,18 @@ func (x *Slack) Process(e agent.Event) error {
 	case "plugins.DockerDeploy:status":
 		payload := e.Payload.(plugins.DockerDeploy)
 
+		if payload.State != plugins.Complete || payload.State != plugins.Failed {
+			return nil
+		}
+
 		for _, channel := range payload.Project.NotifyChannels {
 			project := payload.Project.Slug
 			release := payload.Release.HeadFeature.Hash
 
 			msg := fmt.Sprintf("Deploy %s for %s", release, project)
-			color := "#00FF00"
+			color := "#008000"
 
-			if payload.State == "failed" {
+			if payload.State == plugins.Failed {
 				color = "#FF0000"
 				msg = fmt.Sprintf("Deploy %s for %s", release, project)
 			}
