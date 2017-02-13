@@ -62,22 +62,23 @@ func (x *Slack) Process(e agent.Event) error {
 			project := payload.Project.Slug
 			release := payload.Release.HeadFeature.Hash
 			message := payload.Release.HeadFeature.Message
+			author  := payload.Release.HeadFeature.User
 
 			repository := payload.Project.Repository
 			tail := payload.Release.TailFeature.Hash
 			head := payload.Release.HeadFeature.Hash
 
-			diffUrl := fmt.Sprintf("https://github.com/%s/compare/%s...%s", repository, tail, head)
-
-			attachment1 := slack_webhook.Attachment{}
-			attachment1.AddField(slack_webhook.Field{Title: "Commit", Value: message}).AddField(slack_webhook.Field{Title: "Link", Value: diffUrl})
+			msg := fmt.Sprintf(
+				"%s: [%s](https://github.com/%s) is deploying [%s](https://github.com/%s/compare/%s...%s)",
+				project, author, author,
+				message, repository, tail, head,
+			)
 
 			slackPayload := slack_webhook.Payload{
-				Text:        fmt.Sprintf("Deploying %s for %s", release, project),
+				Text:        msg,
 				Username:    "codeflow-bot",
 				Channel:     channel,
 				IconEmoji:   ":rocket:",
-				Attachments: []slack_webhook.Attachment{attachment1},
 			}
 			err := slack_webhook.Send(webhookUrl, "", slackPayload)
 			if len(err) > 0 {
@@ -95,19 +96,19 @@ func (x *Slack) Process(e agent.Event) error {
 			project := payload.Project.Slug
 			release := payload.Release.HeadFeature.Hash
 
-			msg := fmt.Sprintf("Deploy %s for %s", release, project)
-			color := "#008000"
+			var msg, color string
 
 			if payload.State == plugins.Failed {
 				color = "#FF0000"
-				msg = fmt.Sprintf("Deploy %s for %s", release, project)
+				msg = fmt.Sprintf("Deploying %s:%s failed", project, release)
+			} else {
+				msg = fmt.Sprintf("%s:%s went live", project, release)
+				color = "#008000"
 			}
 
-			attachment1 := slack_webhook.Attachment{Color: &color}
-			attachment1.AddField(slack_webhook.Field{Title: "Status", Value: string(payload.State)})
+			attachment1 := slack_webhook.Attachment{Color: &color, Text: &msg}
 
 			slackPayload := slack_webhook.Payload{
-				Text:        msg,
 				Username:    "codeflow-bot",
 				Channel:     channel,
 				IconEmoji:   ":rocket:",
