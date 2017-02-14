@@ -69,7 +69,7 @@ func (x *Slack) Process(e agent.Event) error {
 
 			msg := fmt.Sprintf(
 				"<https://github.com/%s|%s> deploying <https://github.com/%s/compare/%s...%s|%s...%s> to <https://github.com/%s|%s>",
-				author, author, repository, tail, head, tail, head, repository, project,
+				author, author, repository, tail, head, tail[0:6], head[0:6], repository, project,
 			)
 			attachment1 := slack_webhook.Attachment{Text: &message}
 
@@ -104,14 +104,14 @@ func (x *Slack) Process(e agent.Event) error {
 				color = "#FF0000"
 				msg = fmt.Sprintf(
 					"FAILED | <https://github.com/%s|%s> | <https://github.com/%s/compare/%s...%s|%s...%s>",
-					repository, project, repository, tail, head, tail, head,
+					repository, project, repository, tail, head, tail[0:6], head[0:6],
 				)
 			} else {
+				color = "#008000"
 				msg = fmt.Sprintf(
 					"SUCCEEDED | <https://github.com/%s|%s> | <https://github.com/%s/compare/%s...%s|%s...%s>",
-					repository, project, repository, tail, head, tail, head,
+					repository, project, repository, tail, head, tail[0:6], head[0:6],
 				)
-				color = "#008000"
 			}
 
 			attachment1 := slack_webhook.Attachment{Color: &color, Text: &msg}
