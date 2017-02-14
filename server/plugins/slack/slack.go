@@ -60,7 +60,6 @@ func (x *Slack) Process(e agent.Event) error {
 
 		for _, channel := range payload.Project.NotifyChannels {
 			project := payload.Project.Slug
-			release := payload.Release.HeadFeature.Hash
 			message := payload.Release.HeadFeature.Message
 			author  := payload.Release.HeadFeature.User
 
