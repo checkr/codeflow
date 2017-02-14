@@ -3,7 +3,6 @@ package slack
 import (
 	"fmt"
 	"log"
-	"strings"
 
 	slack_webhook "github.com/ashwanthkumar/slack-go-webhook"
 	"github.com/checkr/codeflow/server/agent"
@@ -61,10 +60,7 @@ func (x *Slack) Process(e agent.Event) error {
 
 		for _, channel := range payload.Project.NotifyChannels {
 			project := payload.Project.Slug
-			message := strings.Replace(
-				payload.Release.HeadFeature.Message,
-				"\n", " ", -1,
-			)
+			message := payload.Release.HeadFeature.Message
 			author  := payload.Release.HeadFeature.User
 
 			repository := payload.Project.Repository
@@ -72,16 +68,17 @@ func (x *Slack) Process(e agent.Event) error {
 			head := payload.Release.HeadFeature.Hash
 
 			msg := fmt.Sprintf(
-				"%s: <https://github.com/%s|%s> is deploying %s <https://github.com/%s/compare/%s...%s|diff>",
-				project, author, author,
-				message, repository, tail, head,
+				"<https://github.com/%s|%s> deploying <https://github.com/%s/compare/%s...%s|%s...%s> to <https://github.com/%s|%s>",
+				author, author, repository, tail, head, tail, head, repository, project,
 			)
+			attachment1 := slack_webhook.Attachment{Text: &message}
 
 			slackPayload := slack_webhook.Payload{
 				Text:        msg,
-				Username:    "codeflow-bot",
+				Username:    "Codeflow",
 				Channel:     channel,
 				IconEmoji:   ":rocket:",
+				Attachments: []slack_webhook.Attachment{attachment1},
 			}
 			err := slack_webhook.Send(webhookUrl, "", slackPayload)
 			if len(err) > 0 {
@@ -97,22 +94,30 @@ func (x *Slack) Process(e agent.Event) error {
 
 		for _, channel := range payload.Project.NotifyChannels {
 			project := payload.Project.Slug
-			release := payload.Release.HeadFeature.Hash[0:6]
+			repository := payload.Project.Repository
+			tail := payload.Release.TailFeature.Hash
+			head := payload.Release.HeadFeature.Hash
 
 			var msg, color string
 
 			if payload.State == plugins.Failed {
 				color = "#FF0000"
-				msg = fmt.Sprintf("Deploying %s:%s failed", project, release)
+				msg = fmt.Sprintf(
+					"FAILED | <https://github.com/%s|%s> | <https://github.com/%s/compare/%s...%s|%s...%s>",
+					repository, project, repository, tail, head, tail, head,
+				)
 			} else {
-				msg = fmt.Sprintf("%s:%s went live", project, release)
+				msg = fmt.Sprintf(
+					"SUCCEEDED | <https://github.com/%s|%s> | <https://github.com/%s/compare/%s...%s|%s...%s>",
+					repository, project, repository, tail, head, tail, head,
+				)
 				color = "#008000"
 			}
 
 			attachment1 := slack_webhook.Attachment{Color: &color, Text: &msg}
 
 			slackPayload := slack_webhook.Payload{
-				Username:    "codeflow-bot",
+				Username:    "Codeflow",
 				Channel:     channel,
 				IconEmoji:   ":rocket:",
 				Attachments: []slack_webhook.Attachment{attachment1},
