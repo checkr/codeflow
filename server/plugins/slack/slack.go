@@ -3,6 +3,7 @@ package slack
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	slack_webhook "github.com/ashwanthkumar/slack-go-webhook"
 	"github.com/checkr/codeflow/server/agent"
@@ -60,7 +61,10 @@ func (x *Slack) Process(e agent.Event) error {
 
 		for _, channel := range payload.Project.NotifyChannels {
 			project := payload.Project.Slug
-			message := payload.Release.HeadFeature.Message
+			message := strings.Replace(
+				payload.Release.HeadFeature.Message,
+				"\n", " ", -1,
+			)
 			author  := payload.Release.HeadFeature.User
 
 			repository := payload.Project.Repository
@@ -68,7 +72,7 @@ func (x *Slack) Process(e agent.Event) error {
 			head := payload.Release.HeadFeature.Hash
 
 			msg := fmt.Sprintf(
-				"%s: [%s](https://github.com/%s) is deploying [%s](https://github.com/%s/compare/%s...%s)",
+				"%s: <https://github.com/%s|%s> is deploying %s. <https://github.com/%s/compare/%s...%s|diff>",
 				project, author, author,
 				message, repository, tail, head,
 			)
