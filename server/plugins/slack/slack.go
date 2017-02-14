@@ -72,7 +72,7 @@ func (x *Slack) Process(e agent.Event) error {
 			head := payload.Release.HeadFeature.Hash
 
 			msg := fmt.Sprintf(
-				"%s: <https://github.com/%s|%s> is deploying %s. <https://github.com/%s/compare/%s...%s|diff>",
+				"%s: <https://github.com/%s|%s> is deploying %s <https://github.com/%s/compare/%s...%s|diff>",
 				project, author, author,
 				message, repository, tail, head,
 			)
