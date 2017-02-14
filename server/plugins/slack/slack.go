@@ -97,7 +97,7 @@ func (x *Slack) Process(e agent.Event) error {
 
 		for _, channel := range payload.Project.NotifyChannels {
 			project := payload.Project.Slug
-			release := payload.Release.HeadFeature.Hash
+			release := payload.Release.HeadFeature.Hash[0:6]
 
 			var msg, color string
 
