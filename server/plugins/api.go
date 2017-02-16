@@ -95,6 +95,7 @@ type Release struct {
 	Id          string  `json:"id"`
 	HeadFeature Feature `json:"headFeature"`
 	TailFeature Feature `json:"tailFeature"`
+	User        string  `json:"user"`
 }
 
 type Listener struct {

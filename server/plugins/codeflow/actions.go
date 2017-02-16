@@ -541,6 +541,7 @@ func NewRelease(f Feature, u User, release *Release) error {
 func CreateDeploy(r *Release) error {
 	project := Project{}
 	build := Build{}
+	user := User{}
 
 	if err := db.Collection("projects").FindById(r.ProjectId, &project); err != nil {
 		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
@@ -556,6 +557,15 @@ func CreateDeploy(r *Release) error {
 			log.Printf("Builds::FindOne::DocumentNotFoundError: featureHash: `%v`, state: %v", r.HeadFeature.Hash, plugins.Complete)
 		} else {
 			log.Printf("Builds::FindOne::Error: %s", err.Error())
+		}
+		return err
+	}
+
+	if err := db.Collection("users").FindById(r.UserId, &user); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Users::FindById::DocumentNotFoundError: userId: `%v`", r.UserId)
+		} else {
+			log.Printf("Users::FindById::Error: %s", err.Error())
 		}
 		return err
 	}
@@ -680,6 +690,7 @@ func CreateDeploy(r *Release) error {
 			Id:          r.Id.Hex(),
 			HeadFeature: headFeature,
 			TailFeature: tailFeature,
+			User:        user.Username,
 		},
 		Docker: plugins.Docker{
 			Image: build.Image,
