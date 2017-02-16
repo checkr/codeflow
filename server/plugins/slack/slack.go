@@ -55,36 +55,6 @@ func (x *Slack) Process(e agent.Event) error {
 	webhookUrl := viper.GetString("plugins.slack.webhook_url")
 
 	switch e.Name {
-	case "plugins.DockerDeploy:create":
-		payload := e.Payload.(plugins.DockerDeploy)
-
-		for _, channel := range payload.Project.NotifyChannels {
-			project := payload.Project.Slug
-			message := payload.Release.HeadFeature.Message
-			author  := payload.Release.HeadFeature.User
-
-			repository := payload.Project.Repository
-			tail := payload.Release.TailFeature.Hash
-			head := payload.Release.HeadFeature.Hash
-
-			msg := fmt.Sprintf(
-				"<https://github.com/%s|%s> deploying <https://github.com/%s/compare/%s...%s|%s...%s> to <https://github.com/%s|%s>",
-				author, author, repository, tail, head, tail[0:6], head[0:6], repository, project,
-			)
-			attachment1 := slack_webhook.Attachment{Text: &message}
-
-			slackPayload := slack_webhook.Payload{
-				Text:        msg,
-				Username:    "Codeflow",
-				Channel:     channel,
-				IconEmoji:   ":rocket:",
-				Attachments: []slack_webhook.Attachment{attachment1},
-			}
-			err := slack_webhook.Send(webhookUrl, "", slackPayload)
-			if len(err) > 0 {
-				log.Println("error: %s\n", err)
-			}
-		}
 	case "plugins.DockerDeploy:status":
 		payload := e.Payload.(plugins.DockerDeploy)
 
@@ -94,33 +64,37 @@ func (x *Slack) Process(e agent.Event) error {
 
 		for _, channel := range payload.Project.NotifyChannels {
 			project := payload.Project.Slug
+			message := payload.Release.HeadFeature.Message
+			author := payload.Release.User
+
 			repository := payload.Project.Repository
 			tail := payload.Release.TailFeature.Hash
 			head := payload.Release.HeadFeature.Hash
 
-			var msg, color string
+			text := fmt.Sprintf(
+				"%s deployed <https://github.com/%s/compare/%s...%s|%s...%s> to <%s/projects/%s/deploy/|%s>",
+				author, repository, tail, head, tail[0:6], head[0:6], viper.GetString("plugins.codeflow.dashboard_url"), project, project,
+			)
+			feature_attachment := slack_webhook.Attachment{Text: &message}
 
+			var result_color, result_text, result_emoji string
 			if payload.State == plugins.Failed {
-				color = "#FF0000"
-				msg = fmt.Sprintf(
-					"FAILED | <https://github.com/%s|%s> | <https://github.com/%s/compare/%s...%s|%s...%s>",
-					repository, project, repository, tail, head, tail[0:6], head[0:6],
-				)
+				result_color = "#FF0000"
+				result_text = "FAILED"
+				result_emoji = ":ambulance:"
 			} else {
-				color = "#008000"
-				msg = fmt.Sprintf(
-					"SUCCEEDED | <https://github.com/%s|%s> | <https://github.com/%s/compare/%s...%s|%s...%s>",
-					repository, project, repository, tail, head, tail[0:6], head[0:6],
-				)
+				result_color = "#008000"
+				result_text = "SUCCESS"
+				result_emoji = ":rocket:"
 			}
-
-			attachment1 := slack_webhook.Attachment{Color: &color, Text: &msg}
+			result_attachment := slack_webhook.Attachment{Color: &result_color, Text: &result_text}
 
 			slackPayload := slack_webhook.Payload{
+				Text:        text,
 				Username:    "Codeflow",
 				Channel:     channel,
-				IconEmoji:   ":rocket:",
-				Attachments: []slack_webhook.Attachment{attachment1},
+				IconEmoji:   result_emoji,
+				Attachments: []slack_webhook.Attachment{feature_attachment, result_attachment},
 			}
 			err := slack_webhook.Send(webhookUrl, "", slackPayload)
 			if len(err) > 0 {
