@@ -188,7 +188,7 @@ func CheckWorkflows(r *Release) error {
 
 		case "ci":
 			var externalFlowStatus ExternalFlowStatus
-			results := db.Collection("externalFlowStatuses").Find(bson.M{"hash": r.HeadFeature.Hash})
+			results := db.Collection("externalFlowStatuses").Find(bson.M{"hash": r.HeadFeature.Hash, "context": bson.RegEx{Pattern: "^ci\\/", Options: "i"}})
 			results.Query.Sort("-$natural").Limit(1)
 			hasNext := results.Next(&externalFlowStatus)
 			if !hasNext {
