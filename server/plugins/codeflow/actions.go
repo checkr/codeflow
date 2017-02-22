@@ -773,7 +773,32 @@ func DockerDeployStatus(e *plugins.DockerDeploy) error {
 		return err
 	}
 
-	if release.State == plugins.Complete {
+	if release.State == plugins.Failed {
+		currentRelease := Release{}
+		if err := GetCurrentRelease(release.ProjectId, &currentRelease); err != nil {
+			if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+				log.Printf("GetCurrentRelease::DocumentNotFound: %v", err.Error())
+			} else {
+				log.Printf("GetCurrentRelease::Error: %s", err.Error())
+				return err
+			}
+		}
+
+		if currentRelease.State == plugins.Complete {
+			// Prevent failed deploy loops
+			if count, err := GetLatestFailedReleaseCount(release.ProjectId); err != nil {
+				log.Printf("Rollback loop detected")
+			} else {
+				if count <= 3 {
+					if err := CreateDeploy(&currentRelease); err != nil {
+						log.Printf("CreateDeploy::Error: %v", err.Error())
+						return err
+					}
+					log.Printf("Rollback %s to %s", e.Project.Repository, release.HeadFeature.Hash)
+				}
+			}
+		}
+	} else if release.State == plugins.Complete {
 		if err := ReleasePromoted(&release); err != nil {
 			log.Printf("ReleasePromoted::Error: %v", err.Error())
 		}
@@ -857,6 +882,27 @@ func GetCurrentRelease(projectId bson.ObjectId, release *Release) error {
 	}
 
 	return nil
+}
+
+func GetLatestFailedReleaseCount(projectId bson.ObjectId) (int, error) {
+	release := Release{}
+	count := 0
+	filter := bson.M{"projectId": projectId, "state": plugins.Failed}
+
+	results := db.Collection("releases").Find(bson.M{"projectId": projectId, "state": plugins.Complete})
+	results.Query.Sort("-$natural").Limit(1)
+
+	hasNext := results.Next(release)
+	if hasNext {
+		filter = bson.M{"projectId": projectId, "state": plugins.Failed, "_id": bson.M{"$gt": release.Id}}
+	}
+	results = db.Collection("releases").Find(filter)
+
+	if count, err := results.Query.Sort("-$natural").Count(); err != nil {
+		return count, err
+	}
+
+	return count, nil
 }
 
 func StringToLoadBalancerType(s string) plugins.Type {
