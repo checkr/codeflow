@@ -759,6 +759,15 @@ func DockerDeployStatus(e *plugins.DockerDeploy) error {
 
 	release.State = e.State
 
+	for i, service := range release.Services {
+		for _, s := range e.Services {
+			if s.Name == service.Name {
+				release.Services[i].State = s.State
+				release.Services[i].StateMessage = s.StateMessage
+			}
+		}
+	}
+
 	if err := db.Collection("releases").Save(&release); err != nil {
 		log.Printf("Releases::Save::Error: %v", err.Error())
 		return err

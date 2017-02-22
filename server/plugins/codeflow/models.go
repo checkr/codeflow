@@ -97,6 +97,7 @@ type Service struct {
 	ProjectId          bson.ObjectId `bson:"projectId" json:"projectId"`
 	SpecId             bson.ObjectId `bson:"specId" json:"specId"`
 	State              plugins.State `bson:"state" json:"state"`
+	StateMessage       string        `bson:"stateMessage" json:"stateMessage"`
 	Name               string        `bson:"name" json:"name"`
 	Count              int           `bson:"count" json:"count"`
 	Command            string        `bson:"command" json:"command"`

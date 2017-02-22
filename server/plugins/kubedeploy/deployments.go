@@ -386,9 +386,10 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				Name: deploymentName,
 			},
 			Spec: v1beta1.DeploymentSpec{
-				Replicas:             &replicas,
-				Strategy:             deployStrategy,
-				RevisionHistoryLimit: &revisionHistoryLimit,
+				ProgressDeadlineSeconds: util.Int32Ptr(30),
+				Replicas:                &replicas,
+				Strategy:                deployStrategy,
+				RevisionHistoryLimit:    &revisionHistoryLimit,
 				Template: v1.PodTemplateSpec{
 					ObjectMeta: v1.ObjectMeta{
 						Name:   deploymentName,
@@ -465,10 +466,11 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 	log.Printf("Waiting %d seconds for deployment to succeed.", timeout)
 	// Set all services initial state to Failed so that we know which have not succeeded.
 	for i := range data.Services {
-		data.Services[i].State = plugins.Failed
+		data.Services[i].State = plugins.Waiting
 	}
 
 	// Check status of all deployments till the succeed or timeout.
+	replicaFailures := 0
 	for {
 		for index, service := range data.Services {
 			deploymentName := genDeploymentName(data.Project.Slug, service.Name)
@@ -491,6 +493,16 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				}
 				log.Printf("%s deploy: %d of %d successful.", deploymentName, successfulDeploys, totalDeploysRequested)
 			}
+
+			for _, condition := range deployment.Status.Conditions {
+				if condition.Type == v1beta1.DeploymentReplicaFailure || (condition.Type == v1beta1.DeploymentProgressing && condition.Status == v1.ConditionFalse) {
+					replicaFailures += 1
+					data.Services[index].State = plugins.Failed
+					data.Services[index].StateMessage = condition.Message
+					log.Printf("%s failed to start: %v (%v)", deploymentName, condition.Message, condition.Reason)
+				}
+			}
+
 			if successfulDeploys == totalDeploysRequested {
 				// all success!
 				log.Printf("All deployments successful.")
@@ -560,7 +572,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				return nil
 			}
 		}
-		if curTime >= timeout {
+		if curTime >= timeout || replicaFailures > 1 {
 			// timeout and get ready to rollback!
 			log.Printf("Error, timeout reached waiting for all deployments to succeed.")
 			x.sendDDErrorResponse(e, data.Services, "Error: One or more deployments failed.")

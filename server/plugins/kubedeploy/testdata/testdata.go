@@ -184,9 +184,16 @@ func CreateSuccessMixedActionDeploy() agent.Event {
 }
 
 func CreateFailDeploy() agent.Event {
-	deploy := DeployData("nginx-test-failure", plugins.Create)
+	deploy := DeployDataFail("nginx-test-failure", plugins.Create)
 	// Set an Image that's invalid so we can test failure
 	deploy.Docker.Image = "checkr/deploy-test:INVALID"
+	event := agent.NewEvent(deploy, nil)
+	return event
+}
+
+func CreateFailDeployCommand() agent.Event {
+	deploy := DeployDataFail("nginx-test-failure", plugins.Create)
+	// Set an Image that's invalid so we can test failure
 	event := agent.NewEvent(deploy, nil)
 	return event
 }
@@ -416,6 +423,94 @@ func DeployData(name string, action plugins.Action) plugins.DockerDeploy {
 		Action:  action,
 		Name:    "worker",
 		Command: "/bin/sh -c 'while(/bin/true); do sleep 1; echo waiting forever...; done'",
+		State:   plugins.Waiting,
+		Spec: plugins.ServiceSpec{
+			CpuRequest:                    "500m",
+			CpuLimit:                      "1000m",
+			MemoryRequest:                 "512Mi",
+			MemoryLimit:                   "1Gi",
+			TerminationGracePeriodSeconds: int64(600),
+		},
+		Replicas: 1,
+	})
+
+	docker := plugins.Docker{
+		Image: "checkr/deploy-test:latest",
+	}
+
+	kubeDeploy := plugins.DockerDeploy{
+		Action:      action,
+		Docker:      docker,
+		Environment: "testing2",
+		Project:     project,
+		Timeout:     60,
+		Release:     release,
+		Services:    serviceArray,
+		Secrets: []plugins.Secret{
+			plugins.Secret{
+				Key:   "MY_SECRET_KEY",
+				Value: "MY_SECRET_VALUE",
+				Type:  plugins.Env,
+			},
+		},
+	}
+	return kubeDeploy
+}
+
+func DeployDataFail(name string, action plugins.Action) plugins.DockerDeploy {
+	project := plugins.Project{
+		Slug: name,
+	}
+
+	headFeature := plugins.Feature{
+		Message:    "test1",
+		User:       "jeremy@checkr.com",
+		Hash:       "112",
+		ParentHash: "112",
+	}
+
+	tailFeature := plugins.Feature{
+		Message:    "test2",
+		User:       "jeremy@checkr.com",
+		Hash:       "456",
+		ParentHash: "456",
+	}
+
+	release := plugins.Release{
+		HeadFeature: headFeature,
+		TailFeature: tailFeature,
+	}
+
+	listener := plugins.Listener{
+		Port:     80,
+		Protocol: "TCP",
+	}
+
+	var serviceArray []plugins.Service
+
+	// Two web services
+	for i := 0; i < 2; i++ {
+		serviceArray = append(serviceArray, plugins.Service{
+			Action:    action,
+			Name:      fmt.Sprintf("nginx%d", i),
+			Command:   "boom",
+			Listeners: []plugins.Listener{listener},
+			State:     plugins.Waiting,
+			Spec: plugins.ServiceSpec{
+				CpuRequest:                    "500m",
+				CpuLimit:                      "1000m",
+				MemoryRequest:                 "512Mi",
+				MemoryLimit:                   "1Gi",
+				TerminationGracePeriodSeconds: int64(600),
+			},
+			Replicas: 1,
+		})
+	}
+	// One worker
+	serviceArray = append(serviceArray, plugins.Service{
+		Action:  action,
+		Name:    "worker",
+		Command: "boom",
 		State:   plugins.Waiting,
 		Spec: plugins.ServiceSpec{
 			CpuRequest:                    "500m",

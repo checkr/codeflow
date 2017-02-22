@@ -45,10 +45,24 @@ func (suite *TestDeployments) TestSuccessfulDeployment() {
 	}
 }
 
-func (suite *TestDeployments) TestFailedDeployment() {
+func (suite *TestDeployments) TestFailedDeploymentImagePull() {
 	var e agent.Event
 
 	suite.agent.Events <- testdata.CreateFailDeploy()
+	e = suite.agent.GetTestEvent("plugins.DockerDeploy:status", 120)
+	assert.Equal(suite.T(), string(plugins.Running), string(e.Payload.(plugins.DockerDeploy).State))
+
+	e = suite.agent.GetTestEvent("plugins.DockerDeploy:status", 120)
+	assert.Equal(suite.T(), string(plugins.Failed), string(e.Payload.(plugins.DockerDeploy).State))
+	for _, service := range e.Payload.(plugins.DockerDeploy).Services {
+		assert.Equal(suite.T(), string(plugins.Failed), string(service.State))
+	}
+}
+
+func (suite *TestDeployments) TestFailedDeploymentCommand() {
+	var e agent.Event
+
+	suite.agent.Events <- testdata.CreateFailDeployCommand()
 	e = suite.agent.GetTestEvent("plugins.DockerDeploy:status", 120)
 	assert.Equal(suite.T(), string(plugins.Running), string(e.Payload.(plugins.DockerDeploy).State))
 
