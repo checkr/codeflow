@@ -386,7 +386,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				Name: deploymentName,
 			},
 			Spec: v1beta1.DeploymentSpec{
-				ProgressDeadlineSeconds: util.Int32Ptr(30),
+				ProgressDeadlineSeconds: util.Int32Ptr(300),
 				Replicas:                &replicas,
 				Strategy:                deployStrategy,
 				RevisionHistoryLimit:    &revisionHistoryLimit,
