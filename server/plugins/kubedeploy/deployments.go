@@ -494,14 +494,14 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				log.Printf("%s deploy: %d of %d successful.", deploymentName, successfulDeploys, totalDeploysRequested)
 			}
 
-			for _, condition := range deployment.Status.Conditions {
-				if condition.Type == v1beta1.DeploymentReplicaFailure || (condition.Type == v1beta1.DeploymentProgressing && condition.Status == v1.ConditionFalse) {
-					replicaFailures += 1
-					data.Services[index].State = plugins.Failed
-					data.Services[index].StateMessage = condition.Message
-					log.Printf("%s failed to start: %v (%v)", deploymentName, condition.Message, condition.Reason)
-				}
-			}
+			//for _, condition := range deployment.Status.Conditions {
+			//	if condition.Type == v1beta1.DeploymentReplicaFailure || (condition.Type == v1beta1.DeploymentProgressing && condition.Status == v1.ConditionFalse) {
+			//		replicaFailures += 1
+			//		data.Services[index].State = plugins.Failed
+			//		data.Services[index].StateMessage = condition.Message
+			//		log.Printf("%s failed to start: %v (%v)", deploymentName, condition.Message, condition.Reason)
+			//	}
+			//}
 
 			if successfulDeploys == totalDeploysRequested {
 				// all success!
