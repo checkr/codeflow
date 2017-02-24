@@ -2,7 +2,7 @@
 redis:
   username:
   password:
-  server: "redis:16379"
+  server: "redis:6379"
   database: "0"
   pool: "30"
   process: "1"
