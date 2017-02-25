@@ -36,7 +36,7 @@ services:
     ports:
       - "3000:3000"
   docs:
-    command: gitbook serve docs --no-live --no-watch --no-open
+    command: gitbook serve docs
     image: codeflow:local
     ports:
       - "4000:4000"
