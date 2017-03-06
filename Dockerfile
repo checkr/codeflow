@@ -22,4 +22,6 @@ RUN go get github.com/cespare/reflex
 WORKDIR $APP_PATH/dashboard
 RUN npm run build
 
+RUN npm install gitbook-cli -g
+
 WORKDIR $APP_PATH

@@ -35,3 +35,8 @@ services:
       - ./dashboard:/go/src/github.com/checkr/codeflow/dashboard
     ports:
       - "3000:3000"
+  docs:
+    command: gitbook serve docs
+    image: codeflow:local
+    ports:
+      - "4000:4000"
