@@ -11,7 +11,7 @@ The docker-compose method of starting Codeflow is to make it easy to develop Cod
 * Configure [Okta](okta.md)
 
 ```
-cp server/config/codeflow.yml server/config/codeflow.dev.yml
+cp server/configs/codeflow.yml server/configs/codeflow.dev.yml
 ```
 
 Edit the codeflow.dev.yml and set the following:
