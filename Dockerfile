@@ -23,5 +23,6 @@ WORKDIR $APP_PATH/dashboard
 RUN npm run build
 
 RUN npm install gitbook-cli -g
+RUN cd $APP_PATH/docs && npm install && gitbook install && gitbook build
 
 WORKDIR $APP_PATH
