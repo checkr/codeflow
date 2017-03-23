@@ -2,7 +2,7 @@
 * [Requirements](requirements.md)
   * [Okta](okta.md)
 * [Quick Start Guides](quick_start_guides.md)
-  * [Kubernetes / Minikube](minikube.md)
+  * [Kubernetes / Minikube](kubernetes.md)
   * [DockerCompose](docker_compose.md)
 * [Users Guide](users_guide.md)
 * [Administrators Guide](administrators_guide.md)

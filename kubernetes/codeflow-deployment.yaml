@@ -1,0 +1,119 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: codeflow
+  name: codeflow
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: codeflow
+      name: codeflow
+    spec:
+      imagePullSecrets:
+      - name: docker-io
+      containers:
+      - name: dashboard
+        args:
+        - node 
+        - dashboard/server.js
+        env:
+        - name: REACT_APP_API_ROOT
+          value: "http://192.168.99.100:31001"
+        - name: REACT_APP_ROOT
+          value: "http://192.168.99.100:31004"
+        - name: REACT_APP_WEBHOOKS_ROOT
+          value: "http://192.168.99.100:31002"
+        - name: REACT_APP_WS_ROOT
+          value: "ws://192.168.99.100:31003"
+        - name: REACT_APP_PORT
+          value: "4000"
+        image: docker.io/checkr/codeflow:8e61b3581aa8f757e83321113cb3637f173cf252.codeflow
+        ports:
+        - containerPort: 4000
+          protocol: TCP
+          name: dashboard-port
+      - name: api
+        args:
+        - /go/bin/codeflow
+        - --config
+        - /etc/codeflow.yml
+        - server
+        - --run=codeflow,webhooks,kubedeploy,websockets,docker_build
+        env:
+        - name: CF_REDIS_SERVER
+          value: "redis:6379"
+        - name: REACT_APP_API_ROOT
+          value: "http://192.168.99.100:31001"
+        - name: REACT_APP_ROOT
+          value: "http://192.168.99.100:31004"
+        - name: REACT_APP_WEBHOOKS_ROOT
+          value: "http://192.168.99.100:31002"
+        - name: REACT_APP_WS_ROOT
+          value: "ws://192.168.99.100:31003"
+        - name: CF_PLUGINS_CODEFLOW_AUTH_OKTA_ORG
+          value: "checkr"
+        - name: CF_PLUGINS_CODEFLOW_LOGS_URL
+          value: "https://kibana.mycompany.com/path/to/logs"
+        - name: CF_PLUGINS_CODEFLOW_DASHBOARD_URL
+          value: "http://192.168.99.100:31004"
+        - name: CF_PLUGINS_DOCKER_BUILD_REGISTRY_HOST
+          value: "docker.io"
+        - name: CF_PLUGINS_CODEFLOW_MONGODB_SSL
+          value: "false"
+        - name: CF_PLUGINS_CODEFLOW_MONGODB_DATABASE
+          value: "codeflow"
+        - name: CF_PLUGINS_CODEFLOW_MONGODB_URI
+          value: "mongodb://mongodb:27017"
+        - name: CF_PLUGINS_DOCKER_BUILD_REGISTRY_USER_EMAIL
+          value: "na@example.com"
+        - name: CF_PLUGINS_DOCKER_BUILD_REGISTRY_USERNAME
+          value: "naregistry"
+        - name: CF_PLUGINS_DOCKER_BUILD_REGISTRY_PASSWORD
+          value: "naregistry"
+        - name: CF_PLUGINS_CODEFLOW_JWT_SECRET_KEY
+          value: "randomizedsecret"
+        image: docker.io/checkr/codeflow:8e61b3581aa8f757e83321113cb3637f173cf252.codeflow
+        ports:
+        - containerPort: 3001
+          protocol: TCP
+          name: api-port
+        - containerPort: 3002
+          protocol: TCP
+          name: webhooks-port
+        - containerPort: 3003
+          protocol: TCP
+          name: websocket-port
+        volumeMounts:
+        - mountPath: /etc/secrets
+          name: codeflow-kubernetes-secrets
+          readOnly: true
+        - mountPath: /var/run/docker.sock
+          name: dockersocket
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 600
+      volumes:
+      - name: codeflow-kubernetes-secrets
+        secret:
+          defaultMode: 256
+          items:
+          - key: ca.pem
+            mode: 256
+            path: ca.pem
+          - key: admin.pem
+            mode: 256
+            path: admin.pem
+          - key: admin-key.pem
+            mode: 256
+            path: admin-key.pem
+          - key: kubeconfig
+            mode: 256
+            path: kubeconfig
+          secretName: codeflow-kubernetes-secrets
+      - hostPath:
+          path: /var/run/docker.sock
+        name: dockersocket

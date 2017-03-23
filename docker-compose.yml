@@ -38,5 +38,8 @@ services:
   docs:
     command: gitbook serve docs
     image: codeflow:local
+    volumes:
+      - ./docs:/go/src/github.com/checkr/codeflow/docs
     ports:
       - "4000:4000"
+      - "35729:35729"
