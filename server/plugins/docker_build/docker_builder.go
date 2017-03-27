@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/checkr/codeflow/server/plugins"
-	"github.com/docker/docker/pkg/archive"
 	docker "github.com/fsouza/go-dockerclient"
 	git "github.com/libgit2/git2go"
 )
@@ -90,16 +89,6 @@ func (b *DockerBuilder) build(build *plugins.DockerBuild) error {
 	repoPath := fmt.Sprintf("%s/%s", b.buildPath, build.Project.Repository)
 	name := fmt.Sprintf("%s/%s:%s.%s", build.Registry.Host, build.Project.Repository, build.Feature.Hash, "codeflow")
 
-	tarOptions := &archive.TarOptions{
-		Compression:     archive.Uncompressed,
-		ExcludePatterns: []string{".git"},
-		IncludeFiles:    []string{"."},
-	}
-	context, err := archive.TarWithOptions(repoPath, tarOptions)
-	if err != nil {
-		return err
-	}
-
 	var buildArgs []docker.BuildArg
 	for _, arg := range build.BuildArgs {
 		ba := docker.BuildArg{
@@ -113,11 +102,11 @@ func (b *DockerBuilder) build(build *plugins.DockerBuild) error {
 		Dockerfile:   "Dockerfile",
 		Name:         name,
 		OutputStream: b.outputBuffer,
-		InputStream:  context,
 		BuildArgs:    buildArgs,
+		ContextDir:   repoPath,
 	}
 
-	if err = b.dockerClient.BuildImage(buildOptions); err != nil {
+	if err := b.dockerClient.BuildImage(buildOptions); err != nil {
 		return err
 	}
 
