@@ -260,7 +260,7 @@ const auth = (state = initialAuthState, action) => {
       })
       localStorage.setItem('authState', JSON.stringify(auth))
       return auth
-    
+
     case ActionTypes.AUTH_SUCCESS:
       auth = Object.assign({}, state, {
         'isAuthenticated': true,

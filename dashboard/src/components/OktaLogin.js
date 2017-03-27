@@ -1,6 +1,6 @@
 import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
-import { authCallback } from '../actions'
+import { authCallback, resetErrorMessage } from '../actions'
 
 class OktaLoginPage extends Component {
   static propTypes = {
@@ -47,6 +47,7 @@ class OktaLoginPage extends Component {
 
         that.props.authCallback('/oauth2/callback/okta', { idToken: res.idToken }).then(() => {
           var next = that.props.location.query.next ? that.props.location.query : '/'
+          resetErrorMessage()
           router.push(next)
         })
       }
