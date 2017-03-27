@@ -1,0 +1,10 @@
+{
+  "title": "Codeflow Docs",
+  "plugins": ["-sharing", "edit-link"],
+  "pluginsConfig": {
+    "edit-link": {
+      "base": "https://github.com/checkr/engineering/edit/master/",
+      "label": "Edit This Page"
+    }
+  }
+}

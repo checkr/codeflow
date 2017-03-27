@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: codeflow-api
+  labels:
+    app: codeflow-api
+spec:
+  type: NodePort
+  # To use different types of service, modify for your needs. 
+  # type: LoadBalancer
+  ports:
+  - name: api-port
+    port: 3001
+    protocol: TCP
+    nodePort: 31001
+  selector:
+    app: codeflow
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: codeflow-dashboard
+  labels:
+    app: codeflow
+spec:
+  # To use different types of service, modify for your needs. 
+  # type: LoadBalancer
+  type: NodePort
+  ports:
+  - name: dashboard-port
+    port: 4000
+    protocol: TCP
+    nodePort: 31004
+  selector:
+    app: codeflow
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: codeflow-webhooks
+  labels:
+    app: codeflow-webhooks
+spec:
+  # To use different types of service, modify for your needs. 
+  # type: LoadBalancer
+  type: NodePort
+  ports:
+  - name: webhooks-port
+    port: 3002
+    protocol: TCP
+    nodePort: 31002
+  selector:
+    app: codeflow
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # To use different types of service, modify for your needs. 
+  # type: LoadBalancer
+  name: codeflow-websockets
+  labels:
+    app: codeflow-websockets
+spec:
+  type: NodePort
+  ports:
+  - name: webhooks-port
+    port: 3003
+    protocol: TCP
+    nodePort: 31003
+  selector:
+    app: codeflow

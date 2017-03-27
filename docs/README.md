@@ -3,7 +3,7 @@
 ### New to Codeflow?  
 
 * Quick Start Guides
-  * [Kubernetes / Minikube](minikube.md)
+  * [Kubernetes / Minikube](kubernetes.md)
   * [DockerCompose](docker_compose.md)
 * [Users Guide](users_guide.md)
 
