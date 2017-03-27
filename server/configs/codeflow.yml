@@ -1,4 +1,5 @@
 ---
+environment: "development"
 redis:
   username:
   password:
@@ -37,7 +38,8 @@ plugins:
     projects:
       path: "/projects"
     auth:
-      path: "/oauth2"
+      path: "/auth"
+      handler: "demo"
       okta_org: ""
     users:
       path: "/users"

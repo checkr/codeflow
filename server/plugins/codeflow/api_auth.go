@@ -19,7 +19,8 @@ import (
 )
 
 type Auth struct {
-	Path string
+	Path          string
+	JWTMiddleware *jwt_m.JWTMiddleware
 }
 
 func (a *Auth) Register(api *rest.Api) []*rest.Route {
@@ -38,6 +39,8 @@ func (a *Auth) Register(api *rest.Api) []*rest.Route {
 		},
 	}
 
+	a.JWTMiddleware = jwt_middleware
+
 	okta := &Okta{
 		JWTMiddleware: jwt_middleware,
 	}
@@ -46,8 +49,16 @@ func (a *Auth) Register(api *rest.Api) []*rest.Route {
 		Condition: func(request *rest.Request) bool {
 			var mockEvents = regexp.MustCompile(`/mockEvents/*`)
 			switch {
+			case (request.URL.Path == (a.Path + "/handler")):
+				return false
 			case (request.URL.Path == (a.Path + "/callback/okta")):
 				return false
+			case (request.URL.Path == (a.Path + "/callback/demo")):
+				if viper.GetString("environment") == "development" {
+					return false
+				} else {
+					return true
+				}
 			case request.URL.Path == "/ws":
 				return false
 			case mockEvents.MatchString(request.URL.Path):
@@ -61,15 +72,78 @@ func (a *Auth) Register(api *rest.Api) []*rest.Route {
 
 	var routes []*rest.Route
 	routes = append(routes,
-		rest.Post(a.Path+"/callback/okta", okta.oktaCallbackEventHandler),
+		rest.Get(a.Path+"/handler", a.handler),
 		rest.Get(a.Path+"/refresh_token", jwt_middleware.RefreshHandler),
+		rest.Post(a.Path+"/callback/okta", okta.oktaCallbackHandler),
+		rest.Post(a.Path+"/callback/demo", a.demoCallbackHandler),
 	)
 	log.Printf("Started the codeflow auth handler on %s\n", a.Path)
 	return routes
 }
 
-func (a *Auth) handle_auth(w rest.ResponseWriter, r *rest.Request) {
+func (a *Auth) handler(w rest.ResponseWriter, r *rest.Request) {
+	w.WriteJson(resultHandler{Handler: viper.GetString("plugins.codeflow.auth.handler")})
+}
 
+func (a *Auth) demoCallbackHandler(writer rest.ResponseWriter, r *rest.Request) {
+	user := User{
+		Name:     "Demo",
+		Username: "demo@development.com",
+		Email:    "demo@development.com",
+	}
+
+	usersCol := db.Collection("users")
+	if err := usersCol.FindOne(bson.M{"email": user.Email}, &user); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Users::FindOne::DocumentNotFound: email: `%v`", user.Email)
+			log.Printf("Creating new user: email: `%v`", user.Email)
+			if err := usersCol.Save(&user); err != nil {
+				log.Printf("Users::Save::Error: %v", err.Error())
+				rest.Error(writer, err.Error(), http.StatusInternalServerError)
+			}
+		} else {
+			log.Printf("Users::FindOne::Error: %v", err.Error())
+			rest.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		if err := usersCol.Save(&user); err != nil {
+			log.Printf("Users::Save::Error: %v", err.Error())
+			rest.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	token := jwt.New(jwt.GetSigningMethod(a.JWTMiddleware.SigningAlgorithm))
+	claims := make(jwt.MapClaims)
+
+	if a.JWTMiddleware.PayloadFunc != nil {
+		for key, value := range a.JWTMiddleware.PayloadFunc(user.Username) {
+			claims[key] = value
+		}
+	}
+
+	claims["sub"] = user.Username
+	claims["exp"] = time.Now().Add(a.JWTMiddleware.Timeout).Unix()
+
+	if a.JWTMiddleware.MaxRefresh != 0 {
+		claims["orig_iat"] = time.Now().Unix()
+	}
+
+	token.Claims = claims
+	tokenString, err := token.SignedString(a.JWTMiddleware.Key)
+
+	if err != nil {
+		a.unauthorized(writer)
+		return
+	}
+
+	writer.WriteJson(resultToken{Token: tokenString})
+	return
+}
+
+type resultHandler struct {
+	Handler string `json:"handler"`
 }
 
 type Okta struct {
@@ -94,6 +168,11 @@ func (o *Okta) unauthorized(writer rest.ResponseWriter) {
 	rest.Error(writer, "Not Authorized", http.StatusUnauthorized)
 }
 
+func (a *Auth) unauthorized(writer rest.ResponseWriter) {
+	writer.Header().Set("WWW-Authenticate", "JWT realm="+a.JWTMiddleware.Realm)
+	rest.Error(writer, "Not Authorized", http.StatusUnauthorized)
+}
+
 func (o *Okta) getKey(token *jwt.Token) (interface{}, error) {
 	jwksURL := fmt.Sprintf("https://%v.okta.com/oauth2/v1/keys", viper.GetString("plugins.codeflow.auth.okta_org"))
 	set, err := jwk.FetchHTTP(jwksURL)
@@ -114,7 +193,7 @@ func (o *Okta) getKey(token *jwt.Token) (interface{}, error) {
 }
 
 // oktaCallbackEventHandler can be used by clients to get a jwt token.
-func (o *Okta) oktaCallbackEventHandler(writer rest.ResponseWriter, request *rest.Request) {
+func (o *Okta) oktaCallbackHandler(writer rest.ResponseWriter, request *rest.Request) {
 	var idToken map[string]string
 	if err := request.DecodeJsonPayload(&idToken); err != nil {
 		rest.Error(writer, fmt.Sprintf("No id token received: %#v", idToken), http.StatusBadRequest)

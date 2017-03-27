@@ -7,7 +7,7 @@ import Dashboard from './components/Dashboard'
 import Projects from './components/Projects'
 import AddProject from './components/AddProject'
 import Project from './components/Project'
-import OktaLogin from './components/OktaLogin'
+import Login from './components/Login'
 import { RequireAuthentication } from './components/AuthenticatedComponent'
 
 export default <Router history={hashHistory}>
@@ -22,7 +22,7 @@ export default <Router history={hashHistory}>
       </Route>
     </Route>
     <Route component={EmptyLayout}>
-      <Route path="login" component={OktaLogin} />
+      <Route path="login" component={Login} />
     </Route>
   </Route>
 </Router>

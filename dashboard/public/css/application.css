@@ -424,3 +424,22 @@ a {
 .input-group-addon {
     width: 40px;
 }
+
+a:link, a:visited, a:active {
+    text-decoration: none;
+    color: #777;
+}
+
+.custom-checkbox input, .custom-radio input {
+    opacity: 1 !important;
+}
+
+input[type=hidden] {
+  display: none !important;
+}
+
+input[type=checkbox], input[type=radio] {
+  border: 0 !important;
+  margin: 0;
+  padding: 0;
+}

@@ -1,6 +1,12 @@
 import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { authCallback, resetErrorMessage } from '../actions'
+import loadConfig from "../config"
+
+import OktaSignIn from '../../public/okta-signin-widget-1.9.0/js/okta-sign-in.min.js';
+import '../../public/okta-signin-widget-1.9.0/css/okta-sign-in.css';
+import '../../public/okta-signin-widget-1.9.0/css/okta-theme.css';
+
 
 class OktaLoginPage extends Component {
   static propTypes = {
@@ -11,23 +17,35 @@ class OktaLoginPage extends Component {
     router: PropTypes.object
   }
 
+  componentWillMount() {
+    if (window.Backbone && window.Backbone.history) {
+      window.Backbone.history.stop()
+    }
+  }
+
   componentWillUnmount() {
     window.Backbone.history.stop()
   }
 
   componentDidMount() {
     const { router } = this.context
-
-    var orgUrl = 'https://checkr.okta.com'
-    var oktaSignIn = new window.OktaSignIn({
-      logo: 'https://ok4static.oktacdn.com/bc/image/fileStoreRecord?id=fs0pgyx2uFHva5qsw1t6',
+    const CONFIG = loadConfig()
+    var orgUrl = CONFIG.REACT_APP_OKTA_URL
+    var oktaSignIn = new OktaSignIn({
+      logo: CONFIG.REACT_APP_OKTA_LOGO,
       baseUrl: orgUrl,
+      redirectUri: window.location.origin,
       // OpenID Connect options
-      clientId: 'TJxx1X61RTCF8uxNpxll',
+      clientId: CONFIG.REACT_APP_OKTA_CLIENT_ID,
+      features: {
+        rememberMe: true,
+        autoPush: true,
+        selfServiceUnlock: true,
+      },
       authParams: {
         responseType: 'id_token',
         responseMode: 'okta_post_message',
-        scope: [
+        scopes: [
           'openid',
           'email',
           'profile',
@@ -45,11 +63,13 @@ class OktaLoginPage extends Component {
         // res.idToken - id_token generated
         // res.claims - decoded id_token information
 
-        that.props.authCallback('/oauth2/callback/okta', { idToken: res.idToken }).then(() => {
-          var next = that.props.location.query.next ? that.props.location.query : '/'
+        that.props.authCallback('/auth/callback/okta', { idToken: res.idToken }).then(() => {
           resetErrorMessage()
-          router.push(next)
+          router.push(that.props.next)
         })
+      },
+      function (err) {
+        console.log(err)
       }
     )
   }
@@ -68,5 +88,6 @@ class OktaLoginPage extends Component {
 const mapStateToProps = (state, ownProps) => ({})
 
 export default connect(mapStateToProps, {
-  authCallback
+  authCallback,
+  OktaSignIn
 })(OktaLoginPage)

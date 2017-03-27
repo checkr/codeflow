@@ -61,6 +61,23 @@ export const fetchUsers = (username = '') => {
   }
 }
 
+export const AUTH_HANDLER_REQUEST = 'AUTH_HANDLER_REQUEST'
+export const AUTH_HANDLER_SUCCESS = 'AUTH_HANDLER_SUCCESS'
+export const AUTH_HANDLER_FAILURE = 'AUTH_HANDLER_FAILURE'
+
+export const authHandler = () => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/auth/handler`,
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      types: [ AUTH_HANDLER_REQUEST, AUTH_HANDLER_SUCCESS, AUTH_HANDLER_FAILURE ]
+    }
+  }
+}
 export const AUTH_REQUEST = 'AUTH_REQUEST'
 export const AUTH_SUCCESS = 'AUTH_SUCCESS'
 export const AUTH_FAILURE = 'AUTH_FAILURE'

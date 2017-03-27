@@ -223,6 +223,7 @@ const errorMessage = (state = null, action) => {
 }
 
 const initialAuthState = localStorage.getItem('authState') ? JSON.parse(localStorage.getItem('authState')) : {
+  handler: null,
   token: null,
   userName: null,
   isAuthenticated: false,
@@ -249,6 +250,20 @@ const auth = (state = initialAuthState, action) => {
     case ActionTypes.REFRESH_TOKEN:
       state.refreshToken = true
       return state
+
+    case ActionTypes.AUTH_HANDLER_REQUEST:
+      auth = Object.assign({}, state, {
+        'handler': null,
+      })
+      localStorage.setItem('authState', JSON.stringify(auth))
+      return auth
+
+    case ActionTypes.AUTH_HANDLER_SUCCESS:
+      auth = Object.assign({}, state, {
+        'handler': action.payload.handler,
+      })
+      localStorage.setItem('authState', JSON.stringify(auth))
+      return auth
 
     case ActionTypes.REFRESH_TOKEN_SUCCESS:
       auth = Object.assign({}, state, {

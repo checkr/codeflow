@@ -674,6 +674,7 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 	secrets := []Secret{}
 	secret := Secret{}
 	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "deleted": false})
+	results.Query.Sort("$natural")
 	for results.Next(&secret) {
 		secrets = append(secrets, secret)
 	}
