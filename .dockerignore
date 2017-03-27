@@ -1,6 +1,5 @@
 .DS_Store
-dashboard/node_modules
-server/configs/dev.codeflow.yml
-server/configs/codeflow.dev.yml
-dashboard/.env
-dashboard/.env.*
+*/.env*
+*/node_modules
+*/configs/dev.codeflow.yml
+*/configs/codeflow.dev.yml
