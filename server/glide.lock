@@ -1,5 +1,5 @@
-hash: 3b69cd745e17ec546cb586e7f0d9269cb35d32a11cef7a7404340adb8a3ece8c
-updated: 2017-03-28T11:56:04.937217802-07:00
+hash: eb20b66d893c36dde1bc19d684055dc5504efacb0cbcccd0a5a9d5813e4fa00b
+updated: 2017-03-28T13:22:15.241536466-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -52,7 +52,7 @@ imports:
   - digest
   - reference
 - name: github.com/docker/docker
-  version: c7c7f36da7fbdaaee97b21c9174872e32fa4e037
+  version: 8098bf3896f5a60be65102d9e99161b601d5e3ab
   subpackages:
   - api/types
   - api/types/blkiodev
@@ -165,7 +165,7 @@ imports:
   - jwa
   - jwk
 - name: github.com/libgit2/git2go
-  version: 22091886372e73de5d66168e8665775676ec13c5
+  version: 334260d743d713a55ff3c097ec6707f2bb39e9d5
 - name: github.com/magiconair/properties
   version: 51463bfca2576e06c62a8504b5c0f06d61312647
 - name: github.com/mailru/easyjson
