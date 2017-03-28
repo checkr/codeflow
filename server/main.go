@@ -9,11 +9,15 @@ import (
 	"syscall"
 
 	"github.com/checkr/codeflow/server/agent"
+	"github.com/mattes/migrate/file"
+	"github.com/mattes/migrate/migrate"
+	"github.com/mattes/migrate/migrate/direction"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	_ "github.com/checkr/codeflow/server/plugins"
 	_ "github.com/checkr/codeflow/server/plugins/codeflow"
+	_ "github.com/checkr/codeflow/server/plugins/codeflow/migrations"
 	_ "github.com/checkr/codeflow/server/plugins/docker_build"
 	_ "github.com/checkr/codeflow/server/plugins/heartbeat"
 	_ "github.com/checkr/codeflow/server/plugins/kubedeploy"
@@ -47,6 +51,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./configs/.codeflow.yml)")
 	RootCmd.AddCommand(cmdServer)
+	RootCmd.AddCommand(cmdMigrate)
 
 	cmdServer.Flags().StringSliceP("run", "r", []string{}, "run plugins a,b,c")
 	viper.BindPFlags(cmdServer.Flags())
@@ -98,4 +103,54 @@ var cmdServer = &cobra.Command{
 
 		ag.Run()
 	},
+}
+
+var cmdMigrate = &cobra.Command{
+	Use:  "migrate [command]",
+	Long: `...`,
+	Run: func(cmd *cobra.Command, args []string) {
+		pipe := migrate.NewPipe()
+		go migrate.Up(pipe, viper.GetString("plugins.codeflow.mongodb.uri"), "./plugins/codeflow/migrations")
+		ok := writePipe(pipe)
+		if !ok {
+			os.Exit(1)
+		}
+	},
+}
+
+func writePipe(pipe chan interface{}) (ok bool) {
+	okFlag := true
+	if pipe != nil {
+		for {
+			select {
+			case item, more := <-pipe:
+				if !more {
+					return okFlag
+				}
+				switch item.(type) {
+
+				case string:
+					fmt.Println(item.(string))
+
+				case error:
+					fmt.Printf("%s\n\n", item.(error).Error())
+					okFlag = false
+
+				case file.File:
+					f := item.(file.File)
+					if f.Direction == direction.Up {
+						fmt.Print(">")
+					} else if f.Direction == direction.Down {
+						fmt.Print("<")
+					}
+					fmt.Printf(" %s\n", f.FileName)
+
+				default:
+					text := fmt.Sprint(item)
+					fmt.Println(text)
+				}
+			}
+		}
+	}
+	return okFlag
 }
