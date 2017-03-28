@@ -54,14 +54,18 @@ type Result struct {
 
 // Assert compares the Result against the Expected struct, and fails the test if
 // any of the expcetations are not met.
-func (r *Result) Assert(t testingT, exp Expected) {
+func (r *Result) Assert(t testingT, exp Expected) *Result {
 	err := r.Compare(exp)
 	if err == nil {
-		return
+		return r
 	}
-
-	_, file, line, _ := runtime.Caller(1)
-	t.Fatalf("at %s:%d\n%s", filepath.Base(file), line, err.Error())
+	_, file, line, ok := runtime.Caller(1)
+	if ok {
+		t.Fatalf("at %s:%d - %s", filepath.Base(file), line, err.Error())
+	} else {
+		t.Fatalf("(no file/line info) - %s", err.Error())
+	}
+	return nil
 }
 
 // Compare returns a formatted error with the command, stdout, stderr, exit
@@ -123,10 +127,11 @@ func (r *Result) String() string {
 	}
 
 	return fmt.Sprintf(`
-Command: %s
-ExitCode: %d%s, Error: %s
-Stdout: %v
-Stderr: %v
+Command:  %s
+ExitCode: %d%s
+Error:    %v
+Stdout:   %v
+Stderr:   %v
 `,
 		strings.Join(r.Cmd.Args, " "),
 		r.ExitCode,
@@ -215,8 +220,16 @@ type Cmd struct {
 	Env     []string
 }
 
+// Command create a simple Cmd with the specified command and arguments
+func Command(command string, args ...string) Cmd {
+	return Cmd{Command: append([]string{command}, args...)}
+}
+
 // RunCmd runs a command and returns a Result
-func RunCmd(cmd Cmd) *Result {
+func RunCmd(cmd Cmd, cmdOperators ...func(*Cmd)) *Result {
+	for _, op := range cmdOperators {
+		op(&cmd)
+	}
 	result := StartCmd(cmd)
 	if result.Error != nil {
 		return result
@@ -226,7 +239,7 @@ func RunCmd(cmd Cmd) *Result {
 
 // RunCommand parses a command line and runs it, returning a result
 func RunCommand(command string, args ...string) *Result {
-	return RunCmd(Cmd{Command: append([]string{command}, args...)})
+	return RunCmd(Command(command, args...))
 }
 
 // StartCmd starts a command, but doesn't wait for it to finish

@@ -90,9 +90,6 @@ following will output a list of processes running in the container:
 		if err := checkArgs(context, 1, minArgs); err != nil {
 			return err
 		}
-		if os.Geteuid() != 0 {
-			return fmt.Errorf("runc should be run as root")
-		}
 		if err := revisePidFile(context); err != nil {
 			return err
 		}
@@ -115,7 +112,7 @@ func execProcess(context *cli.Context) (int, error) {
 		return -1, err
 	}
 	if status == libcontainer.Stopped {
-		return -1, fmt.Errorf("cannot exec a container that has run and stopped")
+		return -1, fmt.Errorf("cannot exec a container that has stopped")
 	}
 	path := context.String("process")
 	if path == "" && len(context.Args()) == 1 {
@@ -176,7 +173,13 @@ func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
 		p.SelinuxLabel = l
 	}
 	if caps := context.StringSlice("cap"); len(caps) > 0 {
-		p.Capabilities = caps
+		for _, c := range caps {
+			p.Capabilities.Bounding = append(p.Capabilities.Bounding, c)
+			p.Capabilities.Inheritable = append(p.Capabilities.Inheritable, c)
+			p.Capabilities.Effective = append(p.Capabilities.Effective, c)
+			p.Capabilities.Permitted = append(p.Capabilities.Permitted, c)
+			p.Capabilities.Ambient = append(p.Capabilities.Ambient, c)
+		}
 	}
 	// append the passed env variables
 	p.Env = append(p.Env, context.StringSlice("env")...)

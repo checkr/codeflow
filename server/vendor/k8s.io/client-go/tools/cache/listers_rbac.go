@@ -18,7 +18,7 @@ package cache
 
 import (
 	"k8s.io/client-go/pkg/api/errors"
-	rbac "k8s.io/client-go/pkg/apis/rbac"
+	"k8s.io/client-go/pkg/apis/rbac"
 	"k8s.io/client-go/pkg/labels"
 )
 

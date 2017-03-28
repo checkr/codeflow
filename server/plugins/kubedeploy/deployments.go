@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"k8s.io/client-go/kubernetes"
-	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/pkg/api/errors"
 	"k8s.io/client-go/pkg/api/resource"
+	"k8s.io/client-go/pkg/api/unversioned"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/util"
 	"k8s.io/client-go/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
@@ -75,9 +75,9 @@ func secretifyDockerCred() string {
 	return jsonFilled
 }
 
-func (x *KubeDeploy) createDockerIOSecretIfNotExists(namespace string, coreInterface v1core.CoreV1Interface) error {
+func (x *KubeDeploy) createDockerIOSecretIfNotExists(namespace string, coreInterface corev1.CoreV1Interface) error {
 	// Load up the docker-io secrets for image pull if not exists
-	_, dockerIOSecretErr := coreInterface.Secrets(namespace).Get("docker-io", metav1.GetOptions{})
+	_, dockerIOSecretErr := coreInterface.Secrets(namespace).Get("docker-io")
 	if dockerIOSecretErr != nil {
 		if errors.IsNotFound(dockerIOSecretErr) {
 			log.Printf("docker-io secret not found for %s, creating.", namespace)
@@ -85,7 +85,7 @@ func (x *KubeDeploy) createDockerIOSecretIfNotExists(namespace string, coreInter
 				".dockercfg": secretifyDockerCred(),
 			}
 			_, createDockerIOSecretErr := coreInterface.Secrets(namespace).Create(&v1.Secret{
-				TypeMeta: metav1.TypeMeta{
+				TypeMeta: unversioned.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
 				},
@@ -108,14 +108,14 @@ func (x *KubeDeploy) createDockerIOSecretIfNotExists(namespace string, coreInter
 	return nil
 }
 
-func (x *KubeDeploy) createNamespaceIfNotExists(namespace string, coreInterface v1core.CoreV1Interface) error {
+func (x *KubeDeploy) createNamespaceIfNotExists(namespace string, coreInterface corev1.CoreV1Interface) error {
 	// Create namespace if it does not exist.
-	_, nameGetErr := coreInterface.Namespaces().Get(namespace, metav1.GetOptions{})
+	_, nameGetErr := coreInterface.Namespaces().Get(namespace)
 	if nameGetErr != nil {
 		if errors.IsNotFound(nameGetErr) {
 			log.Printf("Namespace %s does not yet exist, creating.", namespace)
 			namespaceParams := &v1.Namespace{
-				TypeMeta: metav1.TypeMeta{
+				TypeMeta: unversioned.TypeMeta{
 					Kind:       "Namespace",
 					APIVersion: "v1",
 				},
@@ -189,7 +189,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 	}
 
 	secretParams := &v1.Secret{
-		TypeMeta: metav1.TypeMeta{
+		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
@@ -378,7 +378,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 		var revisionHistoryLimit int32 = 10
 		terminationGracePeriodSeconds := service.Spec.TerminationGracePeriodSeconds
 		deployParams := &v1beta1.Deployment{
-			TypeMeta: metav1.TypeMeta{
+			TypeMeta: unversioned.TypeMeta{
 				Kind:       "Deployment",
 				APIVersion: "extensions/v1beta1",
 			},
@@ -435,7 +435,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 		}
 
 		log.Printf("Getting list of deployments matching %s", deploymentName)
-		_, err := depInterface.Deployments(namespace).Get(deploymentName, metav1.GetOptions{})
+		_, err := depInterface.Deployments(namespace).Get(deploymentName)
 		var myError error
 		if err != nil {
 			// Create deployment if it does not exist
@@ -474,7 +474,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 	for {
 		for index, service := range data.Services {
 			deploymentName := genDeploymentName(data.Project.Slug, service.Name)
-			deployment, err := depInterface.Deployments(namespace).Get(deploymentName, metav1.GetOptions{})
+			deployment, err := depInterface.Deployments(namespace).Get(deploymentName)
 			if err != nil {
 				log.Printf("Error '%s' fetching deployment status for %s", err, deploymentName)
 				continue

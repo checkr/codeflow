@@ -2,7 +2,6 @@ package slack
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/parnurzeal/gorequest"
 )
@@ -36,6 +35,7 @@ type Payload struct {
 	IconEmoji   string       `json:"icon_emoji,omitempty"`
 	Channel     string       `json:"channel,omitempty"`
 	Text        string       `json:"text,omitempty"`
+	LinkNames   string       `json:"link_names,omitempty"`
 	Attachments []Attachment `json:"attachments,omitempty"`
 }
 
@@ -57,7 +57,6 @@ func Send(webhookUrl string, proxy string, payload Payload) []error {
 		End()
 
 	if err != nil {
-		log.Fatal(err)
 		return err
 	}
 	if resp.StatusCode >= 400 {

@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"sync"
-	"syscall"
 
 	"github.com/docker/docker/pkg/term"
 	"github.com/opencontainers/runc/libcontainer"
@@ -20,6 +19,7 @@ type tty struct {
 	closers   []io.Closer
 	postStart []io.Closer
 	wg        sync.WaitGroup
+	consoleC  chan error
 }
 
 func (t *tty) copyIO(w io.Writer, r io.ReadCloser) {
@@ -28,9 +28,9 @@ func (t *tty) copyIO(w io.Writer, r io.ReadCloser) {
 	r.Close()
 }
 
-// setup standard pipes so that the TTY of the calling runc process
-// is not inherited by the container.
-func createStdioPipes(p *libcontainer.Process, rootuid, rootgid int) (*tty, error) {
+// setup pipes for the process so that advanced features like c/r are able to easily checkpoint
+// and restore the process's IO without depending on a host specific path or device
+func setupProcessPipes(p *libcontainer.Process, rootuid, rootgid int) (*tty, error) {
 	i, err := p.InitializeIO(rootuid, rootgid)
 	if err != nil {
 		return nil, err
@@ -62,53 +62,37 @@ func createStdioPipes(p *libcontainer.Process, rootuid, rootgid int) (*tty, erro
 	return t, nil
 }
 
-func dupStdio(process *libcontainer.Process, rootuid, rootgid int) error {
+func inheritStdio(process *libcontainer.Process) error {
 	process.Stdin = os.Stdin
 	process.Stdout = os.Stdout
 	process.Stderr = os.Stderr
-	for _, fd := range []uintptr{
-		os.Stdin.Fd(),
-		os.Stdout.Fd(),
-		os.Stderr.Fd(),
-	} {
-		if err := syscall.Fchown(int(fd), rootuid, rootgid); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
-func (t *tty) recvtty(process *libcontainer.Process, detach bool) error {
-	console, err := process.GetConsole()
+func (t *tty) recvtty(process *libcontainer.Process, socket *os.File) error {
+	f, err := utils.RecvFd(socket)
 	if err != nil {
 		return err
 	}
-
-	if !detach {
-		go io.Copy(console, os.Stdin)
-		t.wg.Add(1)
-		go t.copyIO(os.Stdout, console)
-
-		state, err := term.SetRawTerminal(os.Stdin.Fd())
-		if err != nil {
-			return fmt.Errorf("failed to set the terminal from the stdin: %v", err)
-		}
-		t.state = state
+	console := libcontainer.ConsoleFromFile(f)
+	go io.Copy(console, os.Stdin)
+	t.wg.Add(1)
+	go t.copyIO(os.Stdout, console)
+	state, err := term.SetRawTerminal(os.Stdin.Fd())
+	if err != nil {
+		return fmt.Errorf("failed to set the terminal from the stdin: %v", err)
 	}
-
+	t.state = state
 	t.console = console
 	t.closers = []io.Closer{console}
 	return nil
 }
 
-func (t *tty) sendtty(socket *os.File, ti *libcontainer.TerminalInfo) error {
-	if t.console == nil {
-		return fmt.Errorf("tty.console not set")
+func (t *tty) waitConsole() error {
+	if t.consoleC != nil {
+		return <-t.consoleC
 	}
-
-	// Create a fake file to contain the terminal info.
-	console := os.NewFile(t.console.File().Fd(), ti.String())
-	return utils.SendFd(socket, console)
+	return nil
 }
 
 // ClosePostStart closes any fds that are provided to the container and dup2'd

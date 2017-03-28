@@ -339,6 +339,57 @@ func TestProcessEnv(t *testing.T) {
 	}
 }
 
+func TestProcessEmptyCaps(t *testing.T) {
+	if testing.Short() {
+		return
+	}
+	root, err := newTestRoot()
+	ok(t, err)
+	defer os.RemoveAll(root)
+
+	rootfs, err := newRootfs()
+	ok(t, err)
+	defer remove(rootfs)
+
+	config := newTemplateConfig(rootfs)
+	config.Capabilities = nil
+
+	container, err := factory.Create("test", config)
+	ok(t, err)
+	defer container.Destroy()
+
+	var stdout bytes.Buffer
+	pconfig := libcontainer.Process{
+		Cwd:    "/",
+		Args:   []string{"sh", "-c", "cat /proc/self/status"},
+		Env:    standardEnvironment,
+		Stdin:  nil,
+		Stdout: &stdout,
+	}
+	err = container.Run(&pconfig)
+	ok(t, err)
+
+	// Wait for process
+	waitProcess(&pconfig, t)
+
+	outputStatus := string(stdout.Bytes())
+
+	lines := strings.Split(outputStatus, "\n")
+
+	effectiveCapsLine := ""
+	for _, l := range lines {
+		line := strings.TrimSpace(l)
+		if strings.Contains(line, "CapEff:") {
+			effectiveCapsLine = line
+			break
+		}
+	}
+
+	if effectiveCapsLine == "" {
+		t.Fatal("Couldn't find effective caps: ", outputStatus)
+	}
+}
+
 func TestProcessCaps(t *testing.T) {
 	if testing.Short() {
 		return
@@ -357,17 +408,19 @@ func TestProcessCaps(t *testing.T) {
 	ok(t, err)
 	defer container.Destroy()
 
-	processCaps := append(config.Capabilities, "CAP_NET_ADMIN")
-
 	var stdout bytes.Buffer
 	pconfig := libcontainer.Process{
 		Cwd:          "/",
 		Args:         []string{"sh", "-c", "cat /proc/self/status"},
 		Env:          standardEnvironment,
-		Capabilities: processCaps,
 		Stdin:        nil,
 		Stdout:       &stdout,
+		Capabilities: &configs.Capabilities{},
 	}
+	pconfig.Capabilities.Bounding = append(config.Capabilities.Bounding, "CAP_NET_ADMIN")
+	pconfig.Capabilities.Permitted = append(config.Capabilities.Permitted, "CAP_NET_ADMIN")
+	pconfig.Capabilities.Effective = append(config.Capabilities.Effective, "CAP_NET_ADMIN")
+	pconfig.Capabilities.Inheritable = append(config.Capabilities.Inheritable, "CAP_NET_ADMIN")
 	err = container.Run(&pconfig)
 	ok(t, err)
 
@@ -1059,8 +1112,8 @@ func TestHook(t *testing.T) {
 	defer remove(rootfs)
 
 	config := newTemplateConfig(rootfs)
-	expectedBundlePath := bundle
-	config.Labels = append(config.Labels, fmt.Sprintf("bundle=%s", expectedBundlePath))
+	expectedBundle := bundle
+	config.Labels = append(config.Labels, fmt.Sprintf("bundle=%s", expectedBundle))
 
 	getRootfsFromBundle := func(bundle string) (string, error) {
 		f, err := os.Open(filepath.Join(bundle, "config.json"))
@@ -1078,11 +1131,11 @@ func TestHook(t *testing.T) {
 	config.Hooks = &configs.Hooks{
 		Prestart: []configs.Hook{
 			configs.NewFunctionHook(func(s configs.HookState) error {
-				if s.BundlePath != expectedBundlePath {
-					t.Fatalf("Expected prestart hook bundlePath '%s'; got '%s'", expectedBundlePath, s.BundlePath)
+				if s.Bundle != expectedBundle {
+					t.Fatalf("Expected prestart hook bundlePath '%s'; got '%s'", expectedBundle, s.Bundle)
 				}
 
-				root, err := getRootfsFromBundle(s.BundlePath)
+				root, err := getRootfsFromBundle(s.Bundle)
 				if err != nil {
 					return err
 				}
@@ -1095,11 +1148,11 @@ func TestHook(t *testing.T) {
 		},
 		Poststart: []configs.Hook{
 			configs.NewFunctionHook(func(s configs.HookState) error {
-				if s.BundlePath != expectedBundlePath {
-					t.Fatalf("Expected poststart hook bundlePath '%s'; got '%s'", expectedBundlePath, s.BundlePath)
+				if s.Bundle != expectedBundle {
+					t.Fatalf("Expected poststart hook bundlePath '%s'; got '%s'", expectedBundle, s.Bundle)
 				}
 
-				root, err := getRootfsFromBundle(s.BundlePath)
+				root, err := getRootfsFromBundle(s.Bundle)
 				if err != nil {
 					return err
 				}
@@ -1108,11 +1161,11 @@ func TestHook(t *testing.T) {
 		},
 		Poststop: []configs.Hook{
 			configs.NewFunctionHook(func(s configs.HookState) error {
-				if s.BundlePath != expectedBundlePath {
-					t.Fatalf("Expected poststop hook bundlePath '%s'; got '%s'", expectedBundlePath, s.BundlePath)
+				if s.Bundle != expectedBundle {
+					t.Fatalf("Expected poststop hook bundlePath '%s'; got '%s'", expectedBundle, s.Bundle)
 				}
 
-				root, err := getRootfsFromBundle(s.BundlePath)
+				root, err := getRootfsFromBundle(s.Bundle)
 				if err != nil {
 					return err
 				}
@@ -1391,17 +1444,20 @@ func TestRootfsPropagationSharedMount(t *testing.T) {
 	stdinR2, stdinW2, err := os.Pipe()
 	ok(t, err)
 
-	// Provide CAP_SYS_ADMIN
-	processCaps := append(config.Capabilities, "CAP_SYS_ADMIN")
-
 	pconfig2 := &libcontainer.Process{
 		Cwd:          "/",
 		Args:         []string{"mount", "--bind", dir2cont, dir2cont},
 		Env:          standardEnvironment,
 		Stdin:        stdinR2,
 		Stdout:       &stdout2,
-		Capabilities: processCaps,
+		Capabilities: &configs.Capabilities{},
 	}
+
+	// Provide CAP_SYS_ADMIN
+	pconfig2.Capabilities.Bounding = append(config.Capabilities.Bounding, "CAP_SYS_ADMIN")
+	pconfig2.Capabilities.Permitted = append(config.Capabilities.Permitted, "CAP_SYS_ADMIN")
+	pconfig2.Capabilities.Effective = append(config.Capabilities.Effective, "CAP_SYS_ADMIN")
+	pconfig2.Capabilities.Inheritable = append(config.Capabilities.Inheritable, "CAP_SYS_ADMIN")
 
 	err = container.Run(pconfig2)
 	stdinR2.Close()

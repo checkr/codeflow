@@ -43,10 +43,14 @@ func TestConvertRestartPolicyFromFailure(t *testing.T) {
 	assert.DeepEqual(t, policy, expected)
 }
 
+func strPtr(val string) *string {
+	return &val
+}
+
 func TestConvertEnvironment(t *testing.T) {
-	source := map[string]string{
-		"foo": "bar",
-		"key": "value",
+	source := map[string]*string{
+		"foo": strPtr("bar"),
+		"key": strPtr("value"),
 	}
 	env := convertEnvironment(source)
 	sort.Strings(env)
@@ -74,6 +78,29 @@ func TestConvertResourcesFull(t *testing.T) {
 		},
 		Reservations: &swarm.Resources{
 			NanoCPUs:    2000000,
+			MemoryBytes: 200000000,
+		},
+	}
+	assert.DeepEqual(t, resources, expected)
+}
+
+func TestConvertResourcesOnlyMemory(t *testing.T) {
+	source := composetypes.Resources{
+		Limits: &composetypes.Resource{
+			MemoryBytes: composetypes.UnitBytes(300000000),
+		},
+		Reservations: &composetypes.Resource{
+			MemoryBytes: composetypes.UnitBytes(200000000),
+		},
+	}
+	resources, err := convertResources(source)
+	assert.NilError(t, err)
+
+	expected := &swarm.ResourceRequirements{
+		Limits: &swarm.Resources{
+			MemoryBytes: 300000000,
+		},
+		Reservations: &swarm.Resources{
 			MemoryBytes: 200000000,
 		},
 	}
@@ -120,12 +147,46 @@ func TestConvertHealthcheckDisableWithTest(t *testing.T) {
 	assert.Error(t, err, "test and disable can't be set")
 }
 
+func TestConvertEndpointSpec(t *testing.T) {
+	source := []composetypes.ServicePortConfig{
+		{
+			Protocol:  "udp",
+			Target:    53,
+			Published: 1053,
+			Mode:      "host",
+		},
+		{
+			Target:    8080,
+			Published: 80,
+		},
+	}
+	endpoint, err := convertEndpointSpec("vip", source)
+
+	expected := swarm.EndpointSpec{
+		Mode: swarm.ResolutionMode(strings.ToLower("vip")),
+		Ports: []swarm.PortConfig{
+			{
+				TargetPort:    8080,
+				PublishedPort: 80,
+			},
+			{
+				Protocol:      "udp",
+				TargetPort:    53,
+				PublishedPort: 1053,
+				PublishMode:   "host",
+			},
+		},
+	}
+
+	assert.NilError(t, err)
+	assert.DeepEqual(t, *endpoint, expected)
+}
+
 func TestConvertServiceNetworksOnlyDefault(t *testing.T) {
 	networkConfigs := networkMap{}
-	networks := map[string]*composetypes.ServiceNetworkConfig{}
 
 	configs, err := convertServiceNetworks(
-		networks, networkConfigs, NewNamespace("foo"), "service")
+		nil, networkConfigs, NewNamespace("foo"), "service")
 
 	expected := []swarm.NetworkAttachmentConfig{
 		{
@@ -176,6 +237,31 @@ func TestConvertServiceNetworks(t *testing.T) {
 
 	assert.NilError(t, err)
 	assert.DeepEqual(t, []swarm.NetworkAttachmentConfig(sortedConfigs), expected)
+}
+
+func TestConvertServiceNetworksCustomDefault(t *testing.T) {
+	networkConfigs := networkMap{
+		"default": composetypes.NetworkConfig{
+			External: composetypes.External{
+				External: true,
+				Name:     "custom",
+			},
+		},
+	}
+	networks := map[string]*composetypes.ServiceNetworkConfig{}
+
+	configs, err := convertServiceNetworks(
+		networks, networkConfigs, NewNamespace("foo"), "service")
+
+	expected := []swarm.NetworkAttachmentConfig{
+		{
+			Target:  "custom",
+			Aliases: []string{"service"},
+		},
+	}
+
+	assert.NilError(t, err)
+	assert.DeepEqual(t, []swarm.NetworkAttachmentConfig(configs), expected)
 }
 
 type byTargetSort []swarm.NetworkAttachmentConfig

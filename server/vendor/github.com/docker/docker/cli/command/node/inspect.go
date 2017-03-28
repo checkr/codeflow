@@ -22,7 +22,7 @@ type inspectOptions struct {
 	pretty  bool
 }
 
-func newInspectCommand(dockerCli *command.DockerCli) *cobra.Command {
+func newInspectCommand(dockerCli command.Cli) *cobra.Command {
 	var opts inspectOptions
 
 	cmd := &cobra.Command{
@@ -37,11 +37,11 @@ func newInspectCommand(dockerCli *command.DockerCli) *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.StringVarP(&opts.format, "format", "f", "", "Format the output using the given Go template")
-	flags.BoolVar(&opts.pretty, "pretty", false, "Print the information in a human friendly format.")
+	flags.BoolVar(&opts.pretty, "pretty", false, "Print the information in a human friendly format")
 	return cmd
 }
 
-func runInspect(dockerCli *command.DockerCli, opts inspectOptions) error {
+func runInspect(dockerCli command.Cli, opts inspectOptions) error {
 	client := dockerCli.Client()
 	ctx := context.Background()
 	getRef := func(ref string) (interface{}, []byte, error) {

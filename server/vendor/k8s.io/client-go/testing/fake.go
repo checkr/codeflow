@@ -20,9 +20,8 @@ import (
 	"fmt"
 	"sync"
 
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/api/unversioned"
 	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/pkg/version"
 	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/rest"
@@ -45,7 +44,7 @@ type Fake struct {
 	// for every request in the order they are tried.
 	ProxyReactionChain []ProxyReactor
 
-	Resources []*metav1.APIResourceList
+	Resources map[string]*unversioned.APIResourceList
 }
 
 // Reactor is an interface to allow the composition of reaction functions.
@@ -219,38 +218,32 @@ type FakeDiscovery struct {
 	*Fake
 }
 
-func (c *FakeDiscovery) ServerResourcesForGroupVersion(groupVersion string) (*metav1.APIResourceList, error) {
+func (c *FakeDiscovery) ServerResourcesForGroupVersion(groupVersion string) (*unversioned.APIResourceList, error) {
 	action := ActionImpl{
 		Verb:     "get",
-		Resource: schema.GroupVersionResource{Resource: "resource"},
+		Resource: unversioned.GroupVersionResource{Resource: "resource"},
 	}
 	c.Invokes(action, nil)
-	for _, rl := range c.Resources {
-		if rl.GroupVersion == groupVersion {
-			return rl, nil
-		}
-	}
-
-	return nil, fmt.Errorf("GroupVersion %q not found", groupVersion)
+	return c.Resources[groupVersion], nil
 }
 
-func (c *FakeDiscovery) ServerResources() ([]*metav1.APIResourceList, error) {
+func (c *FakeDiscovery) ServerResources() (map[string]*unversioned.APIResourceList, error) {
 	action := ActionImpl{
 		Verb:     "get",
-		Resource: schema.GroupVersionResource{Resource: "resource"},
+		Resource: unversioned.GroupVersionResource{Resource: "resource"},
 	}
 	c.Invokes(action, nil)
 	return c.Resources, nil
 }
 
-func (c *FakeDiscovery) ServerGroups() (*metav1.APIGroupList, error) {
+func (c *FakeDiscovery) ServerGroups() (*unversioned.APIGroupList, error) {
 	return nil, nil
 }
 
 func (c *FakeDiscovery) ServerVersion() (*version.Info, error) {
 	action := ActionImpl{}
 	action.Verb = "get"
-	action.Resource = schema.GroupVersionResource{Resource: "version"}
+	action.Resource = unversioned.GroupVersionResource{Resource: "version"}
 
 	c.Invokes(action, nil)
 	versionInfo := version.Get()

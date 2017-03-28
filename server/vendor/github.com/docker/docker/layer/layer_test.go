@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/docker/distribution/digest"
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/daemon/graphdriver/vfs"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/stringid"
+	"github.com/opencontainers/go-digest"
 )
 
 func init() {
@@ -231,7 +231,7 @@ func cacheID(l Layer) string {
 
 func assertLayerEqual(t *testing.T, l1, l2 Layer) {
 	if l1.ChainID() != l2.ChainID() {
-		t.Fatalf("Mismatched ID: %s vs %s", l1.ChainID(), l2.ChainID())
+		t.Fatalf("Mismatched ChainID: %s vs %s", l1.ChainID(), l2.ChainID())
 	}
 	if l1.DiffID() != l2.DiffID() {
 		t.Fatalf("Mismatched DiffID: %s vs %s", l1.DiffID(), l2.DiffID())

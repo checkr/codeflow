@@ -4,13 +4,13 @@ package main
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
 
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/pkg/mount"
+	icmd "github.com/docker/docker/pkg/testutil/cmd"
 	"github.com/go-check/check"
 )
 
@@ -92,10 +92,7 @@ func (s *DockerDaemonSuite) TestDaemonKillLiveRestoreWithPlugins(c *check.C) {
 		c.Fatalf("Could not kill daemon: %v", err)
 	}
 
-	cmd := exec.Command("pgrep", "-f", pluginProcessName)
-	if out, ec, err := runCommandWithOutput(cmd); ec != 0 {
-		c.Fatalf("Expected exit code '0', got %d err: %v output: %s ", ec, err, out)
-	}
+	icmd.RunCommand("pgrep", "-f", pluginProcessName).Assert(c, icmd.Success)
 }
 
 // TestDaemonShutdownLiveRestoreWithPlugins SIGTERMs daemon started with --live-restore.
@@ -121,10 +118,7 @@ func (s *DockerDaemonSuite) TestDaemonShutdownLiveRestoreWithPlugins(c *check.C)
 		c.Fatalf("Could not kill daemon: %v", err)
 	}
 
-	cmd := exec.Command("pgrep", "-f", pluginProcessName)
-	if out, ec, err := runCommandWithOutput(cmd); ec != 0 {
-		c.Fatalf("Expected exit code '0', got %d err: %v output: %s ", ec, err, out)
-	}
+	icmd.RunCommand("pgrep", "-f", pluginProcessName).Assert(c, icmd.Success)
 }
 
 // TestDaemonShutdownWithPlugins shuts down running plugins.
@@ -156,15 +150,40 @@ func (s *DockerDaemonSuite) TestDaemonShutdownWithPlugins(c *check.C) {
 		}
 	}
 
-	cmd := exec.Command("pgrep", "-f", pluginProcessName)
-	if out, ec, err := runCommandWithOutput(cmd); ec != 1 {
-		c.Fatalf("Expected exit code '1', got %d err: %v output: %s ", ec, err, out)
+	icmd.RunCommand("pgrep", "-f", pluginProcessName).Assert(c, icmd.Expected{
+		ExitCode: 1,
+		Error:    "exit status 1",
+	})
+
+	s.d.Start(c)
+	icmd.RunCommand("pgrep", "-f", pluginProcessName).Assert(c, icmd.Success)
+}
+
+// TestDaemonKillWithPlugins leaves plugins running.
+func (s *DockerDaemonSuite) TestDaemonKillWithPlugins(c *check.C) {
+	testRequires(c, IsAmd64, Network, SameHostDaemon)
+
+	s.d.Start(c)
+	if out, err := s.d.Cmd("plugin", "install", "--grant-all-permissions", pName); err != nil {
+		c.Fatalf("Could not install plugin: %v %s", err, out)
 	}
 
-	s.d.Start(c, "--live-restore")
-	cmd = exec.Command("pgrep", "-f", pluginProcessName)
-	out, _, err := runCommandWithOutput(cmd)
-	c.Assert(err, checker.IsNil, check.Commentf(out))
+	defer func() {
+		s.d.Restart(c)
+		if out, err := s.d.Cmd("plugin", "disable", pName); err != nil {
+			c.Fatalf("Could not disable plugin: %v %s", err, out)
+		}
+		if out, err := s.d.Cmd("plugin", "remove", pName); err != nil {
+			c.Fatalf("Could not remove plugin: %v %s", err, out)
+		}
+	}()
+
+	if err := s.d.Kill(); err != nil {
+		c.Fatalf("Could not kill daemon: %v", err)
+	}
+
+	// assert that plugins are running.
+	icmd.RunCommand("pgrep", "-f", pluginProcessName).Assert(c, icmd.Success)
 }
 
 // TestVolumePlugin tests volume creation using a plugin.
@@ -292,4 +311,59 @@ func existsMountpointWithPrefix(mountpointPrefix string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func (s *DockerDaemonSuite) TestPluginListFilterEnabled(c *check.C) {
+	testRequires(c, IsAmd64, Network)
+
+	s.d.Start(c)
+
+	out, err := s.d.Cmd("plugin", "install", "--grant-all-permissions", pNameWithTag, "--disable")
+	c.Assert(err, check.IsNil, check.Commentf(out))
+
+	defer func() {
+		if out, err := s.d.Cmd("plugin", "remove", pNameWithTag); err != nil {
+			c.Fatalf("Could not remove plugin: %v %s", err, out)
+		}
+	}()
+
+	out, err = s.d.Cmd("plugin", "ls", "--filter", "enabled=true")
+	c.Assert(err, checker.IsNil)
+	c.Assert(out, checker.Not(checker.Contains), pName)
+
+	out, err = s.d.Cmd("plugin", "ls", "--filter", "enabled=false")
+	c.Assert(err, checker.IsNil)
+	c.Assert(out, checker.Contains, pName)
+	c.Assert(out, checker.Contains, "false")
+
+	out, err = s.d.Cmd("plugin", "ls")
+	c.Assert(err, checker.IsNil)
+	c.Assert(out, checker.Contains, pName)
+}
+
+func (s *DockerDaemonSuite) TestPluginListFilterCapability(c *check.C) {
+	testRequires(c, IsAmd64, Network)
+
+	s.d.Start(c)
+
+	out, err := s.d.Cmd("plugin", "install", "--grant-all-permissions", pNameWithTag, "--disable")
+	c.Assert(err, check.IsNil, check.Commentf(out))
+
+	defer func() {
+		if out, err := s.d.Cmd("plugin", "remove", pNameWithTag); err != nil {
+			c.Fatalf("Could not remove plugin: %v %s", err, out)
+		}
+	}()
+
+	out, err = s.d.Cmd("plugin", "ls", "--filter", "capability=volumedriver")
+	c.Assert(err, checker.IsNil)
+	c.Assert(out, checker.Contains, pName)
+
+	out, err = s.d.Cmd("plugin", "ls", "--filter", "capability=authz")
+	c.Assert(err, checker.IsNil)
+	c.Assert(out, checker.Not(checker.Contains), pName)
+
+	out, err = s.d.Cmd("plugin", "ls")
+	c.Assert(err, checker.IsNil)
+	c.Assert(out, checker.Contains, pName)
 }

@@ -2,23 +2,22 @@ package swarm
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh/terminal"
-
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/cli"
 	"github.com/docker/docker/cli/command"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/context"
 )
 
 type unlockOptions struct{}
 
-func newUnlockCommand(dockerCli *command.DockerCli) *cobra.Command {
+func newUnlockCommand(dockerCli command.Cli) *cobra.Command {
 	opts := unlockOptions{}
 
 	cmd := &cobra.Command{
@@ -33,7 +32,7 @@ func newUnlockCommand(dockerCli *command.DockerCli) *cobra.Command {
 	return cmd
 }
 
-func runUnlock(dockerCli *command.DockerCli, opts unlockOptions) error {
+func runUnlock(dockerCli command.Cli, opts unlockOptions) error {
 	client := dockerCli.Client()
 	ctx := context.Background()
 

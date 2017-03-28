@@ -51,9 +51,13 @@ Config provides the base accessible fields for working with V0 plugin format
 
       currently supported:
 
-      	- **docker.volumedriver/1.0**
+        - **docker.volumedriver/1.0**
 
-      	- **docker.authz/1.0**
+        - **docker.networkdriver/1.0**
+
+        - **docker.ipamdriver/1.0**
+
+        - **docker.authz/1.0**
 
     - **`socket`** *string*
 
@@ -111,9 +115,16 @@ Config provides the base accessible fields for working with V0 plugin format
 
 	  options of the mount.
 
+- **`ipchost`** *boolean*
+   Access to host ipc namespace.
+- **`pidhost`** *boolean*
+   Access to host pid namespace.
+
 - **`propagatedMount`** *string*
 
    path to be mounted as rshared, so that mounts under that path are visible to docker. This is useful for volume plugins.
+   This path will be bind-mounted outisde of the plugin rootfs so it's contents
+   are preserved on upgrade.
 
 - **`env`** *PluginEnv array*
 
@@ -152,6 +163,10 @@ Config provides the base accessible fields for working with V0 plugin format
     - **`capabilities`** *string array*
 
           capabilities of the plugin (*Linux only*), see list [`here`](https://github.com/opencontainers/runc/blob/master/libcontainer/SPEC.md#security)
+
+    - **`allowAllDevices`** *boolean*
+
+	If `/dev` is bind mounted from the host, and allowAllDevices is set to true, the plugin will have `rwm` access to all devices on the host.
 
     - **`devices`** *PluginDevice array*
 
@@ -205,7 +220,7 @@ Config provides the base accessible fields for working with V0 plugin format
             },
             "Linux": {
                 "Capabilities": null,
-                "DeviceCreation": false,
+                "AllowAllDevices": false,
                 "Devices": null
             },
             "Mounts": null,
