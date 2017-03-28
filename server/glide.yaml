@@ -48,3 +48,4 @@ import:
   - pkg/util/intstr
   - tools/clientcmd
 - package: github.com/ashwanthkumar/slack-go-webhook
+- package: github.com/mattes/migrate

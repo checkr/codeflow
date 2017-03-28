@@ -1,5 +1,5 @@
-hash: 7bfb207a373a57e68d634d3ff1bf2135822a0480e2e35bd6943f5e955b0b1027
-updated: 2017-03-28T11:51:07.152775095-07:00
+hash: 3b69cd745e17ec546cb586e7f0d9269cb35d32a11cef7a7404340adb8a3ece8c
+updated: 2017-03-28T11:56:04.937217802-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -174,6 +174,8 @@ imports:
   - buffer
   - jlexer
   - jwriter
+- name: github.com/mattes/migrate
+  version: c7653285b255b78bdb7304b1ad0774ae08b5fa96
 - name: github.com/maxwellhealth/bongo
   version: 96e4b9559de89f55624dbbe04acf17c60896fa94
 - name: github.com/maxwellhealth/go-dotaccess
