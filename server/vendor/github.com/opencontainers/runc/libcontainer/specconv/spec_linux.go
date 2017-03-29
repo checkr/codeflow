@@ -145,6 +145,7 @@ type CreateOpts struct {
 	NoPivotRoot      bool
 	NoNewKeyring     bool
 	Spec             *specs.Spec
+	Rootless         bool
 }
 
 // CreateLibcontainerConfig creates a new libcontainer configuration from a
@@ -175,6 +176,7 @@ func CreateLibcontainerConfig(opts *CreateOpts) (*configs.Config, error) {
 		Hostname:     spec.Hostname,
 		Labels:       append(labels, fmt.Sprintf("bundle=%s", cwd)),
 		NoNewKeyring: opts.NoNewKeyring,
+		Rootless:     opts.Rootless,
 	}
 
 	exists := false
@@ -208,7 +210,7 @@ func CreateLibcontainerConfig(opts *CreateOpts) (*configs.Config, error) {
 	if err := setupUserNamespace(spec, config); err != nil {
 		return nil, err
 	}
-	c, err := createCgroupConfig(opts.CgroupName, opts.UseSystemdCgroup, spec)
+	c, err := createCgroupConfig(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -229,6 +231,15 @@ func CreateLibcontainerConfig(opts *CreateOpts) (*configs.Config, error) {
 	config.Sysctl = spec.Linux.Sysctl
 	if spec.Linux.Resources != nil && spec.Linux.Resources.OOMScoreAdj != nil {
 		config.OomScoreAdj = *spec.Linux.Resources.OOMScoreAdj
+	}
+	if spec.Process.Capabilities != nil {
+		config.Capabilities = &configs.Capabilities{
+			Bounding:    spec.Process.Capabilities.Bounding,
+			Effective:   spec.Process.Capabilities.Effective,
+			Permitted:   spec.Process.Capabilities.Permitted,
+			Inheritable: spec.Process.Capabilities.Inheritable,
+			Ambient:     spec.Process.Capabilities.Ambient,
+		}
 	}
 	createHooks(spec, config)
 	config.MountLabel = spec.Linux.MountLabel
@@ -255,17 +266,23 @@ func createLibcontainerMount(cwd string, m specs.Mount) *configs.Mount {
 	}
 }
 
-func createCgroupConfig(name string, useSystemdCgroup bool, spec *specs.Spec) (*configs.Cgroup, error) {
-	var myCgroupPath string
+func createCgroupConfig(opts *CreateOpts) (*configs.Cgroup, error) {
+	var (
+		myCgroupPath string
+
+		spec             = opts.Spec
+		useSystemdCgroup = opts.UseSystemdCgroup
+		name             = opts.CgroupName
+	)
 
 	c := &configs.Cgroup{
 		Resources: &configs.Resources{},
 	}
 
-	if spec.Linux != nil && spec.Linux.CgroupsPath != nil {
-		myCgroupPath = libcontainerUtils.CleanPath(*spec.Linux.CgroupsPath)
+	if spec.Linux != nil && spec.Linux.CgroupsPath != "" {
+		myCgroupPath = libcontainerUtils.CleanPath(spec.Linux.CgroupsPath)
 		if useSystemdCgroup {
-			myCgroupPath = *spec.Linux.CgroupsPath
+			myCgroupPath = spec.Linux.CgroupsPath
 		}
 	}
 
@@ -292,9 +309,14 @@ func createCgroupConfig(name string, useSystemdCgroup bool, spec *specs.Spec) (*
 		c.Path = myCgroupPath
 	}
 
-	c.Resources.AllowedDevices = allowedDevices
-	if spec.Linux == nil {
-		return c, nil
+	// In rootless containers, any attempt to make cgroup changes will fail.
+	// libcontainer will validate this and we shouldn't add any cgroup options
+	// the user didn't specify.
+	if !opts.Rootless {
+		c.Resources.AllowedDevices = allowedDevices
+		if spec.Linux == nil {
+			return c, nil
+		}
 	}
 	r := spec.Linux.Resources
 	if r == nil {
@@ -306,8 +328,8 @@ func createCgroupConfig(name string, useSystemdCgroup bool, spec *specs.Spec) (*
 			major = int64(-1)
 			minor = int64(-1)
 		)
-		if d.Type != nil {
-			t = *d.Type
+		if d.Type != "" {
+			t = d.Type
 		}
 		if d.Major != nil {
 			major = *d.Major
@@ -315,7 +337,7 @@ func createCgroupConfig(name string, useSystemdCgroup bool, spec *specs.Spec) (*
 		if d.Minor != nil {
 			minor = *d.Minor
 		}
-		if d.Access == nil || *d.Access == "" {
+		if d.Access == "" {
 			return nil, fmt.Errorf("device access at %d field cannot be empty", i)
 		}
 		dt, err := stringToCgroupDeviceRune(t)
@@ -326,55 +348,56 @@ func createCgroupConfig(name string, useSystemdCgroup bool, spec *specs.Spec) (*
 			Type:        dt,
 			Major:       major,
 			Minor:       minor,
-			Permissions: *d.Access,
+			Permissions: d.Access,
 			Allow:       d.Allow,
 		}
 		c.Resources.Devices = append(c.Resources.Devices, dd)
 	}
-	// append the default allowed devices to the end of the list
-	c.Resources.Devices = append(c.Resources.Devices, allowedDevices...)
+	if !opts.Rootless {
+		// append the default allowed devices to the end of the list
+		c.Resources.Devices = append(c.Resources.Devices, allowedDevices...)
+	}
 	if r.Memory != nil {
 		if r.Memory.Limit != nil {
-			c.Resources.Memory = int64(*r.Memory.Limit)
+			c.Resources.Memory = *r.Memory.Limit
 		}
 		if r.Memory.Reservation != nil {
-			c.Resources.MemoryReservation = int64(*r.Memory.Reservation)
+			c.Resources.MemoryReservation = *r.Memory.Reservation
 		}
 		if r.Memory.Swap != nil {
-			c.Resources.MemorySwap = int64(*r.Memory.Swap)
+			c.Resources.MemorySwap = *r.Memory.Swap
 		}
 		if r.Memory.Kernel != nil {
-			c.Resources.KernelMemory = int64(*r.Memory.Kernel)
+			c.Resources.KernelMemory = *r.Memory.Kernel
 		}
 		if r.Memory.KernelTCP != nil {
-			c.Resources.KernelMemoryTCP = int64(*r.Memory.KernelTCP)
+			c.Resources.KernelMemoryTCP = *r.Memory.KernelTCP
 		}
 		if r.Memory.Swappiness != nil {
-			swappiness := int64(*r.Memory.Swappiness)
-			c.Resources.MemorySwappiness = &swappiness
+			c.Resources.MemorySwappiness = r.Memory.Swappiness
 		}
 	}
 	if r.CPU != nil {
 		if r.CPU.Shares != nil {
-			c.Resources.CpuShares = int64(*r.CPU.Shares)
+			c.Resources.CpuShares = *r.CPU.Shares
 		}
 		if r.CPU.Quota != nil {
-			c.Resources.CpuQuota = int64(*r.CPU.Quota)
+			c.Resources.CpuQuota = *r.CPU.Quota
 		}
 		if r.CPU.Period != nil {
-			c.Resources.CpuPeriod = int64(*r.CPU.Period)
+			c.Resources.CpuPeriod = *r.CPU.Period
 		}
 		if r.CPU.RealtimeRuntime != nil {
-			c.Resources.CpuRtRuntime = int64(*r.CPU.RealtimeRuntime)
+			c.Resources.CpuRtRuntime = *r.CPU.RealtimeRuntime
 		}
 		if r.CPU.RealtimePeriod != nil {
-			c.Resources.CpuRtPeriod = int64(*r.CPU.RealtimePeriod)
+			c.Resources.CpuRtPeriod = *r.CPU.RealtimePeriod
 		}
-		if r.CPU.Cpus != nil {
-			c.Resources.CpusetCpus = *r.CPU.Cpus
+		if r.CPU.Cpus != "" {
+			c.Resources.CpusetCpus = r.CPU.Cpus
 		}
-		if r.CPU.Mems != nil {
-			c.Resources.CpusetMems = *r.CPU.Mems
+		if r.CPU.Mems != "" {
+			c.Resources.CpusetMems = r.CPU.Mems
 		}
 	}
 	if r.Pids != nil {
@@ -587,11 +610,11 @@ func setupUserNamespace(spec *specs.Spec, config *configs.Config) error {
 	for _, m := range spec.Linux.GIDMappings {
 		config.GidMappings = append(config.GidMappings, create(m))
 	}
-	rootUID, err := config.HostUID()
+	rootUID, err := config.HostRootUID()
 	if err != nil {
 		return err
 	}
-	rootGID, err := config.HostGID()
+	rootGID, err := config.HostRootGID()
 	if err != nil {
 		return err
 	}
@@ -720,30 +743,30 @@ func setupSeccomp(config *specs.LinuxSeccomp) (*configs.Seccomp, error) {
 			return nil, err
 		}
 
-		newCall := configs.Syscall{
-			Name:   call.Name,
-			Action: newAction,
-			Args:   []*configs.Arg{},
-		}
-
-		// Loop through all the arguments of the syscall and convert them
-		for _, arg := range call.Args {
-			newOp, err := seccomp.ConvertStringToOperator(string(arg.Op))
-			if err != nil {
-				return nil, err
+		for _, name := range call.Names {
+			newCall := configs.Syscall{
+				Name:   name,
+				Action: newAction,
+				Args:   []*configs.Arg{},
 			}
+			// Loop through all the arguments of the syscall and convert them
+			for _, arg := range call.Args {
+				newOp, err := seccomp.ConvertStringToOperator(string(arg.Op))
+				if err != nil {
+					return nil, err
+				}
 
-			newArg := configs.Arg{
-				Index:    arg.Index,
-				Value:    arg.Value,
-				ValueTwo: arg.ValueTwo,
-				Op:       newOp,
+				newArg := configs.Arg{
+					Index:    arg.Index,
+					Value:    arg.Value,
+					ValueTwo: arg.ValueTwo,
+					Op:       newOp,
+				}
+
+				newCall.Args = append(newCall.Args, &newArg)
 			}
-
-			newCall.Args = append(newCall.Args, &newArg)
+			newConfig.Syscalls = append(newConfig.Syscalls, &newCall)
 		}
-
-		newConfig.Syscalls = append(newConfig.Syscalls, &newCall)
 	}
 
 	return newConfig, nil
@@ -751,17 +774,20 @@ func setupSeccomp(config *specs.LinuxSeccomp) (*configs.Seccomp, error) {
 
 func createHooks(rspec *specs.Spec, config *configs.Config) {
 	config.Hooks = &configs.Hooks{}
-	for _, h := range rspec.Hooks.Prestart {
-		cmd := createCommandHook(h)
-		config.Hooks.Prestart = append(config.Hooks.Prestart, configs.NewCommandHook(cmd))
-	}
-	for _, h := range rspec.Hooks.Poststart {
-		cmd := createCommandHook(h)
-		config.Hooks.Poststart = append(config.Hooks.Poststart, configs.NewCommandHook(cmd))
-	}
-	for _, h := range rspec.Hooks.Poststop {
-		cmd := createCommandHook(h)
-		config.Hooks.Poststop = append(config.Hooks.Poststop, configs.NewCommandHook(cmd))
+	if rspec.Hooks != nil {
+
+		for _, h := range rspec.Hooks.Prestart {
+			cmd := createCommandHook(h)
+			config.Hooks.Prestart = append(config.Hooks.Prestart, configs.NewCommandHook(cmd))
+		}
+		for _, h := range rspec.Hooks.Poststart {
+			cmd := createCommandHook(h)
+			config.Hooks.Poststart = append(config.Hooks.Poststart, configs.NewCommandHook(cmd))
+		}
+		for _, h := range rspec.Hooks.Poststop {
+			cmd := createCommandHook(h)
+			config.Hooks.Poststop = append(config.Hooks.Poststop, configs.NewCommandHook(cmd))
+		}
 	}
 }
 

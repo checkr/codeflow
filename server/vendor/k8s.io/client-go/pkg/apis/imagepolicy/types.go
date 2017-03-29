@@ -18,7 +18,7 @@ package imagepolicy
 
 import (
 	"k8s.io/client-go/pkg/api"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/api/unversioned"
 )
 
 // +genclient=true
@@ -27,7 +27,7 @@ import (
 
 // ImageReview checks if the set of images in a pod are allowed.
 type ImageReview struct {
-	metav1.TypeMeta
+	unversioned.TypeMeta
 	api.ObjectMeta
 
 	// Spec holds information about the pod being evaluated

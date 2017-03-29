@@ -1,5 +1,5 @@
-hash: b85da683a3b7b567c6f1f3bc0563db416977b027cb43af3a1637b4bbcca8b87a
-updated: 2017-02-10T14:58:31.172954242-08:00
+hash: 3b69cd745e17ec546cb586e7f0d9269cb35d32a11cef7a7404340adb8a3ece8c
+updated: 2017-03-29T16:07:49.196186877-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -7,19 +7,21 @@ imports:
   - compute/metadata
   - internal
 - name: github.com/ant0ine/go-json-rest
-  version: ce4b71cdf7ba29ef443d704bd923f5bbf281ee30
+  version: 4602b00d2caab423578a3094c68137dcc1eb2051
   subpackages:
   - rest
   - rest/test
   - rest/trie
 - name: github.com/ashwanthkumar/slack-go-webhook
-  version: 617479350161ea9827ad9a093ab20ac86f67e288
+  version: fe52e9bf2b376c1d74222c8deabda62fe3f29ed3
 - name: github.com/Azure/go-ansiterm
   version: fa152c58bc15761d0200cb75fe958b89a9d4888e
   subpackages:
   - winterm
 - name: github.com/bitly/go-simplejson
   version: da1a8928f709389522c8023062a3739f3b4af419
+- name: github.com/blang/semver
+  version: 31b736133b98f26d5e078ec9eb591666edfd091f
 - name: github.com/bww/go-json
   version: 2855ca2724ff4b10bb71bee4ad6c2815dc9b1438
 - name: github.com/cheungpat/go-json-rest-middleware-jwt
@@ -39,7 +41,7 @@ imports:
   - httputil
   - timeutil
 - name: github.com/davecgh/go-spew
-  version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
+  version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
 - name: github.com/dgrijalva/jwt-go
@@ -50,7 +52,7 @@ imports:
   - digest
   - reference
 - name: github.com/docker/docker
-  version: bf8cdb9172c3516eecb80974971b0b2da00afc11
+  version: 278b36e5ce2f3be6d2db9a9b39b1e7357aaeab7b
   subpackages:
   - api/types
   - api/types/blkiodev
@@ -78,24 +80,24 @@ imports:
   - pkg/term
   - pkg/term/windows
 - name: github.com/docker/go-connections
-  version: 7da10c8c50cad14494ec818dcdfb6506265c0086
+  version: a2afab9802043837035592f1c24827fb70766de9
   subpackages:
   - nat
 - name: github.com/docker/go-units
-  version: 9b001659dd36225e356b4467c465d732e745f53d
+  version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
 - name: github.com/emicklei/go-restful
-  version: 09691a3b6378b740595c1002f40c34dd5f218a22
+  version: 89ef8af493ab468a45a42bb0d89a06fccdd2fb22
   subpackages:
   - log
   - swagger
 - name: github.com/extemporalgenome/slug
   version: 0320c85e32e0015b090f08a5d1324d5ab6094f07
 - name: github.com/fsnotify/fsnotify
-  version: a904159b9206978bb6d53fcc7a769e5cd726c737
+  version: 4da3e2cfbabc9f751898f250b49f2439785783a1
 - name: github.com/fsouza/go-dockerclient
-  version: c342fd4c3d69bdc9767083cc61d11756e7323b64
+  version: 87c7e50e0bcf800ed863c3c3b0fbcc67e3029140
 - name: github.com/garyburd/redigo
-  version: 48545177e92ae3e7bcdbd50b42f7a139e6a268da
+  version: 0d253a66e6e1349f4581d6d2b300ee434ee2da9f
   subpackages:
   - internal
   - redis
@@ -121,19 +123,19 @@ imports:
   subpackages:
   - proto
 - name: github.com/google/gofuzz
-  version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
+  version: bbcb9da2d746f8bdbd6a936686a0a6067ada0ec5
 - name: github.com/google/shlex
   version: 6f45313302b9c56850fc17f99e40caebce98c716
 - name: github.com/gorilla/context
   version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
 - name: github.com/gorilla/mux
-  version: 392c28fe23e1c45ddba891b0320b3b5df220beea
+  version: 599cba5e7b6137d46ddf58fb1765f5d928e69604
 - name: github.com/gorilla/websocket
-  version: c36f2fe5c330f0ac404b616b96c438b8616b1aaf
+  version: a91eba7f97777409bc2c443f5534d41dd20c5720
 - name: github.com/hashicorp/go-cleanhttp
-  version: ad28ea4487f05916463e2423a55166280e8254b5
+  version: 3573b8b52aa7b37b9358d966a898feb387f62437
 - name: github.com/hashicorp/hcl
-  version: 372e8ddaa16fd67e371e9323807d056b799360af
+  version: 630949a3c5fa3c613328e1b8256052cbc2327c9b
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -163,66 +165,72 @@ imports:
   - jwa
   - jwk
 - name: github.com/libgit2/git2go
-  version: b8a9efd21f5ea094976ff2c53c4aec1cf6014876
+  version: 22091886372e73de5d66168e8665775676ec13c5
 - name: github.com/magiconair/properties
-  version: b3b15ef068fd0b17ddf408a23669f20811d194d2
+  version: 51463bfca2576e06c62a8504b5c0f06d61312647
 - name: github.com/mailru/easyjson
   version: d5b7844b561a7bc640052f1b935f7b800330d7e0
   subpackages:
   - buffer
   - jlexer
   - jwriter
+- name: github.com/mattes/migrate
+  version: 09640b136ecc31d20004efbf80ffdb295f879709
 - name: github.com/maxwellhealth/bongo
-  version: c2a77704cea226262fbd909a9595e97e30dad1db
+  version: 96e4b9559de89f55624dbbe04acf17c60896fa94
 - name: github.com/maxwellhealth/go-dotaccess
   version: ae070a2d2a38fd7233e255ded21fb26fe36b4796
 - name: github.com/Microsoft/go-winio
   version: fff283ad5116362ca252298cfc9b95828956d85d
 - name: github.com/mitchellh/mapstructure
-  version: db1efb556f84b25a0a13a04aad883943538ad2e0
+  version: 53818660ed4955e899c0bcafa97299a388bd7c8e
 - name: github.com/moul/http2curl
   version: 4e24498b31dba4683efb9d35c1c8a91e2eda28c8
+- name: github.com/Nvveen/Gotty
+  version: cd527374f1e5bff4938207604a14f2e38a9cf512
 - name: github.com/oleiade/reflections
   version: 0e86b3c98b2ff33e30c85cfe97d9a63d439fe7eb
 - name: github.com/opencontainers/runc
-  version: 4f21aea40d060d0171b1c94861f2f63f4a6029d0
+  version: 653207bc29a6d2d62b5d4f55b596467cb715a128
   subpackages:
   - libcontainer/system
   - libcontainer/user
 - name: github.com/parnurzeal/gorequest
-  version: f441e24175ffc865a6354b65375e537201c51382
+  version: ea779001e09326d30d455dbf37bc0d08c49941a2
 - name: github.com/pborman/uuid
-  version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
+  version: 1b00554d822231195d1babd97ff4a781231955c9
 - name: github.com/pelletier/go-buffruneio
-  version: df1e16fde7fc330a0ca68167c23bf7ed6ac31d6d
+  version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml
-  version: c9506ee96398e7571356462217b9e24d6a628d71
+  version: e32a2e04744250647a72bf17da1b09befc03b6b1
+- name: github.com/pkg/errors
+  version: ff09b135c25aae272398c51a07235b90a75aa4f0
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
 - name: github.com/Sirupsen/logrus
-  version: 26709e2714106fb8ad40b773b711ebce25b78914
+  version: 10f801ebc38b33738c9d17d50860f484a0988ff5
 - name: github.com/spf13/afero
-  version: 72b31426848c6ef12a7a8e216708cb0d1530f074
+  version: 9be650865eab0c12963d8753212f4f9c66cdcf12
   subpackages:
   - mem
 - name: github.com/spf13/cast
-  version: d1139bab1c07d5ad390a65e7305876b3c1a8370b
+  version: ce135a4ebeee6cfe9a26c93ee0d37825f26113c7
 - name: github.com/spf13/cobra
-  version: b5d8e8f46a2f829f755b6e33b454e25c61c935e1
+  version: 7be4beda01ec05d0b93d80b3facd2b6f44080d94
 - name: github.com/spf13/jwalterweatherman
   version: fa7ca7e836cf3a8bb4ebf799f472c12d7e903d66
 - name: github.com/spf13/pflag
-  version: 5ccb023bc27df288a957c5e994cd44fd19619465
+  version: d16db1e50e33dff1b6cdf37596cef36742128670
 - name: github.com/spf13/viper
-  version: 5ed0fc31f7f453625df314d8e66b9791e8d13003
+  version: 84f94806c67f59dd7ae87bc5351f7a9c94a4558d
 - name: github.com/ugorji/go
   version: f1f1a805ed361a0e078bb537e4ea78cd37dcf065
   subpackages:
   - codec
 - name: golang.org/x/crypto
-  version: 5b4074c2c416448b5d06e287167144493aabda43
+  version: 459e26527287adbc2adcc5d0d49abff9a5f315a7
   subpackages:
   - curve25519
   - ed25519
@@ -286,9 +294,9 @@ imports:
   - internal/sasl
   - internal/scram
 - name: gopkg.in/yaml.v2
-  version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
+  version: a3f3340b5840cee44f372bddb5880fcbc419b46a
 - name: k8s.io/client-go
-  version: 24a02a6d7d2c9a21b12a3eb35c71c784e63825f4
+  version: fc49675c2251223623d1a03df9faf0a204ba4752
   subpackages:
   - discovery
   - kubernetes
@@ -308,7 +316,9 @@ imports:
   - pkg/api/errors
   - pkg/api/install
   - pkg/api/meta
+  - pkg/api/meta/metatypes
   - pkg/api/resource
+  - pkg/api/unversioned
   - pkg/api/v1
   - pkg/api/validation/path
   - pkg/apimachinery
@@ -337,7 +347,6 @@ imports:
   - pkg/apis/extensions/install
   - pkg/apis/extensions/v1beta1
   - pkg/apis/meta/v1
-  - pkg/apis/meta/v1/unstructured
   - pkg/apis/policy
   - pkg/apis/policy/install
   - pkg/apis/policy/v1beta1
@@ -354,7 +363,6 @@ imports:
   - pkg/genericapiserver/openapi/common
   - pkg/labels
   - pkg/runtime
-  - pkg/runtime/schema
   - pkg/runtime/serializer
   - pkg/runtime/serializer/json
   - pkg/runtime/serializer/protobuf

@@ -21,20 +21,19 @@ import (
 	"testing"
 
 	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/v1"
 )
 
 func testIndexFunc(obj interface{}) ([]string, error) {
-	pod := obj.(*v1.Pod)
+	pod := obj.(*api.Pod)
 	return []string{pod.Labels["foo"]}, nil
 }
 
 func TestGetIndexFuncValues(t *testing.T) {
 	index := NewIndexer(MetaNamespaceKeyFunc, Indexers{"testmodes": testIndexFunc})
 
-	pod1 := &v1.Pod{ObjectMeta: v1.ObjectMeta{Name: "one", Labels: map[string]string{"foo": "bar"}}}
-	pod2 := &v1.Pod{ObjectMeta: v1.ObjectMeta{Name: "two", Labels: map[string]string{"foo": "bar"}}}
-	pod3 := &v1.Pod{ObjectMeta: v1.ObjectMeta{Name: "tre", Labels: map[string]string{"foo": "biz"}}}
+	pod1 := &api.Pod{ObjectMeta: api.ObjectMeta{Name: "one", Labels: map[string]string{"foo": "bar"}}}
+	pod2 := &api.Pod{ObjectMeta: api.ObjectMeta{Name: "two", Labels: map[string]string{"foo": "bar"}}}
+	pod3 := &api.Pod{ObjectMeta: api.ObjectMeta{Name: "tre", Labels: map[string]string{"foo": "biz"}}}
 
 	index.Add(pod1)
 	index.Add(pod2)
@@ -53,7 +52,7 @@ func TestGetIndexFuncValues(t *testing.T) {
 }
 
 func testUsersIndexFunc(obj interface{}) ([]string, error) {
-	pod := obj.(*v1.Pod)
+	pod := obj.(*api.Pod)
 	usersString := pod.Annotations["users"]
 
 	return strings.Split(usersString, ","), nil
@@ -62,9 +61,9 @@ func testUsersIndexFunc(obj interface{}) ([]string, error) {
 func TestMultiIndexKeys(t *testing.T) {
 	index := NewIndexer(MetaNamespaceKeyFunc, Indexers{"byUser": testUsersIndexFunc})
 
-	pod1 := &v1.Pod{ObjectMeta: v1.ObjectMeta{Name: "one", Annotations: map[string]string{"users": "ernie,bert"}}}
-	pod2 := &v1.Pod{ObjectMeta: v1.ObjectMeta{Name: "two", Annotations: map[string]string{"users": "bert,oscar"}}}
-	pod3 := &v1.Pod{ObjectMeta: v1.ObjectMeta{Name: "tre", Annotations: map[string]string{"users": "ernie,elmo"}}}
+	pod1 := &api.Pod{ObjectMeta: api.ObjectMeta{Name: "one", Annotations: map[string]string{"users": "ernie,bert"}}}
+	pod2 := &api.Pod{ObjectMeta: api.ObjectMeta{Name: "two", Annotations: map[string]string{"users": "bert,oscar"}}}
+	pod3 := &api.Pod{ObjectMeta: api.ObjectMeta{Name: "tre", Annotations: map[string]string{"users": "ernie,elmo"}}}
 
 	index.Add(pod1)
 	index.Add(pod2)
@@ -122,7 +121,7 @@ func TestMultiIndexKeys(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	copyOfPod2 := obj.(*v1.Pod)
+	copyOfPod2 := obj.(*api.Pod)
 	copyOfPod2.Annotations["users"] = "oscar"
 	index.Update(copyOfPod2)
 	bertPods, err = index.ByIndex("byUser", "bert")

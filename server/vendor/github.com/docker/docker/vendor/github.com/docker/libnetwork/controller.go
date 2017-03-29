@@ -273,7 +273,7 @@ func (c *controller) SetKeys(keys []*types.EncryptionKey) error {
 	}
 	for s, count := range subsysKeys {
 		if count != keyringSize {
-			return fmt.Errorf("incorrect number of keys for susbsystem %v", s)
+			return fmt.Errorf("incorrect number of keys for subsystem %v", s)
 		}
 	}
 
@@ -567,6 +567,12 @@ func (c *controller) pushNodeDiscovery(d driverapi.Driver, cap driverapi.Capabil
 	if c.cfg != nil {
 		addr := strings.Split(c.cfg.Cluster.Address, ":")
 		self = net.ParseIP(addr[0])
+		// if external kvstore is not configured, try swarm-mode config
+		if self == nil {
+			if agent := c.getAgent(); agent != nil {
+				self = net.ParseIP(agent.advertiseAddr)
+			}
+		}
 	}
 
 	if d == nil || cap.DataScope != datastore.GlobalScope || nodes == nil {
@@ -582,7 +588,7 @@ func (c *controller) pushNodeDiscovery(d driverapi.Driver, cap driverapi.Capabil
 			err = d.DiscoverDelete(discoverapi.NodeDiscovery, nodeData)
 		}
 		if err != nil {
-			logrus.Debugf("discovery notification error : %v", err)
+			logrus.Debugf("discovery notification error: %v", err)
 		}
 	}
 }
@@ -647,8 +653,8 @@ func (c *controller) NewNetwork(networkType, name string, id string, options ...
 		}
 	}
 
-	if err := config.ValidateName(name); err != nil {
-		return nil, ErrInvalidName(err.Error())
+	if !config.IsValidName(name) {
+		return nil, ErrInvalidName(name)
 	}
 
 	if id == "" {
@@ -674,6 +680,10 @@ func (c *controller) NewNetwork(networkType, name string, id string, options ...
 	_, cap, err := network.resolveDriver(networkType, true)
 	if err != nil {
 		return nil, err
+	}
+
+	if network.ingress && cap.DataScope != datastore.GlobalScope {
+		return nil, types.ForbiddenErrorf("Ingress network can only be global scope network")
 	}
 
 	if cap.DataScope == datastore.GlobalScope && !c.isDistributedControl() && !network.dynamic {
@@ -735,7 +745,9 @@ func (c *controller) NewNetwork(networkType, name string, id string, options ...
 
 	joinCluster(network)
 	if !c.isDistributedControl() {
+		c.Lock()
 		arrangeIngressFilterRule()
+		c.Unlock()
 	}
 
 	return network, nil
@@ -932,6 +944,7 @@ func (c *controller) NewSandbox(containerID string, options ...SandboxOption) (s
 			populatedEndpoints: map[string]struct{}{},
 			config:             containerConfig{},
 			controller:         c,
+			extDNS:             []extDNSEntry{},
 		}
 	}
 	sBox = sb
@@ -997,7 +1010,7 @@ func (c *controller) NewSandbox(containerID string, options ...SandboxOption) (s
 
 	err = sb.storeUpdate()
 	if err != nil {
-		return nil, fmt.Errorf("updating the store state of sandbox failed: %v", err)
+		return nil, fmt.Errorf("failed to update the store state of sandbox: %v", err)
 	}
 
 	return sb, nil
@@ -1087,7 +1100,7 @@ func (c *controller) loadDriver(networkType string) error {
 	var err error
 
 	if pg := c.GetPluginGetter(); pg != nil {
-		_, err = pg.Get(networkType, driverapi.NetworkPluginEndpointType, plugingetter.LOOKUP)
+		_, err = pg.Get(networkType, driverapi.NetworkPluginEndpointType, plugingetter.Lookup)
 	} else {
 		_, err = plugins.Get(networkType, driverapi.NetworkPluginEndpointType)
 	}
@@ -1106,7 +1119,7 @@ func (c *controller) loadIPAMDriver(name string) error {
 	var err error
 
 	if pg := c.GetPluginGetter(); pg != nil {
-		_, err = pg.Get(name, ipamapi.PluginEndpointType, plugingetter.LOOKUP)
+		_, err = pg.Get(name, ipamapi.PluginEndpointType, plugingetter.Lookup)
 	} else {
 		_, err = plugins.Get(name, ipamapi.PluginEndpointType)
 	}
@@ -1152,15 +1165,29 @@ func (c *controller) clearIngress(clusterLeave bool) {
 	c.ingressSandbox = nil
 	c.Unlock()
 
+	var n *network
 	if ingressSandbox != nil {
+		for _, ep := range ingressSandbox.getConnectedEndpoints() {
+			if nw := ep.getNetwork(); nw.ingress {
+				n = nw
+				break
+			}
+		}
 		if err := ingressSandbox.Delete(); err != nil {
 			logrus.Warnf("Could not delete ingress sandbox while leaving: %v", err)
 		}
 	}
 
-	n, err := c.NetworkByName("ingress")
-	if err != nil && clusterLeave {
-		logrus.Warnf("Could not find ingress network while leaving: %v", err)
+	if n == nil {
+		for _, nw := range c.Networks() {
+			if nw.Info().Ingress() {
+				n = nw.(*network)
+				break
+			}
+		}
+	}
+	if n == nil && clusterLeave {
+		logrus.Warnf("Could not find ingress network while leaving")
 	}
 
 	if n != nil {

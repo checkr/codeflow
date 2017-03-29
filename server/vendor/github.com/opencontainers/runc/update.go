@@ -13,6 +13,7 @@ import (
 	"github.com/urfave/cli"
 )
 
+func i64Ptr(i int64) *int64   { return &i }
 func u64Ptr(i uint64) *uint64 { return &i }
 func u16Ptr(i uint16) *uint16 { return &i }
 
@@ -127,12 +128,12 @@ other options are ignored.
 			},
 			CPU: &specs.LinuxCPU{
 				Shares:          u64Ptr(0),
-				Quota:           u64Ptr(0),
+				Quota:           i64Ptr(0),
 				Period:          u64Ptr(0),
-				RealtimeRuntime: u64Ptr(0),
+				RealtimeRuntime: i64Ptr(0),
 				RealtimePeriod:  u64Ptr(0),
-				Cpus:            sPtr(""),
-				Mems:            sPtr(""),
+				Cpus:            "",
+				Mems:            "",
 			},
 			BlockIO: &specs.LinuxBlockIO{
 				Weight: u16Ptr(0),
@@ -164,10 +165,10 @@ other options are ignored.
 				r.BlockIO.Weight = u16Ptr(uint16(val))
 			}
 			if val := context.String("cpuset-cpus"); val != "" {
-				r.CPU.Cpus = &val
+				r.CPU.Cpus = val
 			}
 			if val := context.String("cpuset-mems"); val != "" {
-				r.CPU.Mems = &val
+				r.CPU.Mems = val
 			}
 
 			for _, pair := range []struct {
@@ -176,9 +177,7 @@ other options are ignored.
 			}{
 
 				{"cpu-period", r.CPU.Period},
-				{"cpu-quota", r.CPU.Quota},
 				{"cpu-rt-period", r.CPU.RealtimePeriod},
-				{"cpu-rt-runtime", r.CPU.RealtimeRuntime},
 				{"cpu-share", r.CPU.Shares},
 			} {
 				if val := context.String(pair.opt); val != "" {
@@ -191,18 +190,40 @@ other options are ignored.
 			}
 			for _, pair := range []struct {
 				opt  string
-				dest *uint64
+				dest *int64
 			}{
-				{"kernel-memory", r.Memory.Kernel},
-				{"kernel-memory-tcp", r.Memory.KernelTCP},
-				{"memory", r.Memory.Limit},
-				{"memory-reservation", r.Memory.Reservation},
-				{"memory-swap", r.Memory.Swap},
+
+				{"cpu-quota", r.CPU.Quota},
+				{"cpu-rt-runtime", r.CPU.RealtimeRuntime},
 			} {
 				if val := context.String(pair.opt); val != "" {
-					v, err := units.RAMInBytes(val)
+					var err error
+					*pair.dest, err = strconv.ParseInt(val, 10, 64)
 					if err != nil {
 						return fmt.Errorf("invalid value for %s: %s", pair.opt, err)
+					}
+				}
+			}
+			for _, pair := range []struct {
+				opt  string
+				dest *uint64
+			}{
+				{"memory", r.Memory.Limit},
+				{"memory-swap", r.Memory.Swap},
+				{"kernel-memory", r.Memory.Kernel},
+				{"kernel-memory-tcp", r.Memory.KernelTCP},
+				{"memory-reservation", r.Memory.Reservation},
+			} {
+				if val := context.String(pair.opt); val != "" {
+					var v int64
+
+					if val != "-1" {
+						v, err = units.RAMInBytes(val)
+						if err != nil {
+							return fmt.Errorf("invalid value for %s: %s", pair.opt, err)
+						}
+					} else {
+						v = -1
 					}
 					*pair.dest = uint64(v)
 				}
@@ -211,18 +232,18 @@ other options are ignored.
 
 		// Update the value
 		config.Cgroups.Resources.BlkioWeight = *r.BlockIO.Weight
-		config.Cgroups.Resources.CpuPeriod = int64(*r.CPU.Period)
-		config.Cgroups.Resources.CpuQuota = int64(*r.CPU.Quota)
-		config.Cgroups.Resources.CpuShares = int64(*r.CPU.Shares)
-		config.Cgroups.Resources.CpuRtPeriod = int64(*r.CPU.RealtimePeriod)
-		config.Cgroups.Resources.CpuRtRuntime = int64(*r.CPU.RealtimeRuntime)
-		config.Cgroups.Resources.CpusetCpus = *r.CPU.Cpus
-		config.Cgroups.Resources.CpusetMems = *r.CPU.Mems
-		config.Cgroups.Resources.KernelMemory = int64(*r.Memory.Kernel)
-		config.Cgroups.Resources.KernelMemoryTCP = int64(*r.Memory.KernelTCP)
-		config.Cgroups.Resources.Memory = int64(*r.Memory.Limit)
-		config.Cgroups.Resources.MemoryReservation = int64(*r.Memory.Reservation)
-		config.Cgroups.Resources.MemorySwap = int64(*r.Memory.Swap)
+		config.Cgroups.Resources.CpuPeriod = *r.CPU.Period
+		config.Cgroups.Resources.CpuQuota = *r.CPU.Quota
+		config.Cgroups.Resources.CpuShares = *r.CPU.Shares
+		config.Cgroups.Resources.CpuRtPeriod = *r.CPU.RealtimePeriod
+		config.Cgroups.Resources.CpuRtRuntime = *r.CPU.RealtimeRuntime
+		config.Cgroups.Resources.CpusetCpus = r.CPU.Cpus
+		config.Cgroups.Resources.CpusetMems = r.CPU.Mems
+		config.Cgroups.Resources.KernelMemory = *r.Memory.Kernel
+		config.Cgroups.Resources.KernelMemoryTCP = *r.Memory.KernelTCP
+		config.Cgroups.Resources.Memory = *r.Memory.Limit
+		config.Cgroups.Resources.MemoryReservation = *r.Memory.Reservation
+		config.Cgroups.Resources.MemorySwap = *r.Memory.Swap
 
 		return container.Set(config)
 	},

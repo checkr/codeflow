@@ -80,14 +80,11 @@ func (p *setnsProcess) start() (err error) {
 	if err = p.execSetns(); err != nil {
 		return newSystemErrorWithCause(err, "executing setns process")
 	}
-	if len(p.cgroupPaths) > 0 {
+	// We can't join cgroups if we're in a rootless container.
+	if !p.config.Rootless && len(p.cgroupPaths) > 0 {
 		if err := cgroups.EnterPid(p.cgroupPaths, p.pid()); err != nil {
 			return newSystemErrorWithCausef(err, "adding pid %d to cgroups", p.pid())
 		}
-	}
-	// set oom_score_adj
-	if err := setOomScoreAdj(p.config.Config.OomScoreAdj, p.pid()); err != nil {
-		return newSystemErrorWithCause(err, "setting oom score")
 	}
 	// set rlimits, this has to be done here because we lose permissions
 	// to raise the limits once we enter a user-namespace
@@ -100,25 +97,6 @@ func (p *setnsProcess) start() (err error) {
 
 	ierr := parseSync(p.parentPipe, func(sync *syncT) error {
 		switch sync.Type {
-		case procConsole:
-			if err := writeSync(p.parentPipe, procConsoleReq); err != nil {
-				return newSystemErrorWithCause(err, "writing syncT 'request fd'")
-			}
-
-			masterFile, err := utils.RecvFd(p.parentPipe)
-			if err != nil {
-				return newSystemErrorWithCause(err, "getting master pty from child pipe")
-			}
-
-			if p.process.consoleChan == nil {
-				// TODO: Don't panic here, do something more sane.
-				panic("consoleChan is nil")
-			}
-			p.process.consoleChan <- masterFile
-
-			if err := writeSync(p.parentPipe, procConsoleAck); err != nil {
-				return newSystemErrorWithCause(err, "writing syncT 'ack fd'")
-			}
 		case procReady:
 			// This shouldn't happen.
 			panic("unexpected procReady in setns")
@@ -128,7 +106,6 @@ func (p *setnsProcess) start() (err error) {
 		default:
 			return newSystemError(fmt.Errorf("invalid JSON payload from child"))
 		}
-		return nil
 	})
 
 	if err := syscall.Shutdown(int(p.parentPipe.Fd()), syscall.SHUT_WR); err != nil {
@@ -264,7 +241,7 @@ func (p *initProcess) start() error {
 		return newSystemErrorWithCause(err, "starting init process command")
 	}
 	if _, err := io.Copy(p.parentPipe, p.bootstrapData); err != nil {
-		return err
+		return newSystemErrorWithCause(err, "copying bootstrap data to pipe")
 	}
 	if err := p.execSetns(); err != nil {
 		return newSystemErrorWithCause(err, "running exec setns process for init")
@@ -277,8 +254,9 @@ func (p *initProcess) start() error {
 		return newSystemErrorWithCausef(err, "getting pipe fds for pid %d", p.pid())
 	}
 	p.setExternalDescriptors(fds)
-	// Do this before syncing with child so that no children
-	// can escape the cgroup
+	// Do this before syncing with child so that no children can escape the
+	// cgroup. We don't need to worry about not doing this and not being root
+	// because we'd be using the rootless cgroup manager in that case.
 	if err := p.manager.Apply(p.pid()); err != nil {
 		return newSystemErrorWithCause(err, "applying cgroup configuration for process")
 	}
@@ -301,32 +279,9 @@ func (p *initProcess) start() error {
 
 	ierr := parseSync(p.parentPipe, func(sync *syncT) error {
 		switch sync.Type {
-		case procConsole:
-			if err := writeSync(p.parentPipe, procConsoleReq); err != nil {
-				return newSystemErrorWithCause(err, "writing syncT 'request fd'")
-			}
-
-			masterFile, err := utils.RecvFd(p.parentPipe)
-			if err != nil {
-				return newSystemErrorWithCause(err, "getting master pty from child pipe")
-			}
-
-			if p.process.consoleChan == nil {
-				// TODO: Don't panic here, do something more sane.
-				panic("consoleChan is nil")
-			}
-			p.process.consoleChan <- masterFile
-
-			if err := writeSync(p.parentPipe, procConsoleAck); err != nil {
-				return newSystemErrorWithCause(err, "writing syncT 'ack fd'")
-			}
 		case procReady:
 			if err := p.manager.Set(p.config.Config); err != nil {
 				return newSystemErrorWithCause(err, "setting cgroup config for ready process")
-			}
-			// set oom_score_adj
-			if err := setOomScoreAdj(p.config.Config.OomScoreAdj, p.pid()); err != nil {
-				return newSystemErrorWithCause(err, "setting oom score for ready process")
 			}
 			// set rlimits, this has to be done here because we lose permissions
 			// to raise the limits once we enter a user-namespace
@@ -337,10 +292,10 @@ func (p *initProcess) start() error {
 			if !p.config.Config.Namespaces.Contains(configs.NEWNS) {
 				if p.config.Config.Hooks != nil {
 					s := configs.HookState{
-						Version:    p.container.config.Version,
-						ID:         p.container.id,
-						Pid:        p.pid(),
-						BundlePath: utils.SearchLabels(p.config.Config.Labels, "bundle"),
+						Version: p.container.config.Version,
+						ID:      p.container.id,
+						Pid:     p.pid(),
+						Bundle:  utils.SearchLabels(p.config.Config.Labels, "bundle"),
 					}
 					for i, hook := range p.config.Config.Hooks.Prestart {
 						if err := hook.Run(s); err != nil {
@@ -357,10 +312,10 @@ func (p *initProcess) start() error {
 		case procHooks:
 			if p.config.Config.Hooks != nil {
 				s := configs.HookState{
-					Version:    p.container.config.Version,
-					ID:         p.container.id,
-					Pid:        p.pid(),
-					BundlePath: utils.SearchLabels(p.config.Config.Labels, "bundle"),
+					Version: p.container.config.Version,
+					ID:      p.container.id,
+					Pid:     p.pid(),
+					Bundle:  utils.SearchLabels(p.config.Config.Labels, "bundle"),
 				}
 				for i, hook := range p.config.Config.Hooks.Prestart {
 					if err := hook.Run(s); err != nil {
@@ -471,6 +426,12 @@ func getPipeFds(pid int) ([]string, error) {
 		f := filepath.Join(dirPath, strconv.Itoa(i))
 		target, err := os.Readlink(f)
 		if err != nil {
+			// Ignore permission errors, for rootless containers and other
+			// non-dumpable processes. if we can't get the fd for a particular
+			// file, there's not much we can do.
+			if os.IsPermission(err) {
+				continue
+			}
 			return fds, err
 		}
 		fds[i] = target

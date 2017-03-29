@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,10 +18,9 @@ package fake
 
 import (
 	api "k8s.io/client-go/pkg/api"
+	unversioned "k8s.io/client-go/pkg/api/unversioned"
 	v1 "k8s.io/client-go/pkg/api/v1"
-	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
 	labels "k8s.io/client-go/pkg/labels"
-	schema "k8s.io/client-go/pkg/runtime/schema"
 	watch "k8s.io/client-go/pkg/watch"
 	testing "k8s.io/client-go/testing"
 )
@@ -32,7 +31,7 @@ type FakeConfigMaps struct {
 	ns   string
 }
 
-var configmapsResource = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+var configmapsResource = unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 
 func (c *FakeConfigMaps) Create(configMap *v1.ConfigMap) (result *v1.ConfigMap, err error) {
 	obj, err := c.Fake.
@@ -68,7 +67,7 @@ func (c *FakeConfigMaps) DeleteCollection(options *v1.DeleteOptions, listOptions
 	return err
 }
 
-func (c *FakeConfigMaps) Get(name string, options meta_v1.GetOptions) (result *v1.ConfigMap, err error) {
+func (c *FakeConfigMaps) Get(name string) (result *v1.ConfigMap, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(configmapsResource, c.ns, name), &v1.ConfigMap{})
 

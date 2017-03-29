@@ -22,14 +22,14 @@ import (
 	"strings"
 
 	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/unversioned"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/runtime/schema"
 )
 
-func NewRootGetAction(resource schema.GroupVersionResource, name string) GetActionImpl {
+func NewRootGetAction(resource unversioned.GroupVersionResource, name string) GetActionImpl {
 	action := GetActionImpl{}
 	action.Verb = "get"
 	action.Resource = resource
@@ -38,7 +38,7 @@ func NewRootGetAction(resource schema.GroupVersionResource, name string) GetActi
 	return action
 }
 
-func NewGetAction(resource schema.GroupVersionResource, namespace, name string) GetActionImpl {
+func NewGetAction(resource unversioned.GroupVersionResource, namespace, name string) GetActionImpl {
 	action := GetActionImpl{}
 	action.Verb = "get"
 	action.Resource = resource
@@ -48,7 +48,7 @@ func NewGetAction(resource schema.GroupVersionResource, namespace, name string) 
 	return action
 }
 
-func NewRootListAction(resource schema.GroupVersionResource, opts interface{}) ListActionImpl {
+func NewRootListAction(resource unversioned.GroupVersionResource, opts interface{}) ListActionImpl {
 	action := ListActionImpl{}
 	action.Verb = "list"
 	action.Resource = resource
@@ -58,7 +58,7 @@ func NewRootListAction(resource schema.GroupVersionResource, opts interface{}) L
 	return action
 }
 
-func NewListAction(resource schema.GroupVersionResource, namespace string, opts interface{}) ListActionImpl {
+func NewListAction(resource unversioned.GroupVersionResource, namespace string, opts interface{}) ListActionImpl {
 	action := ListActionImpl{}
 	action.Verb = "list"
 	action.Resource = resource
@@ -69,7 +69,7 @@ func NewListAction(resource schema.GroupVersionResource, namespace string, opts 
 	return action
 }
 
-func NewRootCreateAction(resource schema.GroupVersionResource, object runtime.Object) CreateActionImpl {
+func NewRootCreateAction(resource unversioned.GroupVersionResource, object runtime.Object) CreateActionImpl {
 	action := CreateActionImpl{}
 	action.Verb = "create"
 	action.Resource = resource
@@ -78,7 +78,7 @@ func NewRootCreateAction(resource schema.GroupVersionResource, object runtime.Ob
 	return action
 }
 
-func NewCreateAction(resource schema.GroupVersionResource, namespace string, object runtime.Object) CreateActionImpl {
+func NewCreateAction(resource unversioned.GroupVersionResource, namespace string, object runtime.Object) CreateActionImpl {
 	action := CreateActionImpl{}
 	action.Verb = "create"
 	action.Resource = resource
@@ -88,7 +88,7 @@ func NewCreateAction(resource schema.GroupVersionResource, namespace string, obj
 	return action
 }
 
-func NewRootUpdateAction(resource schema.GroupVersionResource, object runtime.Object) UpdateActionImpl {
+func NewRootUpdateAction(resource unversioned.GroupVersionResource, object runtime.Object) UpdateActionImpl {
 	action := UpdateActionImpl{}
 	action.Verb = "update"
 	action.Resource = resource
@@ -97,7 +97,7 @@ func NewRootUpdateAction(resource schema.GroupVersionResource, object runtime.Ob
 	return action
 }
 
-func NewUpdateAction(resource schema.GroupVersionResource, namespace string, object runtime.Object) UpdateActionImpl {
+func NewUpdateAction(resource unversioned.GroupVersionResource, namespace string, object runtime.Object) UpdateActionImpl {
 	action := UpdateActionImpl{}
 	action.Verb = "update"
 	action.Resource = resource
@@ -107,7 +107,7 @@ func NewUpdateAction(resource schema.GroupVersionResource, namespace string, obj
 	return action
 }
 
-func NewRootPatchAction(resource schema.GroupVersionResource, name string, patch []byte) PatchActionImpl {
+func NewRootPatchAction(resource unversioned.GroupVersionResource, name string, patch []byte) PatchActionImpl {
 	action := PatchActionImpl{}
 	action.Verb = "patch"
 	action.Resource = resource
@@ -117,7 +117,7 @@ func NewRootPatchAction(resource schema.GroupVersionResource, name string, patch
 	return action
 }
 
-func NewPatchAction(resource schema.GroupVersionResource, namespace string, name string, patch []byte) PatchActionImpl {
+func NewPatchAction(resource unversioned.GroupVersionResource, namespace string, name string, patch []byte) PatchActionImpl {
 	action := PatchActionImpl{}
 	action.Verb = "patch"
 	action.Resource = resource
@@ -128,7 +128,7 @@ func NewPatchAction(resource schema.GroupVersionResource, namespace string, name
 	return action
 }
 
-func NewRootPatchSubresourceAction(resource schema.GroupVersionResource, name string, patch []byte, subresources ...string) PatchActionImpl {
+func NewRootPatchSubresourceAction(resource unversioned.GroupVersionResource, name string, patch []byte, subresources ...string) PatchActionImpl {
 	action := PatchActionImpl{}
 	action.Verb = "patch"
 	action.Resource = resource
@@ -139,7 +139,7 @@ func NewRootPatchSubresourceAction(resource schema.GroupVersionResource, name st
 	return action
 }
 
-func NewPatchSubresourceAction(resource schema.GroupVersionResource, namespace, name string, patch []byte, subresources ...string) PatchActionImpl {
+func NewPatchSubresourceAction(resource unversioned.GroupVersionResource, namespace, name string, patch []byte, subresources ...string) PatchActionImpl {
 	action := PatchActionImpl{}
 	action.Verb = "patch"
 	action.Resource = resource
@@ -151,7 +151,7 @@ func NewPatchSubresourceAction(resource schema.GroupVersionResource, namespace, 
 	return action
 }
 
-func NewRootUpdateSubresourceAction(resource schema.GroupVersionResource, subresource string, object runtime.Object) UpdateActionImpl {
+func NewRootUpdateSubresourceAction(resource unversioned.GroupVersionResource, subresource string, object runtime.Object) UpdateActionImpl {
 	action := UpdateActionImpl{}
 	action.Verb = "update"
 	action.Resource = resource
@@ -160,7 +160,7 @@ func NewRootUpdateSubresourceAction(resource schema.GroupVersionResource, subres
 
 	return action
 }
-func NewUpdateSubresourceAction(resource schema.GroupVersionResource, subresource string, namespace string, object runtime.Object) UpdateActionImpl {
+func NewUpdateSubresourceAction(resource unversioned.GroupVersionResource, subresource string, namespace string, object runtime.Object) UpdateActionImpl {
 	action := UpdateActionImpl{}
 	action.Verb = "update"
 	action.Resource = resource
@@ -171,7 +171,7 @@ func NewUpdateSubresourceAction(resource schema.GroupVersionResource, subresourc
 	return action
 }
 
-func NewRootDeleteAction(resource schema.GroupVersionResource, name string) DeleteActionImpl {
+func NewRootDeleteAction(resource unversioned.GroupVersionResource, name string) DeleteActionImpl {
 	action := DeleteActionImpl{}
 	action.Verb = "delete"
 	action.Resource = resource
@@ -180,7 +180,7 @@ func NewRootDeleteAction(resource schema.GroupVersionResource, name string) Dele
 	return action
 }
 
-func NewDeleteAction(resource schema.GroupVersionResource, namespace, name string) DeleteActionImpl {
+func NewDeleteAction(resource unversioned.GroupVersionResource, namespace, name string) DeleteActionImpl {
 	action := DeleteActionImpl{}
 	action.Verb = "delete"
 	action.Resource = resource
@@ -190,7 +190,7 @@ func NewDeleteAction(resource schema.GroupVersionResource, namespace, name strin
 	return action
 }
 
-func NewRootDeleteCollectionAction(resource schema.GroupVersionResource, opts interface{}) DeleteCollectionActionImpl {
+func NewRootDeleteCollectionAction(resource unversioned.GroupVersionResource, opts interface{}) DeleteCollectionActionImpl {
 	action := DeleteCollectionActionImpl{}
 	action.Verb = "delete-collection"
 	action.Resource = resource
@@ -200,7 +200,7 @@ func NewRootDeleteCollectionAction(resource schema.GroupVersionResource, opts in
 	return action
 }
 
-func NewDeleteCollectionAction(resource schema.GroupVersionResource, namespace string, opts interface{}) DeleteCollectionActionImpl {
+func NewDeleteCollectionAction(resource unversioned.GroupVersionResource, namespace string, opts interface{}) DeleteCollectionActionImpl {
 	action := DeleteCollectionActionImpl{}
 	action.Verb = "delete-collection"
 	action.Resource = resource
@@ -211,7 +211,7 @@ func NewDeleteCollectionAction(resource schema.GroupVersionResource, namespace s
 	return action
 }
 
-func NewRootWatchAction(resource schema.GroupVersionResource, opts interface{}) WatchActionImpl {
+func NewRootWatchAction(resource unversioned.GroupVersionResource, opts interface{}) WatchActionImpl {
 	action := WatchActionImpl{}
 	action.Verb = "watch"
 	action.Resource = resource
@@ -250,7 +250,7 @@ func ExtractFromListOptions(opts interface{}) (labelSelector labels.Selector, fi
 	return labelSelector, fieldSelector, resourceVersion
 }
 
-func NewWatchAction(resource schema.GroupVersionResource, namespace string, opts interface{}) WatchActionImpl {
+func NewWatchAction(resource unversioned.GroupVersionResource, namespace string, opts interface{}) WatchActionImpl {
 	action := WatchActionImpl{}
 	action.Verb = "watch"
 	action.Resource = resource
@@ -261,7 +261,7 @@ func NewWatchAction(resource schema.GroupVersionResource, namespace string, opts
 	return action
 }
 
-func NewProxyGetAction(resource schema.GroupVersionResource, namespace, scheme, name, port, path string, params map[string]string) ProxyGetActionImpl {
+func NewProxyGetAction(resource unversioned.GroupVersionResource, namespace, scheme, name, port, path string, params map[string]string) ProxyGetActionImpl {
 	action := ProxyGetActionImpl{}
 	action.Verb = "get"
 	action.Resource = resource
@@ -287,7 +287,7 @@ type WatchRestrictions struct {
 type Action interface {
 	GetNamespace() string
 	GetVerb() string
-	GetResource() schema.GroupVersionResource
+	GetResource() unversioned.GroupVersionResource
 	GetSubresource() string
 	Matches(verb, resource string) bool
 }
@@ -339,7 +339,7 @@ type ProxyGetAction interface {
 type ActionImpl struct {
 	Namespace   string
 	Verb        string
-	Resource    schema.GroupVersionResource
+	Resource    unversioned.GroupVersionResource
 	Subresource string
 }
 
@@ -349,7 +349,7 @@ func (a ActionImpl) GetNamespace() string {
 func (a ActionImpl) GetVerb() string {
 	return a.Verb
 }
-func (a ActionImpl) GetResource() schema.GroupVersionResource {
+func (a ActionImpl) GetResource() unversioned.GroupVersionResource {
 	return a.Resource
 }
 func (a ActionImpl) GetSubresource() string {

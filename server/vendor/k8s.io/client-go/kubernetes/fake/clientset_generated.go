@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package fake
 import (
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
-	kubernetes "k8s.io/client-go/kubernetes"
+	clientset "k8s.io/client-go/kubernetes"
 	v1beta1apps "k8s.io/client-go/kubernetes/typed/apps/v1beta1"
 	fakev1beta1apps "k8s.io/client-go/kubernetes/typed/apps/v1beta1/fake"
 	v1beta1authentication "k8s.io/client-go/kubernetes/typed/authentication/v1beta1"
@@ -71,7 +71,7 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 	return &Clientset{fakePtr}
 }
 
-// Clientset implements kubernetes.Interface. Meant to be embedded into a
+// Clientset implements clientset.Interface. Meant to be embedded into a
 // struct to get a default implementation. This makes faking out just the method
 // you want to test easier.
 type Clientset struct {
@@ -82,7 +82,7 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 	return &fakediscovery.FakeDiscovery{Fake: &c.Fake}
 }
 
-var _ kubernetes.Interface = &Clientset{}
+var _ clientset.Interface = &Clientset{}
 
 // CoreV1 retrieves the CoreV1Client
 func (c *Clientset) CoreV1() v1core.CoreV1Interface {

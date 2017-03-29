@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -11,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/exec"
@@ -22,285 +20,55 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	volumetypes "github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/integration-cli/checker"
+	"github.com/docker/docker/integration-cli/cli"
+	"github.com/docker/docker/integration-cli/cli/build"
 	"github.com/docker/docker/integration-cli/daemon"
 	"github.com/docker/docker/integration-cli/registry"
-	"github.com/docker/docker/opts"
-	"github.com/docker/docker/pkg/ioutils"
+	"github.com/docker/docker/integration-cli/request"
 	"github.com/docker/docker/pkg/stringutils"
-	"github.com/docker/docker/pkg/testutil"
 	icmd "github.com/docker/docker/pkg/testutil/cmd"
 	"github.com/go-check/check"
 )
 
+// Deprecated
 func daemonHost() string {
-	daemonURLStr := "unix://" + opts.DefaultUnixSocket
-	if daemonHostVar := os.Getenv("DOCKER_HOST"); daemonHostVar != "" {
-		daemonURLStr = daemonHostVar
-	}
-	return daemonURLStr
-}
-
-// FIXME(vdemeester) should probably completely move to daemon struct/methods
-func sockConn(timeout time.Duration, daemonStr string) (net.Conn, error) {
-	if daemonStr == "" {
-		daemonStr = daemonHost()
-	}
-	return daemon.SockConn(timeout, daemonStr)
-}
-
-func sockRequest(method, endpoint string, data interface{}) (int, []byte, error) {
-	jsonData := bytes.NewBuffer(nil)
-	if err := json.NewEncoder(jsonData).Encode(data); err != nil {
-		return -1, nil, err
-	}
-
-	res, body, err := sockRequestRaw(method, endpoint, jsonData, "application/json")
-	if err != nil {
-		return -1, nil, err
-	}
-	b, err := testutil.ReadBody(body)
-	return res.StatusCode, b, err
-}
-
-func sockRequestRaw(method, endpoint string, data io.Reader, ct string) (*http.Response, io.ReadCloser, error) {
-	return sockRequestRawToDaemon(method, endpoint, data, ct, "")
-}
-
-func sockRequestRawToDaemon(method, endpoint string, data io.Reader, ct, daemon string) (*http.Response, io.ReadCloser, error) {
-	req, client, err := newRequestClient(method, endpoint, data, ct, daemon)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		client.Close()
-		return nil, nil, err
-	}
-	body := ioutils.NewReadCloserWrapper(resp.Body, func() error {
-		defer resp.Body.Close()
-		return client.Close()
-	})
-
-	return resp, body, nil
-}
-
-func sockRequestHijack(method, endpoint string, data io.Reader, ct string) (net.Conn, *bufio.Reader, error) {
-	req, client, err := newRequestClient(method, endpoint, data, ct, "")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	client.Do(req)
-	conn, br := client.Hijack()
-	return conn, br, nil
-}
-
-func newRequestClient(method, endpoint string, data io.Reader, ct, daemon string) (*http.Request, *httputil.ClientConn, error) {
-	c, err := sockConn(time.Duration(10*time.Second), daemon)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not dial docker daemon: %v", err)
-	}
-
-	client := httputil.NewClientConn(c, nil)
-
-	req, err := http.NewRequest(method, endpoint, data)
-	if err != nil {
-		client.Close()
-		return nil, nil, fmt.Errorf("could not create new request: %v", err)
-	}
-
-	if ct != "" {
-		req.Header.Set("Content-Type", ct)
-	}
-	return req, client, nil
+	return request.DaemonHost()
 }
 
 // FIXME(vdemeester) move this away are remove ignoreNoSuchContainer bool
-func deleteContainer(ignoreNoSuchContainer bool, container ...string) error {
-	result := icmd.RunCommand(dockerBinary, append([]string{"rm", "-fv"}, container...)...)
-	if ignoreNoSuchContainer && result.Error != nil {
-		// If the error is "No such container: ..." this means the container doesn't exists anymore,
-		// we can safely ignore that one.
-		if strings.Contains(result.Stderr(), "No such container") {
-			return nil
-		}
-	}
-	return result.Compare(icmd.Success)
+func deleteContainer(container ...string) error {
+	return icmd.RunCommand(dockerBinary, append([]string{"rm", "-fv"}, container...)...).Compare(icmd.Success)
 }
 
-func getAllContainers() (string, error) {
-	getContainersCmd := exec.Command(dockerBinary, "ps", "-q", "-a")
-	out, exitCode, err := runCommandWithOutput(getContainersCmd)
-	if exitCode != 0 && err == nil {
-		err = fmt.Errorf("failed to get a list of containers: %v\n", out)
-	}
-
-	return out, err
+func getAllContainers(c *check.C) string {
+	result := icmd.RunCommand(dockerBinary, "ps", "-q", "-a")
+	result.Assert(c, icmd.Success)
+	return result.Combined()
 }
 
+// Deprecated
 func deleteAllContainers(c *check.C) {
-	containers, err := getAllContainers()
-	c.Assert(err, checker.IsNil, check.Commentf("containers: %v", containers))
-
+	containers := getAllContainers(c)
 	if containers != "" {
-		err = deleteContainer(true, strings.Split(strings.TrimSpace(containers), "\n")...)
+		err := deleteContainer(strings.Split(strings.TrimSpace(containers), "\n")...)
 		c.Assert(err, checker.IsNil)
 	}
 }
 
-func deleteAllNetworks(c *check.C) {
-	networks, err := getAllNetworks()
-	c.Assert(err, check.IsNil)
-	var errs []string
-	for _, n := range networks {
-		if n.Name == "bridge" || n.Name == "none" || n.Name == "host" {
-			continue
-		}
-		if daemonPlatform == "windows" && strings.ToLower(n.Name) == "nat" {
-			// nat is a pre-defined network on Windows and cannot be removed
-			continue
-		}
-		status, b, err := sockRequest("DELETE", "/networks/"+n.Name, nil)
-		if err != nil {
-			errs = append(errs, err.Error())
-			continue
-		}
-		if status != http.StatusNoContent {
-			errs = append(errs, fmt.Sprintf("error deleting network %s: %s", n.Name, string(b)))
-		}
-	}
-	c.Assert(errs, checker.HasLen, 0, check.Commentf(strings.Join(errs, "\n")))
-}
-
-func getAllNetworks() ([]types.NetworkResource, error) {
-	var networks []types.NetworkResource
-	_, b, err := sockRequest("GET", "/networks", nil)
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(b, &networks); err != nil {
-		return nil, err
-	}
-	return networks, nil
-}
-
-func deleteAllPlugins(c *check.C) {
-	plugins, err := getAllPlugins()
-	c.Assert(err, checker.IsNil)
-	var errs []string
-	for _, p := range plugins {
-		pluginName := p.Name
-		status, b, err := sockRequest("DELETE", "/plugins/"+pluginName+"?force=1", nil)
-		if err != nil {
-			errs = append(errs, err.Error())
-			continue
-		}
-		if status != http.StatusOK {
-			errs = append(errs, fmt.Sprintf("error deleting plugin %s: %s", p.Name, string(b)))
-		}
-	}
-	c.Assert(errs, checker.HasLen, 0, check.Commentf(strings.Join(errs, "\n")))
-}
-
-func getAllPlugins() (types.PluginsListResponse, error) {
-	var plugins types.PluginsListResponse
-	_, b, err := sockRequest("GET", "/plugins", nil)
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(b, &plugins); err != nil {
-		return nil, err
-	}
-	return plugins, nil
-}
-
-func deleteAllVolumes(c *check.C) {
-	volumes, err := getAllVolumes()
-	c.Assert(err, checker.IsNil)
-	var errs []string
-	for _, v := range volumes {
-		status, b, err := sockRequest("DELETE", "/volumes/"+v.Name, nil)
-		if err != nil {
-			errs = append(errs, err.Error())
-			continue
-		}
-		if status != http.StatusNoContent {
-			errs = append(errs, fmt.Sprintf("error deleting volume %s: %s", v.Name, string(b)))
-		}
-	}
-	c.Assert(errs, checker.HasLen, 0, check.Commentf(strings.Join(errs, "\n")))
-}
-
-func getAllVolumes() ([]*types.Volume, error) {
-	var volumes volumetypes.VolumesListOKBody
-	_, b, err := sockRequest("GET", "/volumes", nil)
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(b, &volumes); err != nil {
-		return nil, err
-	}
-	return volumes.Volumes, nil
-}
-
-func deleteAllImages(c *check.C) {
-	cmd := exec.Command(dockerBinary, "images", "--digests")
-	cmd.Env = appendBaseEnv(true)
-	out, err := cmd.CombinedOutput()
-	c.Assert(err, checker.IsNil)
-	lines := strings.Split(string(out), "\n")[1:]
-	imgMap := map[string]struct{}{}
-	for _, l := range lines {
-		if l == "" {
-			continue
-		}
-		fields := strings.Fields(l)
-		imgTag := fields[0] + ":" + fields[1]
-		if _, ok := protectedImages[imgTag]; !ok {
-			if fields[0] == "<none>" || fields[1] == "<none>" {
-				if fields[2] != "<none>" {
-					imgMap[fields[0]+"@"+fields[2]] = struct{}{}
-				} else {
-					imgMap[fields[3]] = struct{}{}
-				}
-				// continue
-			} else {
-				imgMap[imgTag] = struct{}{}
-			}
-		}
-	}
-	if len(imgMap) != 0 {
-		imgs := make([]string, 0, len(imgMap))
-		for k := range imgMap {
-			imgs = append(imgs, k)
-		}
-		dockerCmd(c, append([]string{"rmi", "-f"}, imgs...)...)
-	}
-}
-
-func getPausedContainers() ([]string, error) {
-	getPausedContainersCmd := exec.Command(dockerBinary, "ps", "-f", "status=paused", "-q", "-a")
-	out, exitCode, err := runCommandWithOutput(getPausedContainersCmd)
-	if exitCode != 0 && err == nil {
-		err = fmt.Errorf("failed to get a list of paused containers: %v\n", out)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return strings.Fields(out), nil
+func getPausedContainers(c *check.C) []string {
+	result := icmd.RunCommand(dockerBinary, "ps", "-f", "status=paused", "-q", "-a")
+	result.Assert(c, icmd.Success)
+	return strings.Fields(result.Combined())
 }
 
 func unpauseContainer(c *check.C, container string) {
 	dockerCmd(c, "unpause", container)
 }
 
+// Deprecated
 func unpauseAllContainers(c *check.C) {
-	containers, err := getPausedContainers()
-	c.Assert(err, checker.IsNil, check.Commentf("containers: %v", containers))
+	containers := getPausedContainers(c)
 	for _, value := range containers {
 		unpauseContainer(c, value)
 	}
@@ -311,88 +79,24 @@ func deleteImages(images ...string) error {
 	return icmd.RunCmd(icmd.Cmd{Command: append(args, images...)}).Error
 }
 
+// Deprecated: use cli.Docker or cli.DockerCmd
 func dockerCmdWithError(args ...string) (string, int, error) {
-	if err := validateArgs(args...); err != nil {
-		return "", 0, err
-	}
-	result := icmd.RunCommand(dockerBinary, args...)
+	result := cli.Docker(cli.Args(args...))
 	if result.Error != nil {
 		return result.Combined(), result.ExitCode, result.Compare(icmd.Success)
 	}
 	return result.Combined(), result.ExitCode, result.Error
 }
 
-func dockerCmdWithStdoutStderr(c *check.C, args ...string) (string, string, int) {
-	if err := validateArgs(args...); err != nil {
-		c.Fatalf(err.Error())
-	}
-
-	result := icmd.RunCommand(dockerBinary, args...)
-	c.Assert(result, icmd.Matches, icmd.Success)
-	return result.Stdout(), result.Stderr(), result.ExitCode
-}
-
+// Deprecated: use cli.Docker or cli.DockerCmd
 func dockerCmd(c *check.C, args ...string) (string, int) {
-	if err := validateArgs(args...); err != nil {
-		c.Fatalf(err.Error())
-	}
-	result := icmd.RunCommand(dockerBinary, args...)
-	c.Assert(result, icmd.Matches, icmd.Success)
+	result := cli.DockerCmd(c, args...)
 	return result.Combined(), result.ExitCode
 }
 
+// Deprecated: use cli.Docker or cli.DockerCmd
 func dockerCmdWithResult(args ...string) *icmd.Result {
-	return icmd.RunCommand(dockerBinary, args...)
-}
-
-func binaryWithArgs(args ...string) []string {
-	return append([]string{dockerBinary}, args...)
-}
-
-// execute a docker command with a timeout
-func dockerCmdWithTimeout(timeout time.Duration, args ...string) *icmd.Result {
-	if err := validateArgs(args...); err != nil {
-		return &icmd.Result{Error: err}
-	}
-	return icmd.RunCmd(icmd.Cmd{Command: binaryWithArgs(args...), Timeout: timeout})
-}
-
-// execute a docker command in a directory
-func dockerCmdInDir(c *check.C, path string, args ...string) (string, int, error) {
-	if err := validateArgs(args...); err != nil {
-		c.Fatalf(err.Error())
-	}
-	result := icmd.RunCmd(icmd.Cmd{Command: binaryWithArgs(args...), Dir: path})
-	return result.Combined(), result.ExitCode, result.Error
-}
-
-// validateArgs is a checker to ensure tests are not running commands which are
-// not supported on platforms. Specifically on Windows this is 'busybox top'.
-func validateArgs(args ...string) error {
-	if daemonPlatform != "windows" {
-		return nil
-	}
-	foundBusybox := -1
-	for key, value := range args {
-		if strings.ToLower(value) == "busybox" {
-			foundBusybox = key
-		}
-		if (foundBusybox != -1) && (key == foundBusybox+1) && (strings.ToLower(value) == "top") {
-			return errors.New("cannot use 'busybox top' in tests on Windows. Use runSleepingContainer()")
-		}
-	}
-	return nil
-}
-
-// find the State.ExitCode in container metadata
-func findContainerExitCode(c *check.C, name string, vargs ...string) string {
-	args := append(vargs, "inspect", "--format='{{ .State.ExitCode }} {{ .State.Error }}'", name)
-	cmd := exec.Command(dockerBinary, args...)
-	out, _, err := runCommandWithOutput(cmd)
-	if err != nil {
-		c.Fatal(err, out)
-	}
-	return out
+	return cli.Docker(cli.Args(args...))
 }
 
 func findContainerIP(c *check.C, id string, network string) string {
@@ -400,29 +104,24 @@ func findContainerIP(c *check.C, id string, network string) string {
 	return strings.Trim(out, " \r\n'")
 }
 
-func getContainerCount() (int, error) {
+func getContainerCount(c *check.C) int {
 	const containers = "Containers:"
 
-	cmd := exec.Command(dockerBinary, "info")
-	out, _, err := runCommandWithOutput(cmd)
-	if err != nil {
-		return 0, err
-	}
+	result := icmd.RunCommand(dockerBinary, "info")
+	result.Assert(c, icmd.Success)
 
-	lines := strings.Split(out, "\n")
+	lines := strings.Split(result.Combined(), "\n")
 	for _, line := range lines {
 		if strings.Contains(line, containers) {
 			output := strings.TrimSpace(line)
 			output = strings.TrimLeft(output, containers)
 			output = strings.Trim(output, " ")
 			containerCount, err := strconv.Atoi(output)
-			if err != nil {
-				return 0, err
-			}
-			return containerCount, nil
+			c.Assert(err, checker.IsNil)
+			return containerCount
 		}
 	}
-	return 0, fmt.Errorf("couldn't find the Container count in the output")
+	return 0
 }
 
 // FakeContext creates directories that can be used as a build context
@@ -458,52 +157,41 @@ func (f *FakeContext) Close() error {
 	return os.RemoveAll(f.Dir)
 }
 
-func fakeContextFromNewTempDir() (*FakeContext, error) {
+func fakeContextFromNewTempDir(c *check.C) *FakeContext {
 	tmp, err := ioutil.TempDir("", "fake-context")
-	if err != nil {
-		return nil, err
-	}
+	c.Assert(err, checker.IsNil)
 	if err := os.Chmod(tmp, 0755); err != nil {
-		return nil, err
+		c.Fatal(err)
 	}
-	return fakeContextFromDir(tmp), nil
+	return fakeContextFromDir(tmp)
 }
 
 func fakeContextFromDir(dir string) *FakeContext {
 	return &FakeContext{dir}
 }
 
-func fakeContextWithFiles(files map[string]string) (*FakeContext, error) {
-	ctx, err := fakeContextFromNewTempDir()
-	if err != nil {
-		return nil, err
-	}
+func fakeContextWithFiles(c *check.C, files map[string]string) *FakeContext {
+	ctx := fakeContextFromNewTempDir(c)
 	for file, content := range files {
 		if err := ctx.Add(file, content); err != nil {
 			ctx.Close()
-			return nil, err
+			c.Fatal(err)
 		}
 	}
-	return ctx, nil
+	return ctx
 }
 
-func fakeContextAddDockerfile(ctx *FakeContext, dockerfile string) error {
+func fakeContextAddDockerfile(c *check.C, ctx *FakeContext, dockerfile string) {
 	if err := ctx.Add("Dockerfile", dockerfile); err != nil {
 		ctx.Close()
-		return err
+		c.Fatal(err)
 	}
-	return nil
 }
 
-func fakeContext(dockerfile string, files map[string]string) (*FakeContext, error) {
-	ctx, err := fakeContextWithFiles(files)
-	if err != nil {
-		return nil, err
-	}
-	if err := fakeContextAddDockerfile(ctx, dockerfile); err != nil {
-		return nil, err
-	}
-	return ctx, nil
+func fakeContext(c *check.C, dockerfile string, files map[string]string) *FakeContext {
+	ctx := fakeContextWithFiles(c, files)
+	fakeContextAddDockerfile(c, ctx, dockerfile)
+	return ctx
 }
 
 // FakeStorage is a static file server. It might be running locally or remotely
@@ -514,34 +202,28 @@ type FakeStorage interface {
 	CtxDir() string
 }
 
-func fakeBinaryStorage(archives map[string]*bytes.Buffer) (FakeStorage, error) {
-	ctx, err := fakeContextFromNewTempDir()
-	if err != nil {
-		return nil, err
-	}
+func fakeBinaryStorage(c *check.C, archives map[string]*bytes.Buffer) FakeStorage {
+	ctx := fakeContextFromNewTempDir(c)
 	for name, content := range archives {
 		if err := ctx.addFile(name, content.Bytes()); err != nil {
-			return nil, err
+			c.Fatal(err)
 		}
 	}
-	return fakeStorageWithContext(ctx)
+	return fakeStorageWithContext(c, ctx)
 }
 
 // fakeStorage returns either a local or remote (at daemon machine) file server
-func fakeStorage(files map[string]string) (FakeStorage, error) {
-	ctx, err := fakeContextWithFiles(files)
-	if err != nil {
-		return nil, err
-	}
-	return fakeStorageWithContext(ctx)
+func fakeStorage(c *check.C, files map[string]string) FakeStorage {
+	ctx := fakeContextWithFiles(c, files)
+	return fakeStorageWithContext(c, ctx)
 }
 
 // fakeStorageWithContext returns either a local or remote (at daemon machine) file server
-func fakeStorageWithContext(ctx *FakeContext) (FakeStorage, error) {
-	if isLocalDaemon {
-		return newLocalFakeStorage(ctx)
+func fakeStorageWithContext(c *check.C, ctx *FakeContext) FakeStorage {
+	if testEnv.LocalDaemon() {
+		return newLocalFakeStorage(c, ctx)
 	}
-	return newRemoteFileServer(ctx)
+	return newRemoteFileServer(c, ctx)
 }
 
 // localFileStorage is a file storage on the running machine
@@ -563,13 +245,13 @@ func (s *localFileStorage) Close() error {
 	return s.FakeContext.Close()
 }
 
-func newLocalFakeStorage(ctx *FakeContext) (*localFileStorage, error) {
+func newLocalFakeStorage(c *check.C, ctx *FakeContext) *localFileStorage {
 	handler := http.FileServer(http.Dir(ctx.Dir))
 	server := httptest.NewServer(handler)
 	return &localFileStorage{
 		FakeContext: ctx,
 		Server:      server,
-	}, nil
+	}
 }
 
 // remoteFileServer is a containerized static file server started on the remote
@@ -604,64 +286,51 @@ func (f *remoteFileServer) Close() error {
 	if f.container == "" {
 		return nil
 	}
-	return deleteContainer(false, f.container)
+	return deleteContainer(f.container)
 }
 
-func newRemoteFileServer(ctx *FakeContext) (*remoteFileServer, error) {
+func newRemoteFileServer(c *check.C, ctx *FakeContext) *remoteFileServer {
 	var (
 		image     = fmt.Sprintf("fileserver-img-%s", strings.ToLower(stringutils.GenerateRandomAlphaOnlyString(10)))
 		container = fmt.Sprintf("fileserver-cnt-%s", strings.ToLower(stringutils.GenerateRandomAlphaOnlyString(10)))
 	)
 
-	if err := ensureHTTPServerImage(); err != nil {
-		return nil, err
-	}
+	ensureHTTPServerImage(c)
 
 	// Build the image
-	if err := fakeContextAddDockerfile(ctx, `FROM httpserver
-COPY . /static`); err != nil {
-		return nil, fmt.Errorf("Cannot add Dockerfile to context: %v", err)
-	}
-	if _, err := buildImageFromContext(image, ctx, false); err != nil {
-		return nil, fmt.Errorf("failed building file storage container image: %v", err)
-	}
+	fakeContextAddDockerfile(c, ctx, `FROM httpserver
+COPY . /static`)
+	buildImageSuccessfully(c, image, build.WithoutCache, withExternalBuildContext(ctx))
 
 	// Start the container
-	runCmd := exec.Command(dockerBinary, "run", "-d", "-P", "--name", container, image)
-	if out, ec, err := runCommandWithOutput(runCmd); err != nil {
-		return nil, fmt.Errorf("failed to start file storage container. ec=%v\nout=%s\nerr=%v", ec, out, err)
-	}
+	dockerCmd(c, "run", "-d", "-P", "--name", container, image)
 
 	// Find out the system assigned port
-	out, _, err := runCommandWithOutput(exec.Command(dockerBinary, "port", container, "80/tcp"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to find container port: err=%v\nout=%s", err, out)
-	}
-
+	out, _ := dockerCmd(c, "port", container, "80/tcp")
 	fileserverHostPort := strings.Trim(out, "\n")
 	_, port, err := net.SplitHostPort(fileserverHostPort)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse file server host:port: %v", err)
+		c.Fatalf("unable to parse file server host:port: %v", err)
 	}
 
 	dockerHostURL, err := url.Parse(daemonHost())
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse daemon host URL: %v", err)
+		c.Fatalf("unable to parse daemon host URL: %v", err)
 	}
 
 	host, _, err := net.SplitHostPort(dockerHostURL.Host)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse docker daemon host:port: %v", err)
+		c.Fatalf("unable to parse docker daemon host:port: %v", err)
 	}
 
 	return &remoteFileServer{
 		container: container,
 		image:     image,
 		host:      fmt.Sprintf("%s:%s", host, port),
-		ctx:       ctx}, nil
+		ctx:       ctx}
 }
 
-func inspectFieldAndMarshall(c *check.C, name, field string, output interface{}) {
+func inspectFieldAndUnmarshall(c *check.C, name, field string, output interface{}) {
 	str := inspectFieldJSON(c, name, field)
 	err := json.Unmarshal([]byte(str), output)
 	if c != nil {
@@ -669,20 +338,22 @@ func inspectFieldAndMarshall(c *check.C, name, field string, output interface{})
 	}
 }
 
+// Deprecated: use cli.Inspect
 func inspectFilter(name, filter string) (string, error) {
 	format := fmt.Sprintf("{{%s}}", filter)
-	inspectCmd := exec.Command(dockerBinary, "inspect", "-f", format, name)
-	out, exitCode, err := runCommandWithOutput(inspectCmd)
-	if err != nil || exitCode != 0 {
-		return "", fmt.Errorf("failed to inspect %s: %s", name, out)
+	result := icmd.RunCommand(dockerBinary, "inspect", "-f", format, name)
+	if result.Error != nil || result.ExitCode != 0 {
+		return "", fmt.Errorf("failed to inspect %s: %s", name, result.Combined())
 	}
-	return strings.TrimSpace(out), nil
+	return strings.TrimSpace(result.Combined()), nil
 }
 
+// Deprecated: use cli.Inspect
 func inspectFieldWithError(name, field string) (string, error) {
 	return inspectFilter(name, fmt.Sprintf(".%s", field))
 }
 
+// Deprecated: use cli.Inspect
 func inspectField(c *check.C, name, field string) string {
 	out, err := inspectFilter(name, fmt.Sprintf(".%s", field))
 	if c != nil {
@@ -691,6 +362,7 @@ func inspectField(c *check.C, name, field string) string {
 	return out
 }
 
+// Deprecated: use cli.Inspect
 func inspectFieldJSON(c *check.C, name, field string) string {
 	out, err := inspectFilter(name, fmt.Sprintf("json .%s", field))
 	if c != nil {
@@ -699,6 +371,7 @@ func inspectFieldJSON(c *check.C, name, field string) string {
 	return out
 }
 
+// Deprecated: use cli.Inspect
 func inspectFieldMap(c *check.C, name, path, field string) string {
 	out, err := inspectFilter(name, fmt.Sprintf("index .%s %q", path, field))
 	if c != nil {
@@ -707,6 +380,7 @@ func inspectFieldMap(c *check.C, name, path, field string) string {
 	return out
 }
 
+// Deprecated: use cli.Inspect
 func inspectMountSourceField(name, destination string) (string, error) {
 	m, err := inspectMountPoint(name, destination)
 	if err != nil {
@@ -715,6 +389,7 @@ func inspectMountSourceField(name, destination string) (string, error) {
 	return m.Source, nil
 }
 
+// Deprecated: use cli.Inspect
 func inspectMountPoint(name, destination string) (types.MountPoint, error) {
 	out, err := inspectFilter(name, "json .Mounts")
 	if err != nil {
@@ -726,6 +401,7 @@ func inspectMountPoint(name, destination string) (types.MountPoint, error) {
 
 var errMountNotFound = errors.New("mount point not found")
 
+// Deprecated: use cli.Inspect
 func inspectMountPointJSON(j, destination string) (types.MountPoint, error) {
 	var mp []types.MountPoint
 	if err := json.Unmarshal([]byte(j), &mp); err != nil {
@@ -747,149 +423,74 @@ func inspectMountPointJSON(j, destination string) (types.MountPoint, error) {
 	return *m, nil
 }
 
-func inspectImage(name, filter string) (string, error) {
+// Deprecated: use cli.Inspect
+func inspectImage(c *check.C, name, filter string) string {
 	args := []string{"inspect", "--type", "image"}
 	if filter != "" {
 		format := fmt.Sprintf("{{%s}}", filter)
 		args = append(args, "-f", format)
 	}
 	args = append(args, name)
-	inspectCmd := exec.Command(dockerBinary, args...)
-	out, exitCode, err := runCommandWithOutput(inspectCmd)
-	if err != nil || exitCode != 0 {
-		return "", fmt.Errorf("failed to inspect %s: %s", name, out)
-	}
-	return strings.TrimSpace(out), nil
+	result := icmd.RunCommand(dockerBinary, args...)
+	result.Assert(c, icmd.Success)
+	return strings.TrimSpace(result.Combined())
 }
 
-func getIDByName(name string) (string, error) {
-	return inspectFieldWithError(name, "Id")
+func getIDByName(c *check.C, name string) string {
+	id, err := inspectFieldWithError(name, "Id")
+	c.Assert(err, checker.IsNil)
+	return id
 }
 
-func buildImageCmd(name, dockerfile string, useCache bool, buildFlags ...string) *exec.Cmd {
-	return daemon.BuildImageCmdWithHost(dockerBinary, name, dockerfile, "", useCache, buildFlags...)
+// Deprecated: use cli.Build
+func buildImageSuccessfully(c *check.C, name string, cmdOperators ...cli.CmdOperator) {
+	buildImage(name, cmdOperators...).Assert(c, icmd.Success)
 }
 
-func buildImageWithOut(name, dockerfile string, useCache bool, buildFlags ...string) (string, string, error) {
-	buildCmd := buildImageCmd(name, dockerfile, useCache, buildFlags...)
-	out, exitCode, err := runCommandWithOutput(buildCmd)
-	if err != nil || exitCode != 0 {
-		return "", out, fmt.Errorf("failed to build the image: %s", out)
-	}
-	id, err := getIDByName(name)
-	if err != nil {
-		return "", out, err
-	}
-	return id, out, nil
+// Deprecated: use cli.Build
+func buildImage(name string, cmdOperators ...cli.CmdOperator) *icmd.Result {
+	return cli.Docker(cli.Build(name), cmdOperators...)
 }
 
-func buildImageWithStdoutStderr(name, dockerfile string, useCache bool, buildFlags ...string) (string, string, string, error) {
-	buildCmd := buildImageCmd(name, dockerfile, useCache, buildFlags...)
-	result := icmd.RunCmd(transformCmd(buildCmd))
-	err := result.Error
-	exitCode := result.ExitCode
-	if err != nil || exitCode != 0 {
-		return "", result.Stdout(), result.Stderr(), fmt.Errorf("failed to build the image: %s", result.Combined())
+func withExternalBuildContext(ctx *FakeContext) func(*icmd.Cmd) func() {
+	return func(cmd *icmd.Cmd) func() {
+		cmd.Dir = ctx.Dir
+		cmd.Command = append(cmd.Command, ".")
+		return nil
 	}
-	id, err := getIDByName(name)
-	if err != nil {
-		return "", result.Stdout(), result.Stderr(), err
-	}
-	return id, result.Stdout(), result.Stderr(), nil
 }
 
-func buildImage(name, dockerfile string, useCache bool, buildFlags ...string) (string, error) {
-	id, _, err := buildImageWithOut(name, dockerfile, useCache, buildFlags...)
-	return id, err
+func withBuildContext(c *check.C, contextOperators ...func(*FakeContext) error) func(*icmd.Cmd) func() {
+	ctx := fakeContextFromNewTempDir(c)
+	for _, op := range contextOperators {
+		if err := op(ctx); err != nil {
+			c.Fatal(err)
+		}
+	}
+	return func(cmd *icmd.Cmd) func() {
+		cmd.Dir = ctx.Dir
+		cmd.Command = append(cmd.Command, ".")
+		return closeBuildContext(c, ctx)
+	}
 }
 
-func buildImageFromContext(name string, ctx *FakeContext, useCache bool, buildFlags ...string) (string, error) {
-	id, _, err := buildImageFromContextWithOut(name, ctx, useCache, buildFlags...)
-	if err != nil {
-		return "", err
+func withFile(name, content string) func(*FakeContext) error {
+	return func(ctx *FakeContext) error {
+		return ctx.Add(name, content)
 	}
-	return id, nil
 }
 
-func buildImageFromContextWithOut(name string, ctx *FakeContext, useCache bool, buildFlags ...string) (string, string, error) {
-	args := []string{"build", "-t", name}
-	if !useCache {
-		args = append(args, "--no-cache")
+func closeBuildContext(c *check.C, ctx *FakeContext) func() {
+	return func() {
+		if err := ctx.Close(); err != nil {
+			c.Fatal(err)
+		}
 	}
-	args = append(args, buildFlags...)
-	args = append(args, ".")
-	buildCmd := exec.Command(dockerBinary, args...)
-	buildCmd.Dir = ctx.Dir
-	out, exitCode, err := runCommandWithOutput(buildCmd)
-	if err != nil || exitCode != 0 {
-		return "", "", fmt.Errorf("failed to build the image: %s", out)
-	}
-	id, err := getIDByName(name)
-	if err != nil {
-		return "", "", err
-	}
-	return id, out, nil
 }
 
-func buildImageFromContextWithStdoutStderr(name string, ctx *FakeContext, useCache bool, buildFlags ...string) (string, string, string, error) {
-	args := []string{"build", "-t", name}
-	if !useCache {
-		args = append(args, "--no-cache")
-	}
-	args = append(args, buildFlags...)
-	args = append(args, ".")
-
-	result := icmd.RunCmd(icmd.Cmd{
-		Command: append([]string{dockerBinary}, args...),
-		Dir:     ctx.Dir,
-	})
-	exitCode := result.ExitCode
-	err := result.Error
-	if err != nil || exitCode != 0 {
-		return "", result.Stdout(), result.Stderr(), fmt.Errorf("failed to build the image: %s", result.Combined())
-	}
-	id, err := getIDByName(name)
-	if err != nil {
-		return "", result.Stdout(), result.Stderr(), err
-	}
-	return id, result.Stdout(), result.Stderr(), nil
-}
-
-func buildImageFromGitWithStdoutStderr(name string, ctx *fakeGit, useCache bool, buildFlags ...string) (string, string, string, error) {
-	args := []string{"build", "-t", name}
-	if !useCache {
-		args = append(args, "--no-cache")
-	}
-	args = append(args, buildFlags...)
-	args = append(args, ctx.RepoURL)
-	result := icmd.RunCmd(icmd.Cmd{
-		Command: append([]string{dockerBinary}, args...),
-	})
-	exitCode := result.ExitCode
-	err := result.Error
-	if err != nil || exitCode != 0 {
-		return "", result.Stdout(), result.Stderr(), fmt.Errorf("failed to build the image: %s", result.Combined())
-	}
-	id, err := getIDByName(name)
-	if err != nil {
-		return "", result.Stdout(), result.Stderr(), err
-	}
-	return id, result.Stdout(), result.Stderr(), nil
-}
-
-func buildImageFromPath(name, path string, useCache bool, buildFlags ...string) (string, error) {
-	args := []string{"build", "-t", name}
-	if !useCache {
-		args = append(args, "--no-cache")
-	}
-	args = append(args, buildFlags...)
-	args = append(args, path)
-	buildCmd := exec.Command(dockerBinary, args...)
-	out, exitCode, err := runCommandWithOutput(buildCmd)
-	if err != nil || exitCode != 0 {
-		return "", fmt.Errorf("failed to build the image: %s", out)
-	}
-	return getIDByName(name)
+func trustedBuild(cmd *icmd.Cmd) func() {
+	trustedCmd(cmd)
+	return nil
 }
 
 type gitServer interface {
@@ -921,69 +522,63 @@ func (g *fakeGit) Close() {
 	os.RemoveAll(g.root)
 }
 
-func newFakeGit(name string, files map[string]string, enforceLocalServer bool) (*fakeGit, error) {
-	ctx, err := fakeContextWithFiles(files)
-	if err != nil {
-		return nil, err
-	}
+func newFakeGit(c *check.C, name string, files map[string]string, enforceLocalServer bool) *fakeGit {
+	ctx := fakeContextWithFiles(c, files)
 	defer ctx.Close()
 	curdir, err := os.Getwd()
 	if err != nil {
-		return nil, err
+		c.Fatal(err)
 	}
 	defer os.Chdir(curdir)
 
 	if output, err := exec.Command("git", "init", ctx.Dir).CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("error trying to init repo: %s (%s)", err, output)
+		c.Fatalf("error trying to init repo: %s (%s)", err, output)
 	}
 	err = os.Chdir(ctx.Dir)
 	if err != nil {
-		return nil, err
+		c.Fatal(err)
 	}
 	if output, err := exec.Command("git", "config", "user.name", "Fake User").CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("error trying to set 'user.name': %s (%s)", err, output)
+		c.Fatalf("error trying to set 'user.name': %s (%s)", err, output)
 	}
 	if output, err := exec.Command("git", "config", "user.email", "fake.user@example.com").CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("error trying to set 'user.email': %s (%s)", err, output)
+		c.Fatalf("error trying to set 'user.email': %s (%s)", err, output)
 	}
 	if output, err := exec.Command("git", "add", "*").CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("error trying to add files to repo: %s (%s)", err, output)
+		c.Fatalf("error trying to add files to repo: %s (%s)", err, output)
 	}
 	if output, err := exec.Command("git", "commit", "-a", "-m", "Initial commit").CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("error trying to commit to repo: %s (%s)", err, output)
+		c.Fatalf("error trying to commit to repo: %s (%s)", err, output)
 	}
 
 	root, err := ioutil.TempDir("", "docker-test-git-repo")
 	if err != nil {
-		return nil, err
+		c.Fatal(err)
 	}
 	repoPath := filepath.Join(root, name+".git")
 	if output, err := exec.Command("git", "clone", "--bare", ctx.Dir, repoPath).CombinedOutput(); err != nil {
 		os.RemoveAll(root)
-		return nil, fmt.Errorf("error trying to clone --bare: %s (%s)", err, output)
+		c.Fatalf("error trying to clone --bare: %s (%s)", err, output)
 	}
 	err = os.Chdir(repoPath)
 	if err != nil {
 		os.RemoveAll(root)
-		return nil, err
+		c.Fatal(err)
 	}
 	if output, err := exec.Command("git", "update-server-info").CombinedOutput(); err != nil {
 		os.RemoveAll(root)
-		return nil, fmt.Errorf("error trying to git update-server-info: %s (%s)", err, output)
+		c.Fatalf("error trying to git update-server-info: %s (%s)", err, output)
 	}
 	err = os.Chdir(curdir)
 	if err != nil {
 		os.RemoveAll(root)
-		return nil, err
+		c.Fatal(err)
 	}
 
 	var server gitServer
 	if !enforceLocalServer {
 		// use fakeStorage server, which might be local or remote (at test daemon)
-		server, err = fakeStorageWithContext(fakeContextFromDir(root))
-		if err != nil {
-			return nil, fmt.Errorf("cannot start fake storage: %v", err)
-		}
+		server = fakeStorageWithContext(c, fakeContextFromDir(root))
 	} else {
 		// always start a local http server on CLI test machine
 		httpServer := httptest.NewServer(http.FileServer(http.Dir(root)))
@@ -993,7 +588,7 @@ func newFakeGit(name string, files map[string]string, enforceLocalServer bool) (
 		root:    root,
 		server:  server,
 		RepoURL: fmt.Sprintf("%s/%s.git", server.URL(), name),
-	}, nil
+	}
 }
 
 // Write `content` to the file at path `dst`, creating it if necessary,
@@ -1021,52 +616,43 @@ func readFile(src string, c *check.C) (content string) {
 }
 
 func containerStorageFile(containerID, basename string) string {
-	return filepath.Join(containerStoragePath, containerID, basename)
+	return filepath.Join(testEnv.ContainerStoragePath(), containerID, basename)
 }
 
 // docker commands that use this function must be run with the '-d' switch.
-func runCommandAndReadContainerFile(filename string, cmd *exec.Cmd) ([]byte, error) {
-	out, _, err := runCommandWithOutput(cmd)
-	if err != nil {
-		return nil, fmt.Errorf("%v: %q", err, out)
-	}
-
-	contID := strings.TrimSpace(out)
-
+func runCommandAndReadContainerFile(c *check.C, filename string, command string, args ...string) []byte {
+	result := icmd.RunCommand(command, args...)
+	result.Assert(c, icmd.Success)
+	contID := strings.TrimSpace(result.Combined())
 	if err := waitRun(contID); err != nil {
-		return nil, fmt.Errorf("%v: %q", contID, err)
+		c.Fatalf("%v: %q", contID, err)
 	}
-
-	return readContainerFile(contID, filename)
+	return readContainerFile(c, contID, filename)
 }
 
-func readContainerFile(containerID, filename string) ([]byte, error) {
+func readContainerFile(c *check.C, containerID, filename string) []byte {
 	f, err := os.Open(containerStorageFile(containerID, filename))
-	if err != nil {
-		return nil, err
-	}
+	c.Assert(err, checker.IsNil)
 	defer f.Close()
 
 	content, err := ioutil.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-
-	return content, nil
+	c.Assert(err, checker.IsNil)
+	return content
 }
 
-func readContainerFileWithExec(containerID, filename string) ([]byte, error) {
-	out, _, err := runCommandWithOutput(exec.Command(dockerBinary, "exec", containerID, "cat", filename))
-	return []byte(out), err
+func readContainerFileWithExec(c *check.C, containerID, filename string) []byte {
+	result := icmd.RunCommand(dockerBinary, "exec", containerID, "cat", filename)
+	result.Assert(c, icmd.Success)
+	return []byte(result.Combined())
 }
 
 // daemonTime provides the current time on the daemon host
 func daemonTime(c *check.C) time.Time {
-	if isLocalDaemon {
+	if testEnv.LocalDaemon() {
 		return time.Now()
 	}
 
-	status, body, err := sockRequest("GET", "/info", nil)
+	status, body, err := request.SockRequest("GET", "/info", nil, daemonHost())
 	c.Assert(err, check.IsNil)
 	c.Assert(status, check.Equals, http.StatusOK)
 
@@ -1192,7 +778,7 @@ func waitInspectWithArgs(name, expr, expected string, timeout time.Duration, arg
 
 func getInspectBody(c *check.C, version, id string) []byte {
 	endpoint := fmt.Sprintf("/%s/containers/%s/json", version, id)
-	status, body, err := sockRequest("GET", endpoint, nil)
+	status, body, err := request.SockRequest("GET", endpoint, nil, daemonHost())
 	c.Assert(err, check.IsNil)
 	c.Assert(status, check.Equals, http.StatusOK)
 	return body
@@ -1224,7 +810,7 @@ func getGoroutineNumber() (int, error) {
 	i := struct {
 		NGoroutines int
 	}{}
-	status, b, err := sockRequest("GET", "/info", nil)
+	status, b, err := request.SockRequest("GET", "/info", nil, daemonHost())
 	if err != nil {
 		return 0, err
 	}

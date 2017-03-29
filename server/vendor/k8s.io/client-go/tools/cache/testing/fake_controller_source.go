@@ -24,7 +24,6 @@ import (
 
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/meta"
-	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/types"
 	"k8s.io/client-go/pkg/watch"
@@ -162,7 +161,7 @@ func (f *FakeControllerSource) getListItemsLocked() ([]runtime.Object, error) {
 }
 
 // List returns a list object, with its resource version set.
-func (f *FakeControllerSource) List(options v1.ListOptions) (runtime.Object, error) {
+func (f *FakeControllerSource) List(options api.ListOptions) (runtime.Object, error) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 	list, err := f.getListItemsLocked()
@@ -183,14 +182,14 @@ func (f *FakeControllerSource) List(options v1.ListOptions) (runtime.Object, err
 }
 
 // List returns a list object, with its resource version set.
-func (f *FakePVControllerSource) List(options v1.ListOptions) (runtime.Object, error) {
+func (f *FakePVControllerSource) List(options api.ListOptions) (runtime.Object, error) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 	list, err := f.FakeControllerSource.getListItemsLocked()
 	if err != nil {
 		return nil, err
 	}
-	listObj := &v1.PersistentVolumeList{}
+	listObj := &api.PersistentVolumeList{}
 	if err := meta.SetList(listObj, list); err != nil {
 		return nil, err
 	}
@@ -204,14 +203,14 @@ func (f *FakePVControllerSource) List(options v1.ListOptions) (runtime.Object, e
 }
 
 // List returns a list object, with its resource version set.
-func (f *FakePVCControllerSource) List(options v1.ListOptions) (runtime.Object, error) {
+func (f *FakePVCControllerSource) List(options api.ListOptions) (runtime.Object, error) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 	list, err := f.FakeControllerSource.getListItemsLocked()
 	if err != nil {
 		return nil, err
 	}
-	listObj := &v1.PersistentVolumeClaimList{}
+	listObj := &api.PersistentVolumeClaimList{}
 	if err := meta.SetList(listObj, list); err != nil {
 		return nil, err
 	}
@@ -226,7 +225,7 @@ func (f *FakePVCControllerSource) List(options v1.ListOptions) (runtime.Object, 
 
 // Watch returns a watch, which will be pre-populated with all changes
 // after resourceVersion.
-func (f *FakeControllerSource) Watch(options v1.ListOptions) (watch.Interface, error) {
+func (f *FakeControllerSource) Watch(options api.ListOptions) (watch.Interface, error) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 	rc, err := strconv.Atoi(options.ResourceVersion)

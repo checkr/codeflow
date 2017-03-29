@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,10 +18,9 @@ package fake
 
 import (
 	api "k8s.io/client-go/pkg/api"
+	unversioned "k8s.io/client-go/pkg/api/unversioned"
 	v1 "k8s.io/client-go/pkg/api/v1"
-	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
 	labels "k8s.io/client-go/pkg/labels"
-	schema "k8s.io/client-go/pkg/runtime/schema"
 	watch "k8s.io/client-go/pkg/watch"
 	testing "k8s.io/client-go/testing"
 )
@@ -31,7 +30,7 @@ type FakeNamespaces struct {
 	Fake *FakeCoreV1
 }
 
-var namespacesResource = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+var namespacesResource = unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 
 func (c *FakeNamespaces) Create(namespace *v1.Namespace) (result *v1.Namespace, err error) {
 	obj, err := c.Fake.
@@ -73,7 +72,7 @@ func (c *FakeNamespaces) DeleteCollection(options *v1.DeleteOptions, listOptions
 	return err
 }
 
-func (c *FakeNamespaces) Get(name string, options meta_v1.GetOptions) (result *v1.Namespace, err error) {
+func (c *FakeNamespaces) Get(name string) (result *v1.Namespace, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootGetAction(namespacesResource, name), &v1.Namespace{})
 	if obj == nil {

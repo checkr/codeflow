@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,11 +18,10 @@ package fake
 
 import (
 	api "k8s.io/client-go/pkg/api"
+	unversioned "k8s.io/client-go/pkg/api/unversioned"
 	v1 "k8s.io/client-go/pkg/api/v1"
-	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
 	v1beta1 "k8s.io/client-go/pkg/apis/storage/v1beta1"
 	labels "k8s.io/client-go/pkg/labels"
-	schema "k8s.io/client-go/pkg/runtime/schema"
 	watch "k8s.io/client-go/pkg/watch"
 	testing "k8s.io/client-go/testing"
 )
@@ -32,7 +31,7 @@ type FakeStorageClasses struct {
 	Fake *FakeStorageV1beta1
 }
 
-var storageclassesResource = schema.GroupVersionResource{Group: "storage.k8s.io", Version: "v1beta1", Resource: "storageclasses"}
+var storageclassesResource = unversioned.GroupVersionResource{Group: "storage.k8s.io", Version: "v1beta1", Resource: "storageclasses"}
 
 func (c *FakeStorageClasses) Create(storageClass *v1beta1.StorageClass) (result *v1beta1.StorageClass, err error) {
 	obj, err := c.Fake.
@@ -65,7 +64,7 @@ func (c *FakeStorageClasses) DeleteCollection(options *v1.DeleteOptions, listOpt
 	return err
 }
 
-func (c *FakeStorageClasses) Get(name string, options meta_v1.GetOptions) (result *v1beta1.StorageClass, err error) {
+func (c *FakeStorageClasses) Get(name string) (result *v1beta1.StorageClass, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootGetAction(storageclassesResource, name), &v1beta1.StorageClass{})
 	if obj == nil {

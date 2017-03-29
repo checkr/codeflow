@@ -8,8 +8,8 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/errors"
+	"k8s.io/client-go/pkg/api/unversioned"
 	"k8s.io/client-go/pkg/api/v1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -50,7 +50,7 @@ func (x *KubeDeploy) doDeleteLoadBalancer(e agent.Event) error {
 
 	namespace := genNamespaceName(payload.Environment, payload.Project.Slug)
 
-	_, svcGetErr := coreInterface.Services(namespace).Get(payload.Name, metav1.GetOptions{})
+	_, svcGetErr := coreInterface.Services(namespace).Get(payload.Name)
 	if svcGetErr == nil {
 		// Service was found, ready to delete
 		svcDeleteErr := coreInterface.Services(namespace).Delete(payload.Name, &v1.DeleteOptions{})
@@ -174,7 +174,7 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 		Ports:    servicePorts,
 	}
 	serviceParams := v1.Service{
-		TypeMeta: metav1.TypeMeta{
+		TypeMeta: unversioned.TypeMeta{
 			Kind:       "service",
 			APIVersion: "v1",
 		},
@@ -187,7 +187,7 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 
 	// Implement service update-or-create semantics.
 	service := coreInterface.Services(namespace)
-	svc, err := service.Get(payload.Name, metav1.GetOptions{})
+	svc, err := service.Get(payload.Name)
 	switch {
 	case err == nil:
 		serviceParams.ObjectMeta.ResourceVersion = svc.ObjectMeta.ResourceVersion
@@ -217,7 +217,7 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 		// Timeout waiting for ELB DNS name after 600 seconds
 		timeout := 600
 		for {
-			elbResult, elbErr := coreInterface.Services(namespace).Get(payload.Name, metav1.GetOptions{})
+			elbResult, elbErr := coreInterface.Services(namespace).Get(payload.Name)
 			if elbErr != nil {
 				log.Printf("Error '%s' describing service %s", elbErr, payload.Name)
 			} else {
