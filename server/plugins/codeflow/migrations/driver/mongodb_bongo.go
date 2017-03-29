@@ -31,8 +31,8 @@ func (e WrongMethodsReceiverTypeError) Error() string {
 	return "Wrong methods receiver type for driver: " + string(e)
 }
 
-const MIGRATE_C = "db_migrations"
-const DRIVER_NAME = "gomethods.mongodb_bongo"
+const MIGRATE_C = "migrations"
+const DRIVER_NAME = "gomethods.mongodb"
 
 type Driver struct {
 	Connection *bongo.Connection
@@ -63,7 +63,7 @@ func (d *Driver) SetMethodsReceiver(r interface{}) error {
 }
 
 func init() {
-	driver.RegisterDriver("mongodb_bongo", &Driver{})
+	driver.RegisterDriver("mongodb", &Driver{})
 }
 
 type DbMigration struct {
@@ -73,7 +73,6 @@ type DbMigration struct {
 
 func (driver *Driver) Initialize(url string) error {
 	var err error
-	fmt.Printf("test")
 	if driver.methodsReceiver == nil {
 		return UnregisteredMethodsReceiverError(DRIVER_NAME)
 	}

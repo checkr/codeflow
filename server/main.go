@@ -52,6 +52,8 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./configs/.codeflow.yml)")
 	RootCmd.AddCommand(cmdServer)
 	RootCmd.AddCommand(cmdMigrate)
+	cmdMigrate.AddCommand(cmdMigrateUp)
+	cmdMigrate.AddCommand(cmdMigrateDown)
 
 	cmdServer.Flags().StringSliceP("run", "r", []string{}, "run plugins a,b,c")
 	viper.BindPFlags(cmdServer.Flags())
@@ -109,8 +111,32 @@ var cmdMigrate = &cobra.Command{
 	Use:  "migrate [command]",
 	Long: `...`,
 	Run: func(cmd *cobra.Command, args []string) {
+
+	},
+}
+var cmdMigrateUp = &cobra.Command{
+	Use:  "up [command]",
+	Long: `...`,
+	Run: func(cmd *cobra.Command, args []string) {
 		pipe := migrate.NewPipe()
 		go migrate.Up(pipe, viper.GetString("plugins.codeflow.mongodb.uri"), "./plugins/codeflow/migrations")
+		ok := writePipe(pipe)
+		if !ok {
+			os.Exit(1)
+		}
+	},
+}
+
+var cmdMigrateDown = &cobra.Command{
+	Use:  "down [command]",
+	Long: `...`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if viper.GetString("environment") != "development" {
+			panic("You can only use migrate down in development environment")
+		}
+
+		pipe := migrate.NewPipe()
+		go migrate.Down(pipe, viper.GetString("plugins.codeflow.mongodb.uri"), "./plugins/codeflow/migrations")
 		ok := writePipe(pipe)
 		if !ok {
 			os.Exit(1)

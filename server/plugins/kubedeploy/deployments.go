@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -138,8 +137,8 @@ func (x *KubeDeploy) createNamespaceIfNotExists(namespace string, coreInterface 
 }
 
 func (x *KubeDeploy) doDeploy(e agent.Event) error {
-	// Codeflow will load the kube config from a file, specified by KUBECONFIG environment variable
-	kubeconfig := os.Getenv("KUBECONFIG")
+	// Codeflow will load the kube config from a file, specified by CF_PLUGINS_KUBEDEPLOY_KUBECONFIG environment variable
+	kubeconfig := viper.GetString("plugins.kubedeploy.kubeconfig")
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 
 	if err != nil {

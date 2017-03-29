@@ -29,7 +29,7 @@ plugins:
       memory_burst: "1Gi"
       termination_grace_period_seconds: 600
     mongodb:
-      database: "codeflow"
+      database: "codeflow-demo"
       uri: "mongodb://mongo:27017"
       ssl: false
     service_address: ":3001"
@@ -61,6 +61,11 @@ plugins:
     docker_host: "unix:///var/run/docker.sock"
   kubedeploy:
     workers: 1
+    kubeconfig: "/etc/secrets/kubeconfig"
+    environment: 
+    ssl_cert_arn:
+    node_selector: 
+    access_log_s3_bucket: 
   websockets:
     workers: 1
     service_address: ":3003"

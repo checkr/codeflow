@@ -1,5 +1,5 @@
-hash: eb20b66d893c36dde1bc19d684055dc5504efacb0cbcccd0a5a9d5813e4fa00b
-updated: 2017-03-28T13:22:15.241536466-07:00
+hash: 3b69cd745e17ec546cb586e7f0d9269cb35d32a11cef7a7404340adb8a3ece8c
+updated: 2017-03-28T16:22:07.283336956-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -165,7 +165,7 @@ imports:
   - jwa
   - jwk
 - name: github.com/libgit2/git2go
-  version: 334260d743d713a55ff3c097ec6707f2bb39e9d5
+  version: 22091886372e73de5d66168e8665775676ec13c5
 - name: github.com/magiconair/properties
   version: 51463bfca2576e06c62a8504b5c0f06d61312647
 - name: github.com/mailru/easyjson
@@ -176,6 +176,13 @@ imports:
   - jwriter
 - name: github.com/mattes/migrate
   version: c7653285b255b78bdb7304b1ad0774ae08b5fa96
+  subpackages:
+  - driver
+  - driver/mongodb/gomethods
+  - file
+  - migrate
+  - migrate/direction
+  - pipe
 - name: github.com/maxwellhealth/bongo
   version: 96e4b9559de89f55624dbbe04acf17c60896fa94
 - name: github.com/maxwellhealth/go-dotaccess

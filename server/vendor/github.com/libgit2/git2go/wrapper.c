@@ -10,12 +10,6 @@ void _go_git_populate_remote_cb(git_clone_options *opts)
 	opts->remote_cb = (git_remote_create_cb)remoteCreateCallback;
 }
 
-void _go_git_populate_checkout_cb(git_checkout_options *opts)
-{
-	opts->notify_cb = (git_checkout_notify_cb)checkoutNotifyCallback;
-	opts->progress_cb = (git_checkout_progress_cb)checkoutProgressCallback;
-}
-
 int _go_git_visit_submodule(git_repository *repo, void *fct)
 {
 	  return git_submodule_foreach(repo, (gogit_submodule_cbk)&SubmoduleVisitor, fct);
@@ -114,6 +108,19 @@ void _go_git_setup_callbacks(git_remote_callbacks *callbacks) {
 	callbacks->push_update_reference = (push_update_reference_cb) pushUpdateReferenceCallback;
 }
 
+int _go_blob_chunk_cb(char *buffer, size_t maxLen, void *payload)
+{
+    return blobChunkCb(buffer, maxLen, payload);
+}
+
+int _go_git_blob_create_fromchunks(git_oid *id,
+	git_repository *repo,
+	const char *hintpath,
+	void *payload)
+{
+    return git_blob_create_fromchunks(id, repo, hintpath, _go_blob_chunk_cb, payload);
+}
+
 int _go_git_index_add_all(git_index *index, const git_strarray *pathspec, unsigned int flags, void *callback) {
 	git_index_matched_path_cb cb = callback ? (git_index_matched_path_cb) &indexMatchedPathCallback : NULL;
 	return git_index_add_all(index, pathspec, flags, cb, callback);
@@ -155,29 +162,6 @@ int _go_git_merge_file(git_merge_file_result* out, char* ancestorContents, size_
 	theirs.mode = theirsMode;
 
 	return git_merge_file(out, &ancestor, &ours, &theirs, copts);
-}
-
-void _go_git_setup_stash_apply_progress_callbacks(git_stash_apply_options *opts) {
-	opts->progress_cb = (git_stash_apply_progress_cb)stashApplyProgressCb;
-}
-
-int _go_git_stash_foreach(git_repository *repo, void *payload) {
-    return git_stash_foreach(repo, (git_stash_cb)&stashForeachCb, payload);
-}
-
-int _go_git_writestream_write(git_writestream *stream, const char *buffer, size_t len)
-{
-	return stream->write(stream, buffer, len);
-}
-
-int _go_git_writestream_close(git_writestream *stream)
-{
-	return stream->close(stream);
-}
-
-void _go_git_writestream_free(git_writestream *stream)
-{
-	stream->free(stream);
 }
 
 /* EOF */

@@ -3,7 +3,6 @@ package kubedeploy
 import (
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -32,9 +31,8 @@ func (x *KubeDeploy) sendLBResponse(e agent.Event, service plugins.Service, stat
 }
 
 func (x *KubeDeploy) doDeleteLoadBalancer(e agent.Event) error {
-	// Codeflow will load the kube config from a file, specified by KUBECONFIG environment variable
-	kubeconfig := os.Getenv("KUBECONFIG")
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	// Codeflow will load the kube config from a file, specified by CF_PLUGINS_KUBEDEPLOY_KUBECONFIG environment variable
+	config, err := clientcmd.BuildConfigFromFlags("", viper.GetString("plugins.kubedeploy.kubeconfig"))
 
 	if err != nil {
 		panic(err.Error())
@@ -72,9 +70,8 @@ func (x *KubeDeploy) doDeleteLoadBalancer(e agent.Event) error {
 
 // Make changes to kubernetes services (aka load balancers)
 func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
-	// Codeflow will load the kube config from a file, specified by KUBECONFIG environment variable
-	kubeconfig := os.Getenv("KUBECONFIG")
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	// Codeflow will load the kube config from a file, specified by CF_PLUGINS_KUBEDEPLOY_KUBECONFIG environment variable
+	config, err := clientcmd.BuildConfigFromFlags("", viper.GetString("plugins.kubedeploy.kubeconfig"))
 
 	if err != nil {
 		panic(err.Error())

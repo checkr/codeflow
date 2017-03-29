@@ -22,7 +22,7 @@ import:
   subpackages:
   - jwk
 - package: github.com/libgit2/git2go
-  version: v25
+  version: v24
 - package: github.com/maxwellhealth/bongo
 - package: github.com/pborman/uuid
 - package: github.com/spf13/cobra
