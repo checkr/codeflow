@@ -80,14 +80,10 @@ class ProjectDeploy extends Component {
 
     if (_.isEmpty(records)) {
       return(
-        <ul className="list-group">
-          <li>
-            <Alert color="info">
-              This project has no deployable features. Do some work and come back!
-            </Alert>
-          </li>
-        </ul>
-      ) 
+        <Alert color="info">
+          This project has no deployable features. Do some work and come back!
+        </Alert>
+      )
     }
 
     let includedClass = ""

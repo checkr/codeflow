@@ -1,5 +1,5 @@
 hash: 3b69cd745e17ec546cb586e7f0d9269cb35d32a11cef7a7404340adb8a3ece8c
-updated: 2017-03-28T16:22:07.283336956-07:00
+updated: 2017-03-29T16:25:01.287279467-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -52,7 +52,7 @@ imports:
   - digest
   - reference
 - name: github.com/docker/docker
-  version: 8098bf3896f5a60be65102d9e99161b601d5e3ab
+  version: 278b36e5ce2f3be6d2db9a9b39b1e7357aaeab7b
   subpackages:
   - api/types
   - api/types/blkiodev
@@ -93,7 +93,7 @@ imports:
 - name: github.com/extemporalgenome/slug
   version: 0320c85e32e0015b090f08a5d1324d5ab6094f07
 - name: github.com/fsnotify/fsnotify
-  version: ff7bc41d4007f67e5456703c34342df4e0113f64
+  version: 4da3e2cfbabc9f751898f250b49f2439785783a1
 - name: github.com/fsouza/go-dockerclient
   version: 87c7e50e0bcf800ed863c3c3b0fbcc67e3029140
 - name: github.com/garyburd/redigo
@@ -175,7 +175,7 @@ imports:
   - jlexer
   - jwriter
 - name: github.com/mattes/migrate
-  version: c7653285b255b78bdb7304b1ad0774ae08b5fa96
+  version: 09640b136ecc31d20004efbf80ffdb295f879709
   subpackages:
   - driver
   - driver/mongodb/gomethods
@@ -209,7 +209,7 @@ imports:
 - name: github.com/pelletier/go-buffruneio
   version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml
-  version: f6e7596e8daafd44dc9e5c208dc73035020c8481
+  version: e32a2e04744250647a72bf17da1b09befc03b6b1
 - name: github.com/pkg/errors
   version: ff09b135c25aae272398c51a07235b90a75aa4f0
 - name: github.com/PuerkitoBio/purell
