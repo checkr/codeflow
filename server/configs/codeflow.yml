@@ -29,7 +29,7 @@ plugins:
       memory_burst: "1Gi"
       termination_grace_period_seconds: 600
     mongodb:
-      database: "codeflow-demo"
+      database: "codeflow"
       uri: "mongodb://mongo:27017"
       ssl: false
     service_address: ":3001"
