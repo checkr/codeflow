@@ -2,15 +2,20 @@
 
 Extendable deployment pipeline
 
-# Local Development
+# Local Development with Docker
 Install [Docker Compose](https://docs.docker.com/compose/install/)
 
-Copy `server/codeflow.yml` to `server/codeflow.dev.yml`
+### Create DEV configs
+```
+$ cp server/codeflow.yml server/codeflow.dev.yml
+$ cp dashboard/.env dashboard/.env.development
+```
 
-To start the server and all dependencies run:
+### To start the server and all dependencies run:
 ```
 $ make up
 ```
+
 Check `Makefile` to see what's happening under the hood.
 
 Local dashboard will be started on [http://localhost:3000](http://localhost:3000)

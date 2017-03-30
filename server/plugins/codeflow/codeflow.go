@@ -66,7 +66,9 @@ func (x *Codeflow) Listen() {
 		RejectNonCorsRequests: false,
 		OriginValidator: func(origin string, request *rest.Request) bool {
 			allowedOrigins := viper.GetStringSlice("plugins.codeflow.allowed_origins")
-			if agent.SliceContains(origin, allowedOrigins) {
+			if viper.GetString("environment") == "development" {
+				return true
+			} else if agent.SliceContains(origin, allowedOrigins) {
 				return true
 			}
 			return false

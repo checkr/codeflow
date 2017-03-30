@@ -17,9 +17,8 @@ plugins:
     workers: 1
     dashboard_url: "https://example.com"
     logs_url: "https://example.com/##PROJECT-NAMESPACE##"
-    jwt_secret_key:
+    jwt_secret_key: "change-me"
     allowed_origins:
-      - "http://localhost:3000"
       - "https://codeflow.checkrhq-dev.net"
       - "https://codeflow.checkrhq.net"
     default_service_spec:

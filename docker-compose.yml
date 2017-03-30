@@ -3,14 +3,14 @@ services:
   redis:
     image: redis
     ports:
-      - "6379:6379"
+      - "${DOCKER_COMPOSE_REDIS_PORT}:6379"
   mongo:
     image: mongo
     ports:
-      - "27017:27017"
+      - "${DOCKER_COMPOSE_MONGODB_PORT}:27017"
   server:
     command: make server
-    image: codeflow:local
+    image: codeflow:v003
     build:
       context: .
       args:
@@ -19,15 +19,15 @@ services:
       - ./server:/go/src/github.com/checkr/codeflow/server
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
-      - "3001:3001"
-      - "3002:3002"
-      - "3003:3003"
+      - "${REACT_APP_API_ROOT_PORT}:3001"
+      - "${REACT_APP_WEBHOOKS_ROOT_PORT}:3002"
+      - "${REACT_APP_WS_ROOT_PORT}:3003"
     links:
       - "redis"
       - "mongo"
   dashboard:
     command: make dashboard
-    image: codeflow:local
+    image: codeflow:v003
     build:
       context: .
       args:
@@ -35,15 +35,16 @@ services:
     volumes:
       - ./dashboard:/go/src/github.com/checkr/codeflow/dashboard
     ports:
-      - "3000:3000"
+      - "${REACT_APP_ROOT_PORT}:3000"
     env_file: 
+      - .env
       - ./dashboard/.env
       - ./dashboard/.env.development
   docs:
     command: gitbook serve docs
-    image: codeflow:local
+    image: codeflow:v003
     volumes:
       - ./docs:/go/src/github.com/checkr/codeflow/docs
     ports:
-      - "4000:4000"
-      - "35729:35729"
+      - "${DOCKER_COMPOSE_GITBOOK_PORT}:4000"
+      - "${DOCKER_COMPOSE_GITBOOK_LIVERELOAD_PORT}:35729"
