@@ -73,12 +73,12 @@ type Bookmark struct {
 	Slug               string        `bson:"-" json:"slug"`
 }
 
-func (b *Bookmark) AfterFind(*bongo.Collection) error {
+func (b *Bookmark) AfterFind(collection *bongo.Collection) error {
 	project := Project{}
-	if err := db.Collection("projects").FindById(b.ProjectId, &project); err != nil {
+	if err := collection.Connection.Collection("projects").FindById(b.ProjectId, &project); err != nil {
 		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 			log.Printf("Projects::FindById::DocumentNotFoundError: _id: `%v`", b.ProjectId)
-			db.Collection("bookmarks").DeleteDocument(b)
+			collection.Connection.Collection("bookmarks").DeleteDocument(b)
 			return err
 		} else {
 			log.Printf("Projects::FindById::Error: %s", err.Error())
@@ -112,10 +112,10 @@ func (s *Service) BeforeSave(collection *bongo.Collection) error {
 		match = bson.M{"_id": s.SpecId}
 	}
 
-	if err := db.Collection("serviceSpecs").FindOne(match, &spec); err != nil {
+	if err := collection.Connection.Collection("serviceSpecs").FindOne(match, &spec); err != nil {
 		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 			log.Printf("ServiceSpec::FindOne: _id: `%v`", s.SpecId)
-			if err := db.Collection("serviceSpecs").FindOne(bson.M{"default": true}, &spec); err != nil {
+			if err := collection.Connection.Collection("serviceSpecs").FindOne(bson.M{"default": true}, &spec); err != nil {
 				if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 					log.Printf("ServiceSpec::FindOne: default: `%v`", true)
 				} else {
@@ -140,10 +140,10 @@ func (s *Service) AfterFind(collection *bongo.Collection) error {
 		match = bson.M{"_id": s.SpecId}
 	}
 
-	if err := db.Collection("serviceSpecs").FindOne(match, &spec); err != nil {
+	if err := collection.Connection.Collection("serviceSpecs").FindOne(match, &spec); err != nil {
 		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 			log.Printf("ServiceSpec::FindOne: _id: `%v`", s.SpecId)
-			if err := db.Collection("serviceSpecs").FindOne(bson.M{"default": true}, &spec); err != nil {
+			if err := collection.Connection.Collection("serviceSpecs").FindOne(bson.M{"default": true}, &spec); err != nil {
 				if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 					log.Printf("ServiceSpec::FindOne: default: `%v`", true)
 				} else {
@@ -168,6 +168,7 @@ type ServiceSpec struct {
 	MemoryRequest                 string `bson:"memoryRequest" json:"memoryRequest"`
 	MemoryLimit                   string `bson:"memoryLimit" json:"memoryLimit"`
 	TerminationGracePeriodSeconds int64  `bson:"terminationGracePeriodSeconds" json:"terminationGracePeriodSeconds"`
+	Default                       bool   `bson:"default" json:"default"`
 }
 
 type LoadBalancer struct {
@@ -209,9 +210,9 @@ type Release struct {
 	Workflow           []Flow        `bson:"-" json:"workflow"`
 }
 
-func (r *Release) AfterFind(c *bongo.Collection) error {
+func (r *Release) AfterFind(collection *bongo.Collection) error {
 	headFeature := Feature{}
-	if err := db.Collection("features").FindById(r.HeadFeatureId, &headFeature); err != nil {
+	if err := collection.Connection.Collection("features").FindById(r.HeadFeatureId, &headFeature); err != nil {
 		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 			log.Printf("Release::AfterFind::Features::FindById::DocumentNotFoundError: _id: `%v`", r.HeadFeatureId)
 			return err
@@ -223,7 +224,7 @@ func (r *Release) AfterFind(c *bongo.Collection) error {
 	r.HeadFeature = headFeature
 
 	tailFeature := Feature{}
-	if err := db.Collection("features").FindById(r.TailFeatureId, &tailFeature); err != nil {
+	if err := collection.Connection.Collection("features").FindById(r.TailFeatureId, &tailFeature); err != nil {
 		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 			log.Printf("Release::AfterFind::Features::FindById::DocumentNotFoundError: _id: `%v`", r.TailFeatureId)
 			return err
@@ -235,7 +236,7 @@ func (r *Release) AfterFind(c *bongo.Collection) error {
 	r.TailFeature = tailFeature
 
 	user := User{}
-	if err := db.Collection("users").FindById(r.UserId, &user); err != nil {
+	if err := collection.Connection.Collection("users").FindById(r.UserId, &user); err != nil {
 		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 			log.Printf("Release::AfterFind::Users::FindById::DocumentNotFoundError: _id: `%v`", r.UserId)
 			return err
@@ -249,7 +250,7 @@ func (r *Release) AfterFind(c *bongo.Collection) error {
 	workflows := []Flow{}
 	flow := Flow{}
 
-	results := db.Collection("workflows").Find(bson.M{"releaseId": r.Id})
+	results := collection.Connection.Collection("workflows").Find(bson.M{"releaseId": r.Id})
 	for results.Next(&flow) {
 		workflows = append(workflows, flow)
 	}

@@ -1,5 +1,5 @@
 hash: 3b69cd745e17ec546cb586e7f0d9269cb35d32a11cef7a7404340adb8a3ece8c
-updated: 2017-03-29T16:07:49.196186877-07:00
+updated: 2017-03-29T16:25:01.287279467-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -176,6 +176,13 @@ imports:
   - jwriter
 - name: github.com/mattes/migrate
   version: 09640b136ecc31d20004efbf80ffdb295f879709
+  subpackages:
+  - driver
+  - driver/mongodb/gomethods
+  - file
+  - migrate
+  - migrate/direction
+  - pipe
 - name: github.com/maxwellhealth/bongo
   version: 96e4b9559de89f55624dbbe04acf17c60896fa94
 - name: github.com/maxwellhealth/go-dotaccess
