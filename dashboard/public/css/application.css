@@ -352,7 +352,7 @@ a {
     font-size: 24px;
 }
 .search-results .list-group-item {
-  padding: 0.75rem 0.75rem 0.75rem;
+  padding: 0.75rem 0.75rem 0.50rem;
 }
 .form-group: {
 }
@@ -427,7 +427,7 @@ a {
 
 a:link, a:visited, a:active {
     text-decoration: none;
-    color: #777;
+    color: inherit;
 }
 
 .custom-checkbox input, .custom-radio input {

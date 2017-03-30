@@ -194,6 +194,25 @@ type Feature struct {
 	ExternalLink       string        `bson:"externalLink" json:"externalLink"`
 }
 
+func (f *Feature) AfterFind(collection *bongo.Collection) error {
+	if viper.GetString("plugins.codeflow.feature_external_link") != "" {
+		project := Project{}
+		if err := collection.Connection.Collection("projects").FindById(f.ProjectId, &project); err != nil {
+			if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+				log.Printf("Projects::FindById::DocumentNotFoundError: _id: `%v`", f.ProjectId)
+				return err
+			} else {
+				log.Printf("Projects::FindById::Error: %s", err.Error())
+				return err
+			}
+		}
+
+		f.ExternalLink = strings.Replace(viper.GetString("plugins.codeflow.feature_external_link"), "##FEATURE-HASH##", f.Hash, -1)
+		f.ExternalLink = strings.Replace(f.ExternalLink, "##PROJECT_REPOSITORY##", project.Repository, -1)
+	}
+	return nil
+}
+
 type Release struct {
 	bongo.DocumentBase `bson:",inline"`
 	ProjectId          bson.ObjectId `bson:"projectId" json:"projectId"`

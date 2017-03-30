@@ -17,6 +17,7 @@ plugins:
     workers: 1
     dashboard_url: "https://example.com"
     logs_url: "https://example.com/##PROJECT-NAMESPACE##"
+    feature_external_link: "https://github.com/##PROJECT_REPOSITORY##/commit/##FEATURE-HASH##"
     jwt_secret_key: "change-me"
     allowed_origins:
       - "https://codeflow.checkrhq-dev.net"
