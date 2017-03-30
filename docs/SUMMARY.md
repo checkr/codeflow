@@ -1,10 +1,10 @@
 * [Introduction](README.md)
-* [Requirements](requirements.md)
-  * [Okta](okta.md)
-* [Quick Start Guides](quick_start_guides.md)
+* Quick Start Guides
   * [Kubernetes / Minikube](kubernetes.md)
   * [DockerCompose](docker_compose.md)
-* [Users Guide](users_guide.md)
-* [Administrators Guide](administrators_guide.md)
+* Users Guide
+  * [Prepare](prepare.md)
+  * [Deploy](deploy.md)
+* Administrators Guide
+  * [Okta](okta.md)
   * [Configuration Settings](settings.md)
-* [Developers Guide](developers_guide.md)
