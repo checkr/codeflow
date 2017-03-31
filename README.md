@@ -7,7 +7,7 @@ Install [Docker Compose](https://docs.docker.com/compose/install/)
 
 ### Create DEV configs
 ```
-$ cp server/codeflow.yml server/codeflow.dev.yml
+$ cp server/configs/codeflow.yml server/configs/codeflow.dev.yml
 $ cp dashboard/.env dashboard/.env.development
 ```
 

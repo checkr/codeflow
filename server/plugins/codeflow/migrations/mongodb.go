@@ -2,6 +2,7 @@ package codeflow_migrations
 
 import (
 	"log"
+	"os"
 
 	"github.com/checkr/codeflow/server/plugins/codeflow"
 	"github.com/checkr/codeflow/server/plugins/codeflow/migrations/driver"
@@ -26,6 +27,14 @@ var _ mongodb_bongo.MethodsReceiver = (*MongoDbMigrator)(nil)
 
 func init() {
 	gomethods.RegisterMethodsReceiverForDriver("mongodb", &MongoDbMigrator{})
+}
+
+func getenv(key, fallback string) string {
+	value := os.Getenv(key)
+	if len(value) == 0 {
+		return fallback
+	}
+	return value
 }
 
 func (r *MongoDbMigrator) V001_init_users_up(c *bongo.Connection) error {
@@ -407,7 +416,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "NODE_ENV",
-		Value:     "development",
+		Value:     getenv("NODE_ENV", "development"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -416,7 +425,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "REACT_APP_PORT",
-		Value:     "9000",
+		Value:     getenv("REACT_APP_PORT", "9000"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -425,7 +434,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "REACT_APP_API_ROOT",
-		Value:     "https://codeflow-api.example.net",
+		Value:     getenv("REACT_APP_API_ROOT", "https://codeflow-api.example.net"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -434,7 +443,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "REACT_APP_ROOT",
-		Value:     "https://codeflow.example.net",
+		Value:     getenv("REACT_APP_ROOT", "https://codeflow.example.net"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -443,7 +452,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "REACT_APP_WEBHOOKS_ROOT",
-		Value:     "https://codeflow-webhooks.example.net",
+		Value:     getenv("REACT_APP_WEBHOOKS_ROOT", "https://codeflow-webhooks.example.net"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -452,7 +461,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "REACT_APP_WS_ROOT",
-		Value:     "wss://codeflow-websockets.example.net",
+		Value:     getenv("REACT_APP_WS_ROOT", "wss://codeflow-websockets.example.net"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -461,7 +470,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "REACT_APP_OKTA_CLIENT_ID",
-		Value:     "dummy",
+		Value:     getenv("REACT_APP_OKTA_CLIENT_ID", "dummy"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -470,7 +479,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "REACT_APP_OKTA_LOGO",
-		Value:     "https://ok4static.oktacdn.com/bc/image/fileStoreRecord?id=dummy",
+		Value:     getenv("REACT_APP_OKTA_LOGO", "https://ok4static.oktacdn.com/bc/image/fileStoreRecord?id=dummy"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -479,7 +488,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "REACT_APP_OKTA_URL",
-		Value:     "https://dummy.okta.com",
+		Value:     getenv("REACT_APP_OKTA_URL", "https://dummy.okta.com"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -488,7 +497,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_CODEFLOW_AUTH_HANDLER",
-		Value:     "demo",
+		Value:     getenv("CF_PLUGINS_CODEFLOW_AUTH_HANDLER", "demo"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -497,7 +506,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_REDIS_SERVER",
-		Value:     "example.cache.amazonaws.com:6379",
+		Value:     getenv("CF_REDIS_SERVER", "example.cache.amazonaws.com:6379"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -506,7 +515,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_DOCKER_BUILD_REGISTRY_USER_EMAIL",
-		Value:     "dummy@example.net",
+		Value:     getenv("CF_PLUGINS_DOCKER_BUILD_REGISTRY_USER_EMAIL", "dummy@example.net"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -515,7 +524,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_DOCKER_BUILD_REGISTRY_USERNAME",
-		Value:     "dummy",
+		Value:     getenv("CF_PLUGINS_DOCKER_BUILD_REGISTRY_USERNAME", "dummy"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -524,7 +533,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_DOCKER_BUILD_REGISTRY_PASSWORD",
-		Value:     "dummy",
+		Value:     getenv("CF_PLUGINS_DOCKER_BUILD_REGISTRY_PASSWORD", "dummy"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -533,7 +542,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_KUBEDEPLOY_ENVIRONMENT",
-		Value:     "development",
+		Value:     getenv("CF_PLUGINS_KUBEDEPLOY_ENVIRONMENT", "development"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -542,7 +551,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_KUBEDEPLOY_SSL_CERT_ARN",
-		Value:     "arn:aws:acm:us-east-1:0000000000000:certificate/dummy",
+		Value:     getenv("CF_PLUGINS_KUBEDEPLOY_SSL_CERT_ARN", "arn:aws:acm:us-east-1:0000000000000:certificate/dummy"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -551,7 +560,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_KUBEDEPLOY_NODE_SELECTOR",
-		Value:     "kube.example.net/role=standard",
+		Value:     getenv("CF_PLUGINS_KUBEDEPLOY_NODE_SELECTOR", "kube.example.net/role=standard"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -560,7 +569,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_KUBEDEPLOY_ACCESS_LOG_S3_BUCKET",
-		Value:     "us-east-1-dummy-elb-access-logs",
+		Value:     getenv("CF_PLUGINS_KUBEDEPLOY_ACCESS_LOG_S3_BUCKET", "us-east-1-dummy-elb-access-logs"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -569,7 +578,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_CODEFLOW_MONGODB_URI",
-		Value:     "mongodb://codeflow:dummy@dummy1.mongodb.net:27017,dummy2.mongodb.net:27017,dummy3.mongodb.net:27017/admin?replicaSet=codeflow-shard-0&authSource=admin&authMechanism=SCRAM-SHA-1",
+		Value:     getenv("CF_PLUGINS_CODEFLOW_MONGODB_URI", "mongodb://codeflow:dummy@dummy1.mongodb.net:27017,dummy2.mongodb.net:27017,dummy3.mongodb.net:27017/admin?replicaSet=codeflow-shard-0&authSource=admin&authMechanism=SCRAM-SHA-1"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -578,7 +587,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_CODEFLOW_MONGODB_USERNAME",
-		Value:     "dummy",
+		Value:     getenv("CF_PLUGINS_CODEFLOW_MONGODB_USERNAME", "dummy"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -587,7 +596,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_CODEFLOW_MONGODB_PASSWORD",
-		Value:     "dummy",
+		Value:     getenv("CF_PLUGINS_CODEFLOW_MONGODB_PASSWORD", "dummy"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -596,7 +605,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_CODEFLOW_MONGODB_DATABASE",
-		Value:     "codeflow",
+		Value:     getenv("CF_PLUGINS_CODEFLOW_MONGODB_DATABASE", "codeflow"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -605,7 +614,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_CODEFLOW_MONGODB_USERNAME",
-		Value:     "true",
+		Value:     getenv("CF_PLUGINS_CODEFLOW_MONGODB_USERNAME", "true"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -614,7 +623,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "ca.pem",
-		Value:     "-----BEGIN CERTIFICATE-----",
+		Value:     getenv("ca.pem", "-----BEGIN CERTIFICATE-----"),
 		Type:      "file",
 		Deleted:   false,
 	}
@@ -623,7 +632,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "admin.pem",
-		Value:     "-----BEGIN CERTIFICATE-----",
+		Value:     getenv("admin.pem", "-----BEGIN CERTIFICATE-----"),
 		Type:      "file",
 		Deleted:   false,
 	}
@@ -632,7 +641,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "admin-key.pem",
-		Value:     "-----BEGIN RSA PRIVATE KEY-----",
+		Value:     getenv("admin-key.pem", "-----BEGIN RSA PRIVATE KEY-----"),
 		Type:      "file",
 		Deleted:   false,
 	}
@@ -641,7 +650,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "kubeconfig",
-		Value:     "apiVersion: v1\nkind: Config\nclusters: ...",
+		Value:     getenv("kubeconfig", "apiVersion: v1\nkind: Config\nclusters: ..."),
 		Type:      "file",
 		Deleted:   false,
 	}
@@ -650,7 +659,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_SLACK_WEBHOOK_URL",
-		Value:     "https://hooks.slack.com/servicec/dummy",
+		Value:     getenv("CF_PLUGINS_SLACK_WEBHOOK_URL", "https://hooks.slack.com/servicec/dummy"),
 		Type:      "env",
 		Deleted:   false,
 	}
@@ -659,7 +668,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 	obj = codeflow.Secret{
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Key:       "CF_PLUGINS_CODEFLOW_JWT_SECRET_KEY",
-		Value:     "dummy",
+		Value:     getenv("CF_PLUGINS_CODEFLOW_JWT_SECRET_KEY", "dummy"),
 		Type:      "env",
 		Deleted:   false,
 	}

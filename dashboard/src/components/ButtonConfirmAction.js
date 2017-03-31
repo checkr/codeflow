@@ -49,6 +49,7 @@ class ButtonConfirmAction extends Component {
       </Button>
     )
   }
+
   render() {
     return (
       <div>
