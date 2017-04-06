@@ -21,4 +21,3 @@ Check `Makefile` to see what's happening under the hood.
 Local dashboard will be started on [http://localhost:3000](http://localhost:3000)
 
 `dashboard` and `server` will reload on any file change :boom: Happy coding!!!
-
