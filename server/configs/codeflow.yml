@@ -32,6 +32,8 @@ plugins:
       database: "codeflow"
       uri: "mongodb://mongo:27017"
       ssl: false
+      connection_timeout: 3
+      health_check_interval: 10
     service_address: ":3001"
     builds:
       path: "/builds"

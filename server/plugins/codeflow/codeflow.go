@@ -141,13 +141,32 @@ func (x *Codeflow) Start(events chan agent.Event) error {
 			return conn, err
 		}
 
-		config.DialInfo.Timeout = time.Second * 3
+		config.DialInfo.Timeout = time.Second * viper.GetDuration("plugins.codeflow.mongodb.connection_timeout")
 	}
 
 	db, err = bongo.Connect(config)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Try to reconnect if connection drops
+	go func(session *mgo.Session) {
+		var err error
+		for {
+			err = session.Ping()
+			if err != nil {
+				fmt.Println("Lost connection to MongoDB!!")
+				session.Refresh()
+				err = session.Ping()
+				if err == nil {
+					fmt.Println("Reconnect to MongoDB successful.")
+				} else {
+					panic("Reconnect to MongoDB failed!!")
+				}
+			}
+			time.Sleep(time.Second * viper.GetDuration("plugins.codeflow.mongodb.health_check_interval"))
+		}
+	}(db.Session)
 
 	go x.Listen()
 
