@@ -135,9 +135,9 @@ func (a *Agent) enablePlugin(name string) error {
 		return nil
 	}
 
-	if viper.GetInt("plugins."+name+".workers") <= 0 {
-		return nil
-	}
+	//if viper.GetInt("plugins."+name+".workers") <= 0 {
+	//	return nil
+	//}
 
 	for _, rp := range a.Plugins {
 		if rp.Name == name {
