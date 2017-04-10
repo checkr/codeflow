@@ -884,9 +884,9 @@ func DockerBuildRebuild(r *Release, force bool) error {
 		}
 	}
 
-	if !force && build.State != plugins.Waiting && build.State != plugins.Failed {
-		return nil
-	}
+	//if !force && build.State != plugins.Waiting && build.State != plugins.Failed {
+	//	return nil
+	//}
 
 	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "type": plugins.Build, "deleted": false})
 	secret := Secret{}
