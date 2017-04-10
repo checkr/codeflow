@@ -124,7 +124,7 @@ func ReleaseCreated(r *Release) error {
 		return err
 	}
 
-	DockerBuildRebuild(r, false)
+	DockerBuildRebuild(r)
 
 	for _, str := range project.Workflows {
 		s := strings.Split(str, "/")
@@ -851,7 +851,7 @@ func CollectStats(save bool, stats *Statistics) error {
 	return nil
 }
 
-func DockerBuildRebuild(r *Release, force bool) error {
+func DockerBuildRebuild(r *Release) error {
 	project := Project{}
 	secrets := []Secret{}
 
@@ -883,10 +883,6 @@ func DockerBuildRebuild(r *Release, force bool) error {
 			return err
 		}
 	}
-
-	//if !force && build.State != plugins.Waiting && build.State != plugins.Failed {
-	//	return nil
-	//}
 
 	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "type": plugins.Build, "deleted": false})
 	secret := Secret{}

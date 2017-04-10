@@ -767,7 +767,7 @@ func (x *Projects) updateReleaseBuild(w rest.ResponseWriter, r *rest.Request) {
 		}
 	}
 
-	DockerBuildRebuild(&release, true)
+	DockerBuildRebuild(&release)
 
 	w.WriteJson(build)
 }
