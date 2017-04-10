@@ -59,8 +59,8 @@ plugins:
     registry_username: ""
     registry_password: ""
     registry_user_email: ""
-    build_path: "/tmp"
     docker_host: "unix:///var/run/docker.sock"
+    workdir: "/tmp/docker_build"   
   kubedeploy:
     workers: 1
     kubeconfig: "/etc/secrets/kubeconfig"
@@ -74,3 +74,8 @@ plugins:
   slack:
     workers: 1
     webhook_url: ""
+  git_sync:
+    workers: 0
+    workdir: "/tmp/git_sync" 
+  heartbeat:
+    workers: 0

@@ -19,6 +19,7 @@ import (
 	_ "github.com/checkr/codeflow/server/plugins/codeflow"
 	_ "github.com/checkr/codeflow/server/plugins/codeflow/migrations"
 	_ "github.com/checkr/codeflow/server/plugins/docker_build"
+	_ "github.com/checkr/codeflow/server/plugins/git_sync"
 	_ "github.com/checkr/codeflow/server/plugins/heartbeat"
 	_ "github.com/checkr/codeflow/server/plugins/kubedeploy"
 	_ "github.com/checkr/codeflow/server/plugins/slack"

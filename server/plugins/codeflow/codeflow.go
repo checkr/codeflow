@@ -188,11 +188,21 @@ func (x *Codeflow) Subscribe() []string {
 		"plugins.HeartBeat",
 		"plugins.LoadBalancer:status",
 		"plugins.DockerDeploy:status",
+		"plugins.HeartBeat",
 	}
 }
 
 func (x *Codeflow) Process(e agent.Event) error {
 	log.Printf("Process Codeflow event: %s", e.Name)
+
+	if e.Name == "plugins.HeartBeat" {
+		heartBeat := e.Payload.(plugins.HeartBeat)
+		switch heartBeat.Tick {
+		case "minute":
+			GitSyncProjects(nil)
+		}
+		return nil
+	}
 
 	if e.Name == "plugins.DockerDeploy:status" {
 		dockerDeploy := e.Payload.(plugins.DockerDeploy)
@@ -305,7 +315,10 @@ func (x *Codeflow) Process(e agent.Event) error {
 					User:       payload.User,
 					Hash:       payload.Hash,
 					ParentHash: payload.ParentHash,
+					Ref:        payload.Ref,
+					Created:    payload.Created,
 				}
+
 				if err := db.Collection("features").Save(&feature); err != nil {
 					log.Printf("Features::Save::Error: %v", err.Error())
 					return err

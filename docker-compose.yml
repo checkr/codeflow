@@ -9,12 +9,14 @@ services:
     ports:
       - "${DOCKER_COMPOSE_MONGODB_PORT}:27017"
   server:
-    command: make server
-    image: codeflow:v003
+    command: reflex -c reflex.conf
+    image: codeflow:v004
     build:
       context: .
       args:
         - NODE_ENV=development
+    environment:
+      - WORKDIR=./server
     volumes:
       - ./server:/go/src/github.com/checkr/codeflow/server
       - /var/run/docker.sock:/var/run/docker.sock
@@ -26,12 +28,14 @@ services:
       - "redis"
       - "mongo"
   dashboard:
-    command: make dashboard
-    image: codeflow:v003
+    command: npm run start
+    image: codeflow:v004
     build:
       context: .
       args:
         - NODE_ENV=development
+    environment:
+      - WORKDIR=./dashboard
     volumes:
       - ./dashboard:/go/src/github.com/checkr/codeflow/dashboard
     ports:
@@ -41,8 +45,14 @@ services:
       - ./dashboard/.env
       - ./dashboard/.env.development
   docs:
-    command: gitbook serve docs
-    image: codeflow:v003
+    command: gitbook serve
+    image: codeflow:v004
+    build:
+      context: .
+      args:
+        - NODE_ENV=development
+    environment:
+      - WORKDIR=./docs
     volumes:
       - ./docs:/go/src/github.com/checkr/codeflow/docs
     ports:

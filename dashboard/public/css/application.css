@@ -4,6 +4,10 @@ body {
   font-weight: 300;
   letter-spacing: 0;
 }
+ul
+{
+  list-style-type: none;
+}
 .navbar-full {
   margin-bottom: 50px;
 }  

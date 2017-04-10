@@ -1,17 +1,23 @@
 package plugins
 
-import "github.com/checkr/codeflow/server/agent"
+import (
+	"time"
+
+	"github.com/checkr/codeflow/server/agent"
+)
 
 func init() {
 	agent.RegisterApi(Project{})
 	agent.RegisterApi(GitPing{})
 	agent.RegisterApi(GitCommit{})
 	agent.RegisterApi(GitStatus{})
+	agent.RegisterApi(GitSync{})
 	agent.RegisterApi(Release{})
 	agent.RegisterApi(DockerBuild{})
 	agent.RegisterApi(DockerDeploy{})
 	agent.RegisterApi(LoadBalancer{})
 	agent.RegisterApi(WebsocketMsg{})
+	agent.RegisterApi(HeartBeat{})
 }
 
 type State string
@@ -57,18 +63,23 @@ type Project struct {
 }
 
 type Git struct {
-	SshUrl        string `json:"gitSshUrl"`
+	Url           string `json:"gitUrl"`
+	Protocol      string `json:"protocol"`
+	Branch        string `json:"branch"`
+	Workdir       string `json:"workdir"`
+	HeadHash      string `json:"headHash,omitempty"`
 	RsaPrivateKey string `json:"rsaPrivateKey" role:"secret"`
 	RsaPublicKey  string `json:"rsaPublicKey" role:"secret"`
 }
 
 type GitCommit struct {
-	Repository string `json:"repository"`
-	User       string `json:"user"`
-	Message    string `json:"message"`
-	Ref        string `json:"ref"`
-	Hash       string `json:"hash"`
-	ParentHash string `json:"parentHash"`
+	Repository string    `json:"repository"`
+	User       string    `json:"user"`
+	Message    string    `json:"message"`
+	Ref        string    `json:"ref"`
+	Hash       string    `json:"hash"`
+	ParentHash string    `json:"parentHash"`
+	Created    time.Time `json:"created"`
 }
 
 type GitPing struct {
@@ -84,11 +95,21 @@ type GitStatus struct {
 	Context    string `json:"context"`
 }
 
+type GitSync struct {
+	Action       Action  `json:"action"`
+	State        State   `json:"state"`
+	StateMessage string  `json:"stateMessage"`
+	Project      Project `json:"project"`
+	Git          Git     `json:"git"`
+	HeadHash     string  `json:"headHash"`
+}
+
 type Feature struct {
-	Hash       string `json:"hash"`
-	ParentHash string `json:"parentHash"`
-	User       string `json:"user"`
-	Message    string `json:"message"`
+	Hash       string    `json:"hash"`
+	ParentHash string    `json:"parentHash"`
+	User       string    `json:"user"`
+	Message    string    `json:"message"`
+	Created    time.Time `json:"created"`
 }
 
 type Release struct {

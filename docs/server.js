@@ -9,7 +9,7 @@
 var server = require('pushstate-server');
 var build = "./_book"
 
-var port = process.env.PORT || 3000
+var port = process.env.DOCS_PORT || 4000
 var app = server.start({
   port: port,
   directory: build

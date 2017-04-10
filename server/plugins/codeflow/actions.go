@@ -124,6 +124,8 @@ func ReleaseCreated(r *Release) error {
 		return err
 	}
 
+	DockerBuildRebuild(r, false)
+
 	for _, str := range project.Workflows {
 		s := strings.Split(str, "/")
 		t, n := s[0], s[1]
@@ -335,7 +337,6 @@ func loadBalancer(lb *LoadBalancer, action plugins.Action) error {
 
 func FeatureCreated(f *Feature, e agent.Event) error {
 	project := Project{}
-	secrets := []Secret{}
 
 	if err := db.Collection("projects").FindById(f.ProjectId, &project); err != nil {
 		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
@@ -345,71 +346,6 @@ func FeatureCreated(f *Feature, e agent.Event) error {
 		}
 		return err
 	}
-
-	// TODO: make type dynamic
-	build := Build{
-		FeatureHash: f.Hash,
-		Type:        "DockerImage",
-		State:       plugins.Waiting,
-	}
-
-	if err := db.Collection("builds").FindOne(bson.M{"featureHash": f.Hash}, &build); err != nil {
-		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
-			log.Printf("Builds::Save: hash: `%v`", f.Hash)
-			if err := db.Collection("builds").Save(&build); err != nil {
-				log.Printf("Builds::Save::Error: %v", err.Error())
-				return err
-			}
-		} else {
-			log.Printf("Builds::FindOne::Error: %s", err.Error())
-			return err
-		}
-	}
-
-	secret := Secret{}
-
-	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "type": plugins.Build, "deleted": false})
-	for results.Next(&secret) {
-		secrets = append(secrets, secret)
-	}
-
-	var buildArgs []plugins.Arg
-	for _, secret := range secrets {
-		arg := plugins.Arg{
-			Key:   secret.Key,
-			Value: secret.Value,
-		}
-		buildArgs = append(buildArgs, arg)
-	}
-
-	dockerBuildEvent := plugins.DockerBuild{
-		Action: plugins.Create,
-		State:  plugins.Waiting,
-		Project: plugins.Project{
-			Slug:       project.Slug,
-			Repository: project.Repository,
-		},
-		Git: plugins.Git{
-			SshUrl:        project.GitSshUrl,
-			RsaPrivateKey: project.RsaPrivateKey,
-			RsaPublicKey:  project.RsaPublicKey,
-		},
-		Feature: plugins.Feature{
-			Hash:       f.Hash,
-			ParentHash: f.ParentHash,
-			User:       f.User,
-			Message:    f.Message,
-		},
-		Registry: plugins.DockerRegistry{
-			Host:     viper.GetString("plugins.docker_build.registry_host"),
-			Username: viper.GetString("plugins.docker_build.registry_username"),
-			Password: viper.GetString("plugins.docker_build.registry_password"),
-			Email:    viper.GetString("plugins.docker_build.registry_user_email"),
-		},
-		BuildArgs: buildArgs,
-	}
-
-	cf.Events <- e.NewEvent(dockerBuildEvent, nil)
 
 	wsMsg := plugins.WebsocketMsg{
 		Channel: "features",
@@ -915,7 +851,7 @@ func CollectStats(save bool, stats *Statistics) error {
 	return nil
 }
 
-func DockerBuildRebuild(r *Release) error {
+func DockerBuildRebuild(r *Release, force bool) error {
 	project := Project{}
 	secrets := []Secret{}
 
@@ -948,6 +884,10 @@ func DockerBuildRebuild(r *Release) error {
 		}
 	}
 
+	if !force && build.State != plugins.Waiting && build.State != plugins.Failed {
+		return nil
+	}
+
 	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "type": plugins.Build, "deleted": false})
 	secret := Secret{}
 	for results.Next(&secret) {
@@ -971,7 +911,10 @@ func DockerBuildRebuild(r *Release) error {
 			Repository: project.Repository,
 		},
 		Git: plugins.Git{
-			SshUrl:        project.GitSshUrl,
+			Url:           project.GitUrl,
+			Protocol:      project.GitProtocol,
+			Branch:        "master",
+			Workdir:       viper.GetString("plugins.docker_build.workdir"),
 			RsaPrivateKey: project.RsaPrivateKey,
 			RsaPublicKey:  project.RsaPublicKey,
 		},
@@ -999,5 +942,44 @@ func DockerBuildRebuild(r *Release) error {
 
 	cf.Events <- agent.NewEvent(wsMsg, nil)
 
+	return nil
+}
+
+func GitSyncProjects(ids []bson.ObjectId) error {
+	var query bson.M
+	project := Project{}
+
+	if len(ids) > 0 {
+		query = bson.M{"_id": bson.M{"$in": ids}}
+	} else {
+		query = bson.M{}
+	}
+
+	results := db.Collection("projects").Find(query)
+	for results.Next(&project) {
+		feature := Feature{}
+		r := db.Collection("features").Find(bson.M{"projectId": project.Id})
+		r.Query.Sort("-created").Limit(1)
+		r.Next(&feature)
+
+		gitSync := plugins.GitSync{
+			Action: plugins.Update,
+			State:  plugins.Waiting,
+			Project: plugins.Project{
+				Slug:       project.Slug,
+				Repository: project.Repository,
+			},
+			Git: plugins.Git{
+				Url:           project.GitUrl,
+				Protocol:      project.GitProtocol,
+				Branch:        "master",
+				Workdir:       viper.GetString("plugins.git_sync.workdir"),
+				RsaPrivateKey: project.RsaPrivateKey,
+				RsaPublicKey:  project.RsaPublicKey,
+			},
+			HeadHash: feature.Hash,
+		}
+		cf.Events <- agent.NewEvent(gitSync, nil)
+	}
 	return nil
 }

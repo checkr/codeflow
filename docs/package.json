@@ -16,7 +16,7 @@
     "url": "https://github.com/checkr/codeflow/issues"
   },
   "dependencies": {
-    "pushstate-server": "^2.1.0"
+    "pushstate-server": "^2.2.2"
   },
   "homepage": "https://github.com/checkr/codeflow"
 }

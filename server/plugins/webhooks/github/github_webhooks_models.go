@@ -2,6 +2,7 @@ package github
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/checkr/codeflow/server/agent"
 	"github.com/checkr/codeflow/server/plugins"
@@ -20,6 +21,7 @@ type Repository struct {
 	Forks      int    `json:"forks_count"`
 	Issues     int    `json:"open_issues_count"`
 	SshUrl     string `json:"ssh_url"`
+	HttpsUrl   string `json:"https_url"`
 }
 
 type Sender struct {
@@ -85,7 +87,8 @@ type DeploymentStatus struct {
 }
 
 type HeadCommit struct {
-	Message string `json:"message"`
+	Message   string    `json:"message"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 type CommitCommentEvent struct {
@@ -470,6 +473,7 @@ func (s PushEvent) NewEvent() agent.Event {
 		Ref:        s.Ref,
 		ParentHash: s.Before,
 		Hash:       s.After,
+		Created:    s.HeadCommit.Timestamp,
 	}
 
 	return agent.NewEvent(data, nil)

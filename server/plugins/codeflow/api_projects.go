@@ -172,6 +172,10 @@ func (x *Projects) createProjects(w rest.ResponseWriter, r *rest.Request) {
 		}
 	}
 
+	if project.GitProtocol == "HTTPS" {
+		GitSyncProjects([]bson.ObjectId{project.Id})
+	}
+
 	ProjectCreated(&project)
 
 	w.WriteJson(project)
@@ -412,7 +416,7 @@ func (x *Projects) features(w rest.ResponseWriter, r *rest.Request) {
 		}
 	} else {
 		// Find only undeployed features
-		query = bson.M{"projectId": project.Id, "_id": bson.M{"$gt": currentRelease.HeadFeatureId}}
+		query = bson.M{"projectId": project.Id, "created": bson.M{"$gt": currentRelease.HeadFeature.Created}}
 	}
 
 	results := db.Collection("features").Find(query)
@@ -423,7 +427,7 @@ func (x *Projects) features(w rest.ResponseWriter, r *rest.Request) {
 		pageResults.Pagination = *pagination
 	}
 
-	results.Query.Sort("-$natural")
+	results.Query.Sort("-created")
 	for results.Next(&feature) {
 		features = append(features, feature)
 	}
@@ -563,7 +567,8 @@ func (x *Projects) settings(w rest.ResponseWriter, r *rest.Request) {
 
 	settings := ProjectSettings{
 		ProjectId:             project.Id,
-		GitSshUrl:             project.GitSshUrl,
+		GitUrl:                project.GitUrl,
+		GitProtocol:           project.GitProtocol,
 		Secrets:               secrets,
 		ContinuousIntegration: project.ContinuousIntegration,
 		ContinuousDelivery:    project.ContinuousDelivery,
@@ -587,7 +592,8 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	project.GitSshUrl = projectSettingsRequest.GitSshUrl
+	project.GitUrl = projectSettingsRequest.GitUrl
+	project.GitProtocol = projectSettingsRequest.GitProtocol
 
 	project.ContinuousIntegration = projectSettingsRequest.ContinuousIntegration
 	if project.ContinuousIntegration {
@@ -681,7 +687,8 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 
 	projectSettingsResponse := ProjectSettings{
 		ProjectId:             projectSettingsRequest.ProjectId,
-		GitSshUrl:             projectSettingsRequest.GitSshUrl,
+		GitUrl:                projectSettingsRequest.GitUrl,
+		GitProtocol:           projectSettingsRequest.GitProtocol,
 		ContinuousIntegration: project.ContinuousIntegration,
 		ContinuousDelivery:    project.ContinuousDelivery,
 		Secrets:               secrets,
@@ -760,7 +767,7 @@ func (x *Projects) updateReleaseBuild(w rest.ResponseWriter, r *rest.Request) {
 		}
 	}
 
-	DockerBuildRebuild(&release)
+	DockerBuildRebuild(&release, true)
 
 	w.WriteJson(build)
 }

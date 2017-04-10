@@ -58,7 +58,6 @@ func (b *DockerBuild) Process(e agent.Event) error {
 	build.BuildError = ""
 
 	dockerHost := viper.GetString("plugins.docker_build.docker_host")
-	buildPath := viper.GetString("plugins.docker_build.build_path")
 	rsaPrivateKey := build.Git.RsaPrivateKey
 	rsaPublicKey := build.Git.RsaPublicKey
 	outputBuffer := bytes.NewBuffer(nil)
@@ -73,7 +72,7 @@ func (b *DockerBuild) Process(e agent.Event) error {
 	}
 
 	build.State = plugins.Fetching
-	dockerBuilder := NewDockerBuilder(dockerClient, buildPath, rsaPrivateKey, rsaPublicKey, outputBuffer)
+	dockerBuilder := NewDockerBuilder(dockerClient, rsaPrivateKey, rsaPublicKey, outputBuffer)
 	err = dockerBuilder.fetchCode(&build)
 	if err != nil {
 		build.BuildLog = outputBuffer.String()

@@ -6,6 +6,7 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/checkr/codeflow/server/plugins"
 	"github.com/extemporalgenome/slug"
@@ -28,7 +29,8 @@ type Project struct {
 	Repository            string   `bson:"repository" json:"repository"`
 	Secret                string   `bson:"secret" json:"secret"`
 	Pinged                bool     `bson:"pinged" json:"pinged"`
-	GitSshUrl             string   `bson:"gitSshUrl" json:"gitSshUrl" validate:"required"`
+	GitUrl                string   `bson:"gitUrl" json:"gitUrl" validate:"required"`
+	GitProtocol           string   `bson:"gitProtocol" json:"gitProtocol" validate:"required"`
 	RsaPrivateKey         string   `bson:"rsaPrivateKey" json:"-"`
 	RsaPublicKey          string   `bson:"rsaPublicKey" json:"rsaPublicKey"`
 	Bokmarked             bool     `bson:"-" json:"bookmarked"`
@@ -45,8 +47,8 @@ func (p *Project) AfterFind(*bongo.Collection) error {
 }
 
 func (p *Project) BeforeSave(collection *bongo.Collection) error {
-	regex, _ := regexp.Compile("(?:git|ssh|git@[\\w\\.]+):((?:\\/\\/)?[\\w\\.@:\\/~_-]+)\\.git(?:\\/?|\\#[\\d\\w\\.\\-_]+?)$")
-	repository := regex.FindStringSubmatch(p.GitSshUrl)[1]
+	res := plugins.GetRegexParams("(?P<host>(git@|https?:\\/\\/)([\\w\\.@]+)(\\/|:))(?P<owner>[\\w,\\-,\\_]+)\\/(?P<repo>[\\w,\\-,\\_]+)(.git){0,1}((\\/){0,1})", p.GitUrl)
+	repository := fmt.Sprintf("%s/%s", res["owner"], res["repo"])
 	p.Name = repository
 	p.Repository = repository
 	p.Slug = slug.Slug(repository)
@@ -56,10 +58,16 @@ func (p *Project) BeforeSave(collection *bongo.Collection) error {
 
 func (p *Project) Validate(collection *bongo.Collection) []error {
 	var err []error
+	var regex *regexp.Regexp
 
-	regex, _ := regexp.Compile("(?:git|ssh|git@[\\w\\.]+):((?:\\/\\/)?[\\w\\.@:\\/~_-]+)\\.git(?:\\/?|\\#[\\d\\w\\.\\-_]+?)$")
-	if !regex.MatchString(p.GitSshUrl) {
-		err = append(err, errors.New("Wrong Git SSH url"))
+	if p.GitProtocol == "SSH" {
+		regex, _ = regexp.Compile("(?:git|ssh|git@[\\w\\.]+):((?:\\/\\/)?[\\w\\.@:\\/~_-]+)\\.git(?:\\/?|\\#[\\d\\w\\.\\-_]+?)$")
+	} else {
+		regex, _ = regexp.Compile("(?:https?[\\w\\.]+):((?:\\/\\/)?[\\w\\.@:\\/~_-]+)\\.git(?:\\/?|\\#[\\d\\w\\.\\-_]+?)$")
+	}
+
+	if !regex.MatchString(p.GitUrl) {
+		err = append(err, errors.New("Wrong Git url"))
 	}
 
 	return err
@@ -191,7 +199,9 @@ type Feature struct {
 	User               string        `bson:"user" json:"user"`
 	Hash               string        `bson:"hash" json:"hash"`
 	ParentHash         string        `bson:"parentHash" json:"parentHash"`
+	Ref                string        `bson:"ref" json:"ref"`
 	ExternalLink       string        `bson:"externalLink" json:"externalLink"`
+	Created            time.Time     `bson:"created" json:"created"`
 }
 
 func (f *Feature) AfterFind(collection *bongo.Collection) error {
@@ -318,7 +328,8 @@ type Build struct {
 
 type ProjectSettings struct {
 	ProjectId             bson.ObjectId `json:"projectId"`
-	GitSshUrl             string        `json:"gitSshUrl"`
+	GitUrl                string        `json:"gitUrl"`
+	GitProtocol           string        `json:"gitProtocol"`
 	Secrets               []Secret      `json:"secrets"`
 	DeletedSecrets        []Secret      `json:"deletedSecrets"`
 	NotifyChannels        string        `json:"notifyChannels"`

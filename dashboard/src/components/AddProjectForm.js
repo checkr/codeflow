@@ -1,9 +1,10 @@
 import React, { Component } from 'react'
-import { Button, Form, FormGroup, Label, Input } from 'reactstrap'
+import { Button, Form, FormGroup, Label, Input, FormText } from 'reactstrap'
 import { Field, reduxForm } from 'redux-form'
+import { connect } from 'react-redux'
 
 
-class AddProjectForm extends Component {
+class AddProject extends Component {
   renderInput(field) {   
     return (
       <Input {...field.input} type={field.type} placeholder={field.placeholder} />
@@ -16,16 +17,49 @@ class AddProjectForm extends Component {
     )  
   }
 
+  renderGitUrl() {
+    let { formValues } = this.props
+    if (formValues && formValues.values.gitProtocol === "HTTPS") {
+      return (
+        <FormGroup>
+          <Label for="gitUrl">Git HTTPS Url</Label>
+          <Field name="gitUrl" component={this.renderInput} type="text" placeholder="https://github.com/checkr/codeflow.git"/>
+        </FormGroup>
+        )
+    } else {
+      return (
+        <FormGroup>
+          <Label for="gitUrl">Git SSH Url</Label>
+          <Field name="gitUrl" component={this.renderInput} type="text" placeholder="git@github.com:checkr/codeflow.git"/>
+        </FormGroup>
+        )
+    }
+  }
+
   render() {
     const { onSubmit } = this.props
     return (
       <Form onSubmit={onSubmit}>
         <FormGroup>
-          <Label for="gitSshUrl">Git SSH Url</Label>
-          <Field name="gitSshUrl" component={this.renderInput} type="text" placeholder="git@github.com:checkr/codeflow.git"/>
+          <Label>Protocol</Label>
+          <FormGroup tag="fieldset">
+            <FormGroup check>
+              <Label check>
+                <Field className="form-check-input" name={'gitProtocol'} component={this.renderInput} type="radio" value="SSH"/> SSH
+              </Label>
+              <FormText color="muted">Use SSH for private repositories</FormText>
+            </FormGroup>
+            <FormGroup check>
+              <Label check>
+                <Field className="form-check-input" name={'gitProtocol'} component={this.renderInput} type="radio" value="HTTPS"/> HTTPS
+              </Label>
+              <FormText color="muted">Use HTTPS for public repositories</FormText>
+            </FormGroup>
+          </FormGroup>
         </FormGroup>
-        <FormGroup check>
-          <Label check>
+        {this.renderGitUrl()}
+        <FormGroup>
+          <Label>
             <Field name="bookmarked" component={this.renderCheckbox} type="checkbox"/> Add to my bookmarks
           </Label>
         </FormGroup>
@@ -36,6 +70,13 @@ class AddProjectForm extends Component {
   }
 }
 
-export default reduxForm({
+const AddProjectForm = reduxForm({
   form: 'addProject'
-})(AddProjectForm)
+})(AddProject)
+
+export default connect(
+  state => {
+    const formValues = state.form.addProject
+    return { formValues: formValues, initialValues: {gitProtocol: "SSH", bookmarked: true} }
+  }
+)(AddProjectForm)

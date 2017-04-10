@@ -135,6 +135,10 @@ func (a *Agent) enablePlugin(name string) error {
 		return nil
 	}
 
+	if viper.GetInt("plugins."+name+".workers") <= 0 {
+		return nil
+	}
+
 	for _, rp := range a.Plugins {
 		if rp.Name == name {
 			rp.Enabled = true
@@ -155,14 +159,16 @@ func (a *Agent) flusher() {
 			ev_handled := false
 
 			for _, plugin := range a.Plugins {
-				subscribedTo := plugin.Plugin.Subscribe()
-				if SliceContains(e.PayloadModel, subscribedTo) || SliceContains(e.Name, subscribedTo) {
-					ev_handled = true
-					if a.Queueing {
-						log.Printf("Enqueue event %v for %v\n", e.Name, plugin.Name)
-						workers.Enqueue(plugin.Name, "Event", e)
-					} else {
-						plugin.Plugin.Process(e)
+				if plugin.Enabled {
+					subscribedTo := plugin.Plugin.Subscribe()
+					if SliceContains(e.PayloadModel, subscribedTo) || SliceContains(e.Name, subscribedTo) {
+						ev_handled = true
+						if a.Queueing {
+							log.Printf("Enqueue event %v for %v\n", e.Name, plugin.Name)
+							workers.Enqueue(plugin.Name, "Event", e)
+						} else {
+							plugin.Plugin.Process(e)
+						}
 					}
 				}
 			}
@@ -170,7 +176,7 @@ func (a *Agent) flusher() {
 			if a.TestEvents != nil {
 				a.TestEvents <- e
 			} else if !ev_handled {
-				log.Printf("Event not handled by any plugin: ", e.Name)
+				log.Printf("Event not handled by any plugin: %s\n", e.Name)
 				spew.Dump(e)
 			}
 		}
