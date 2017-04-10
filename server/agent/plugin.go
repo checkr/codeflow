@@ -29,4 +29,5 @@ type RunningPlugin struct {
 	Plugin  Plugin
 	Work    func(*workers.Msg)
 	Enabled bool
+	Workers int
 }

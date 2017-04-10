@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/jrallison/go-workers"
 	"github.com/pborman/uuid"
 	"github.com/spf13/viper"
@@ -123,6 +122,7 @@ func (a *Agent) addPlugin(name string) error {
 		Plugin:  plugin,
 		Work:    work,
 		Enabled: false,
+		Workers: viper.GetInt("plugins." + name + ".workers"),
 	}
 
 	a.Plugins = append(a.Plugins, rp)
@@ -155,14 +155,16 @@ func (a *Agent) flusher() {
 			ev_handled := false
 
 			for _, plugin := range a.Plugins {
-				subscribedTo := plugin.Plugin.Subscribe()
-				if SliceContains(e.PayloadModel, subscribedTo) || SliceContains(e.Name, subscribedTo) {
-					ev_handled = true
-					if a.Queueing {
-						log.Printf("Enqueue event %v for %v\n", e.Name, plugin.Name)
-						workers.Enqueue(plugin.Name, "Event", e)
-					} else {
-						plugin.Plugin.Process(e)
+				if plugin.Workers > 0 {
+					subscribedTo := plugin.Plugin.Subscribe()
+					if SliceContains(e.PayloadModel, subscribedTo) || SliceContains(e.Name, subscribedTo) {
+						ev_handled = true
+						if a.Queueing {
+							log.Printf("Enqueue event %v for %v\n", e.Name, plugin.Name)
+							workers.Enqueue(plugin.Name, "Event", e)
+						} else {
+							plugin.Plugin.Process(e)
+						}
 					}
 				}
 			}
@@ -171,7 +173,7 @@ func (a *Agent) flusher() {
 				a.TestEvents <- e
 			} else if !ev_handled {
 				log.Printf("Event not handled by any plugin: %s\n", e.Name)
-				spew.Dump(e)
+				e.Dump()
 			}
 		}
 	}

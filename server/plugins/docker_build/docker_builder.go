@@ -6,6 +6,7 @@ import (
 
 	"github.com/checkr/codeflow/server/plugins"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/spf13/viper"
 )
 
 type DockerBuilder struct {
@@ -40,7 +41,7 @@ func (b *DockerBuilder) fetchCode(build *plugins.DockerBuild) error {
 
 func (b *DockerBuilder) build(build *plugins.DockerBuild) error {
 	repoPath := fmt.Sprintf("%s/%s", build.Git.Workdir, build.Project.Repository)
-	name := fmt.Sprintf("%s/%s:%s.%s", build.Registry.Host, build.Project.Repository, build.Feature.Hash, "codeflow")
+	name := fmt.Sprintf("%s/%s:%s.%s", build.Registry.Host, build.Project.Repository, build.Feature.Hash, viper.GetString("environment"))
 
 	var buildArgs []docker.BuildArg
 	for _, arg := range build.BuildArgs {
@@ -67,7 +68,7 @@ func (b *DockerBuilder) build(build *plugins.DockerBuild) error {
 }
 
 func (b *DockerBuilder) tag(build *plugins.DockerBuild) error {
-	name := fmt.Sprintf("%s/%s:%s.%s", build.Registry.Host, build.Project.Repository, build.Feature.Hash, "codeflow")
+	name := fmt.Sprintf("%s/%s:%s.%s", build.Registry.Host, build.Project.Repository, build.Feature.Hash, viper.GetString("environment"))
 	tagOptions := docker.TagImageOptions{
 		Repo:  fmt.Sprintf("%s/%s", build.Registry.Host, build.Project.Repository),
 		Tag:   "latest",
@@ -82,11 +83,11 @@ func (b *DockerBuilder) tag(build *plugins.DockerBuild) error {
 func (b *DockerBuilder) push(build *plugins.DockerBuild) error {
 	name := fmt.Sprintf("%s/%s", build.Registry.Host, build.Project.Repository)
 
-	b.outputBuffer.Write([]byte(fmt.Sprintf("Pushing %s:%s.%s...", name, build.Feature.Hash, "codeflow")))
+	b.outputBuffer.Write([]byte(fmt.Sprintf("Pushing %s:%s.%s...", name, build.Feature.Hash, viper.GetString("environment"))))
 
 	err := b.dockerClient.PushImage(docker.PushImageOptions{
 		Name:         name,
-		Tag:          fmt.Sprintf("%s.%s", build.Feature.Hash, "codeflow"),
+		Tag:          fmt.Sprintf("%s.%s", build.Feature.Hash, viper.GetString("environment")),
 		OutputStream: b.outputBuffer,
 	}, docker.AuthConfiguration{
 		Username: build.Registry.Username,
@@ -97,7 +98,7 @@ func (b *DockerBuilder) push(build *plugins.DockerBuild) error {
 		return err
 	}
 
-	build.Image = fmt.Sprintf("%s/%s:%s.%s", build.Registry.Host, build.Project.Repository, build.Feature.Hash, "codeflow")
+	build.Image = fmt.Sprintf("%s/%s:%s.%s", build.Registry.Host, build.Project.Repository, build.Feature.Hash, viper.GetString("environment"))
 
 	return nil
 }
