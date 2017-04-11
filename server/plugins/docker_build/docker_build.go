@@ -72,6 +72,9 @@ func (b *DockerBuild) Process(e agent.Event) error {
 	}
 
 	build.State = plugins.Fetching
+	event = e.NewEvent(build, nil)
+	b.events <- event
+
 	dockerBuilder := NewDockerBuilder(dockerClient, rsaPrivateKey, rsaPublicKey, outputBuffer)
 	err = dockerBuilder.fetchCode(&build)
 	if err != nil {

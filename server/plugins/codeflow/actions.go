@@ -884,6 +884,23 @@ func DockerBuildRebuild(r *Release) error {
 		}
 	}
 
+	if build.State == plugins.Complete {
+		log.Printf("Build %s already completed", build.FeatureHash)
+		return nil
+	}
+
+	// Allow rebuild after 30min
+	if build.Modified.After(time.Now().Add(-30 * time.Minute)) {
+		if build.State == plugins.Running || build.State == plugins.Fetching || build.State == plugins.Building || build.State == plugins.Pushing {
+			log.Printf("Build %s already running", build.FeatureHash)
+			return nil
+		}
+	} else {
+		log.Printf("Build %s scheduled for rebuild", build.FeatureHash)
+	}
+
+	log.Printf("Build %s scheduled", build.FeatureHash)
+
 	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "type": plugins.Build, "deleted": false})
 	secret := Secret{}
 	for results.Next(&secret) {

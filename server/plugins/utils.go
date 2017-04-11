@@ -85,7 +85,8 @@ func GitFetch(project Project, git Git) (*git2go.Repository, error) {
 
 	if _, err = os.Stat(repoPath); err != nil {
 		if os.IsNotExist(err) {
-			repo, err = git2go.Clone(git.Url, repoPath, GitCloneOptions(git))
+			cloneOptions := GitCloneOptions(git)
+			repo, err = git2go.Clone(git.Url, repoPath, &cloneOptions)
 		} else {
 			return &git2go.Repository{}, err
 		}
@@ -97,8 +98,10 @@ func GitFetch(project Project, git Git) (*git2go.Repository, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer remote.Free()
 
-	err = remote.Fetch([]string{}, GitFetchOptions(git), "")
+	fetchOptions := GitFetchOptions(git)
+	err = remote.Fetch([]string{}, &fetchOptions, "")
 	if err != nil {
 		return nil, err
 	}
@@ -228,51 +231,37 @@ func GitCheckoutCommit(hash string, project Project, git Git) (*git2go.Repositor
 	return repo, nil
 }
 
-type Git2goCallback struct {
-	rsaPrivateKey string
-	rsaPublicKey  string
-}
-
-func (x *Git2goCallback) GitCredentialsCallback(url string, username string, allowedTypes git2go.CredType) (git2go.ErrorCode, *git2go.Cred) {
-	ret, cred := git2go.NewCredSshKeyFromMemory("git", x.rsaPublicKey, x.rsaPrivateKey, "")
-	return git2go.ErrorCode(ret), &cred
-}
-
-// Made this one just return 0 during troubleshooting...
-func (x *Git2goCallback) GitCertificateCheckCallback(cert *git2go.Certificate, valid bool, hostname string) git2go.ErrorCode {
-	return git2go.ErrorCode(0)
-}
-
-func GitFetchOptions(git Git) *git2go.FetchOptions {
+func GitFetchOptions(git Git) git2go.FetchOptions {
 	var fetchOptions git2go.FetchOptions
-
-	git2goCallback := Git2goCallback{
-		rsaPrivateKey: git.RsaPrivateKey,
-		rsaPublicKey:  git.RsaPublicKey,
-	}
 
 	if git.Protocol == "SSH" {
 		fetchOptions = git2go.FetchOptions{
 			RemoteCallbacks: git2go.RemoteCallbacks{
-				CredentialsCallback:      git2goCallback.GitCredentialsCallback,
-				CertificateCheckCallback: git2goCallback.GitCertificateCheckCallback,
+				CredentialsCallback: func(url string, username string, allowedTypes git2go.CredType) (git2go.ErrorCode, *git2go.Cred) {
+					ret, cred := git2go.NewCredSshKeyFromMemory("git", git.RsaPublicKey, git.RsaPrivateKey, "")
+					return git2go.ErrorCode(ret), &cred
+				},
+				CertificateCheckCallback: func(cert *git2go.Certificate, valid bool, hostname string) git2go.ErrorCode {
+					return git2go.ErrorCode(0)
+				},
 			},
 		}
 	} else {
 		fetchOptions = git2go.FetchOptions{}
 	}
 
-	return &fetchOptions
+	return fetchOptions
 }
 
-func GitCloneOptions(git Git) *git2go.CloneOptions {
+func GitCloneOptions(git Git) git2go.CloneOptions {
+	fetchOptions := GitFetchOptions(git)
 	cloneOptions := git2go.CloneOptions{
-		FetchOptions: GitFetchOptions(git),
+		FetchOptions: &fetchOptions,
 		CheckoutOpts: &git2go.CheckoutOpts{
 			Strategy: git2go.CheckoutForce,
 		},
 	}
-	return &cloneOptions
+	return cloneOptions
 }
 
 func GetRegexParams(regEx, url string) (paramsMap map[string]string) {

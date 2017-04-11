@@ -49,15 +49,15 @@ class DockerImage extends Component {
 
     switch(workflow.state) {
       case 'running':
-        return <span className="tag tag-warning flow" key={workflow._id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</span> 
+        return <Button className="tag tag-warning flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button> 
       case 'building':
-        return <span className="tag tag-warning flow" key={workflow._id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</span> 
+        return <Button className="tag tag-warning flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button> 
       case 'complete':
-        return <Button className="tag tag-success flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-check fa-lg" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button> 
+        return <span className="tag tag-success flow" key={workflow._id}><i className="fa fa-check fa-lg" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</span> 
       case 'failed':
         return <Button className="tag tag-danger flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-times fa-lg" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button> 
       default:
-        return <span className="tag tag-info flow" key={workflow._id}><i className="fa fa-cog fa-spin fa-lg fa-fw" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</span> 
+        return <Button className="tag tag-info flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-cog fa-spin fa-lg fa-fw" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button> 
     }
   }
 
