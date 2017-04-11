@@ -65,11 +65,33 @@ spec:
               key: react-app-ws-root
         - name: REACT_APP_PORT
           value: "4000"
-        image: docker.io/checkr/codeflow:d791d8f9792f59dc3ecf98c1613c8a3b23d7df17.codeflow
+        image: docker.io/checkr/codeflow:4cf072f2a9c3a9b7c33532b3331da9162313063e.codeflow
         ports:
         - containerPort: 4000
           protocol: TCP
           name: dashboard-port
+      - name: migrate
+        args:
+        - /bin/sh
+        - -c
+        - 'cd server/ && go run main.go --config ./configs/codeflow.dev.yml migrate up'
+        env:
+        - name: CF_PLUGINS_CODEFLOW_MONGODB_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: codeflow-config
+              key: cf-plugins-codeflow-mongodb-database
+        - name: CF_PLUGINS_CODEFLOW_MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: codeflow-config
+              key: cf-plugins-codeflow-mongodb-uri
+        - name: CF_PLUGINS_CODEFLOW_MONGODB_SSL
+          valueFrom:
+            secretKeyRef:
+              name: codeflow-config
+              key: cf-plugins-codeflow-mongodb-ssl
+        image: docker.io/checkr/codeflow:4cf072f2a9c3a9b7c33532b3331da9162313063e.codeflow
       - name: api
         args:
         - /go/bin/codeflow
@@ -353,7 +375,7 @@ spec:
             secretKeyRef:
               name: codeflow-config
               key: cf-plugins-slack-webhook-url
-        image: docker.io/checkr/codeflow:d791d8f9792f59dc3ecf98c1613c8a3b23d7df17.codeflow
+        image: docker.io/checkr/codeflow:4cf072f2a9c3a9b7c33532b3331da9162313063e.codeflow
         ports:
         - containerPort: 3001
           protocol: TCP

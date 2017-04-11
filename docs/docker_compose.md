@@ -8,22 +8,18 @@ The docker-compose method of starting Codeflow is to make it easy to develop Cod
 
 ## Configure basic settings
 
-* Configure [Okta](okta.md)
-
 ```
 cp server/configs/codeflow.yml server/configs/codeflow.dev.yml
 ```
 
 Edit the codeflow.dev.yml and set the following:
 
-```
-jwt_secret_key: "some random value"
-okta_org: "your org name"
-```
-
-* Configure [Additional Settings](settings.md)
+* Optional: Configure [Additional Settings](settings.md)
 
 ## Build and Start Codeflow
 ```
-docker-compose up
+# (re)build codeflow docker images
+make build
+# start up codeflow
+make up
 ```

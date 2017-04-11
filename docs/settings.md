@@ -75,9 +75,12 @@ The Codeflow plugin encompasses the API and also acts as a workflow engine.
       path: "/builds"
     projects:
       path: "/projects"
+    # Authentication can be either "okta" (SSO), or "demo" (no auth)
     auth:
-      path: "/oauth2"
-    # This is important to set for Okta SSO
+      path: "/auth"
+      # handler: "okta"
+      handler: "demo"
+      # This is important to set for Okta SSO
       okta_org: "myorg"
     users:
       path: "/users"
