@@ -3,6 +3,7 @@ package codeflow_migrations
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/checkr/codeflow/server/plugins/codeflow"
 	"github.com/checkr/codeflow/server/plugins/codeflow/migrations/driver"
@@ -321,6 +322,7 @@ func (r *MongoDbMigrator) V001_init_features_up(c *bongo.Connection) error {
 	var collection []codeflow.Feature
 	var obj codeflow.Feature
 
+	created, _ := time.Parse(time.RFC3339, "2017-03-29T17:14:23.075Z")
 	obj = codeflow.Feature{
 		ProjectId:    bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Message:      "Demo Commit 1",
@@ -328,10 +330,13 @@ func (r *MongoDbMigrator) V001_init_features_up(c *bongo.Connection) error {
 		Hash:         "41fa95f534d8f57433ed4a48de1620cba35f2c2d",
 		ParentHash:   "45a4bed3acaaa472b7536e2f903179479c75f07f",
 		ExternalLink: "",
+		Ref:          "refs/heads/master",
+		Created:      created,
 	}
 	obj.SetId(bson.ObjectIdHex("58dbeb6cdf8ab3002a71dc0a"))
 	collection = append(collection, obj)
 
+	created, _ = time.Parse(time.RFC3339, "2017-03-29T17:15:27.172Z")
 	obj = codeflow.Feature{
 		ProjectId:    bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		Message:      "Demo Commit 2",
@@ -339,6 +344,8 @@ func (r *MongoDbMigrator) V001_init_features_up(c *bongo.Connection) error {
 		Hash:         "df600016edb26c48e1c999b28bb874257f65d037",
 		ParentHash:   "41fa95f534d8f57433ed4a48de1620cba35f2c2d",
 		ExternalLink: "",
+		Ref:          "refs/heads/master",
+		Created:      created,
 	}
 	obj.SetId(bson.ObjectIdHex("58dbeb6cdf8ab3002a71dc0a"))
 	collection = append(collection, obj)

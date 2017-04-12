@@ -6,11 +6,12 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"time"
 
 	git2go "github.com/libgit2/git2go"
 )
 
-func GitCommits(headHash string, project Project, git Git) ([]GitCommit, error) {
+func GitCommits(from time.Time, project Project, git Git) ([]GitCommit, error) {
 	var err error
 	var commits []GitCommit
 	var repo *git2go.Repository
@@ -36,17 +37,18 @@ func GitCommits(headHash string, project Project, git Git) ([]GitCommit, error) 
 	callback := func(obj *git2go.Commit) bool {
 		i += 1
 
-		if headHash == "" && i > 10 {
-			return false
-		}
-
-		if headHash == obj.Id().String() {
-			return false
-		}
-
 		commit := new(GitCommit)
 		author := obj.Author()
 		committer := obj.Committer()
+
+		if from.IsZero() && i > 10 {
+			return false
+		}
+
+		if committer.When.Equal(from) || committer.When.Before(from) {
+			return false
+		}
+
 		commit.Repository = project.Repository
 		commit.Hash = obj.Id().String()
 		if obj.Parent(0) != nil {
@@ -57,14 +59,6 @@ func GitCommits(headHash string, project Project, git Git) ([]GitCommit, error) 
 		commit.Created = committer.When
 		commit.Message = obj.Message()
 		commits = append(commits, *commit)
-
-		for p := 0; p < int(obj.ParentCount()); p++ {
-			if obj.Parent(uint(i)) != nil {
-				if headHash == obj.Parent(uint(i)).Id().String() {
-					return false
-				}
-			}
-		}
 
 		return true
 	}

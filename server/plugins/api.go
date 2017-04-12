@@ -96,12 +96,12 @@ type GitStatus struct {
 }
 
 type GitSync struct {
-	Action       Action  `json:"action"`
-	State        State   `json:"state"`
-	StateMessage string  `json:"stateMessage"`
-	Project      Project `json:"project"`
-	Git          Git     `json:"git"`
-	HeadHash     string  `json:"headHash"`
+	Action       Action    `json:"action"`
+	State        State     `json:"state"`
+	StateMessage string    `json:"stateMessage"`
+	Project      Project   `json:"project"`
+	Git          Git       `json:"git"`
+	From         time.Time `json:"from"`
 }
 
 type Feature struct {

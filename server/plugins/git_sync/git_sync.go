@@ -53,7 +53,7 @@ func (x *GitSync) Process(e agent.Event) error {
 	gitSyncEvent.State = plugins.Fetching
 	gitSyncEvent.StateMessage = ""
 
-	commits, err := plugins.GitCommits(gitSyncEvent.HeadHash, gitSyncEvent.Project, gitSyncEvent.Git)
+	commits, err := plugins.GitCommits(gitSyncEvent.From, gitSyncEvent.Project, gitSyncEvent.Git)
 	if err != nil {
 		log.Println(err)
 		gitSyncEvent.State = plugins.Failed
