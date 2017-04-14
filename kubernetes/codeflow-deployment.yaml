@@ -65,7 +65,7 @@ spec:
               key: react-app-ws-root
         - name: REACT_APP_PORT
           value: "4000"
-        image: docker.io/checkr/codeflow:d791d8f9792f59dc3ecf98c1613c8a3b23d7df17.codeflow
+        image: docker.io/checkr/codeflow:latest
         ports:
         - containerPort: 4000
           protocol: TCP
@@ -353,7 +353,7 @@ spec:
             secretKeyRef:
               name: codeflow-config
               key: cf-plugins-slack-webhook-url
-        image: docker.io/checkr/codeflow:d791d8f9792f59dc3ecf98c1613c8a3b23d7df17.codeflow
+        image: docker.io/checkr/codeflow:latest
         ports:
         - containerPort: 3001
           protocol: TCP
