@@ -67,27 +67,44 @@ func (b *DockerBuilder) build(build *plugins.DockerBuild) error {
 	return nil
 }
 
-func (b *DockerBuilder) tag(build *plugins.DockerBuild) error {
-	name := fmt.Sprintf("%s/%s:%s.%s", build.Registry.Host, build.Project.Repository, build.Feature.Hash, viper.GetString("environment"))
-	tagOptions := docker.TagImageOptions{
-		Repo:  fmt.Sprintf("%s/%s", build.Registry.Host, build.Project.Repository),
-		Tag:   "latest",
-		Force: true,
-	}
-	if err := b.dockerClient.TagImage(name, tagOptions); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (b *DockerBuilder) push(build *plugins.DockerBuild) error {
+	var err error
 	name := fmt.Sprintf("%s/%s", build.Registry.Host, build.Project.Repository)
+	tag_hash := fmt.Sprintf("%s.%s", build.Feature.Hash, viper.GetString("environment"))
+	full_name := fmt.Sprintf("%s:%s", name, tag_hash)
+	tag_latest := "latest"
+
+	if viper.GetString("environment") != "production" {
+		tag_latest = fmt.Sprintf("%s.%s", "latest", viper.GetString("environment"))
+	}
 
 	b.outputBuffer.Write([]byte(fmt.Sprintf("Pushing %s:%s.%s...", name, build.Feature.Hash, viper.GetString("environment"))))
 
-	err := b.dockerClient.PushImage(docker.PushImageOptions{
+	err = b.dockerClient.PushImage(docker.PushImageOptions{
 		Name:         name,
-		Tag:          fmt.Sprintf("%s.%s", build.Feature.Hash, viper.GetString("environment")),
+		Tag:          tag_hash,
+		OutputStream: b.outputBuffer,
+	}, docker.AuthConfiguration{
+		Username: build.Registry.Username,
+		Password: build.Registry.Password,
+		Email:    build.Registry.Email,
+	})
+	if err != nil {
+		return err
+	}
+
+	tagOptions := docker.TagImageOptions{
+		Repo:  name,
+		Tag:   tag_latest,
+		Force: true,
+	}
+	if err = b.dockerClient.TagImage(full_name, tagOptions); err != nil {
+		return err
+	}
+
+	err = b.dockerClient.PushImage(docker.PushImageOptions{
+		Name:         name,
+		Tag:          tag_latest,
 		OutputStream: b.outputBuffer,
 	}, docker.AuthConfiguration{
 		Username: build.Registry.Username,

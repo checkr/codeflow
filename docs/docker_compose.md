@@ -10,6 +10,7 @@ The docker-compose method of starting Codeflow is to make it easy to develop Cod
 
 ```
 cp server/configs/codeflow.yml server/configs/codeflow.dev.yml
+cp dashboard/.env dashboard/.env.development
 ```
 
 Edit the codeflow.dev.yml and set the following:
