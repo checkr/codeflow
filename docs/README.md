@@ -14,3 +14,7 @@
 * Administrators Guide
   * [Okta](okta.md)
   * [Configuration Settings](settings.md)
+
+### Github
+* [Source](https://github.com/checkr/codeflow)
+* [Issues](https://github.com/checkr/codeflow/issues)
