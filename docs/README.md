@@ -29,6 +29,9 @@ Codeflow is a deploy pipeline that implements best-practices for 12-factor apps 
 * [Source](https://github.com/checkr/codeflow)
 * [Issues](https://github.com/checkr/codeflow/issues)
 
+## Slack
+* [Signup for codeflow-team on Slack](http://codeflow-slack.checkr.com/)
+
 ### Screenshots
 ![](/images/codeflow1.png)
 ![](/images/codeflow2.png)

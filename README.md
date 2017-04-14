@@ -28,6 +28,9 @@ Local dashboard will be started on [http://localhost:3000](http://localhost:3000
 
 `master` branch continuously deployed with Codeflow!
 
+## Slack
+* [Signup for codeflow-team on Slack](http://codeflow-slack.checkr.com/)
+
 ### Screenshots
 ![](/docs/images/codeflow1.png)
 ![](/docs/images/codeflow2.png)
