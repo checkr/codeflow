@@ -37,9 +37,9 @@ Load Balancers are what allows your new resource to be discovered by other servi
 * Port: The external port to serve the traffic on.  Eg, for a normal SSL enabled http server this would be 443.
 * Service Port: The internal port that your container is listening on (that was specified earlier in the Resource creation).
 * Service Protocol:
-  * HTTPS: Tell the load balancer to terminate https using our *.checkrhq.net wildcard domain.
+  * HTTPS: Tell the load balancer to terminate https using the SSL certificate specified in the [settings](settings.md) kubedeploy:ssl_cert_arn wildcard domain.
   * HTTP:  Plain HTTP (no SSL). 
-  * SSL:   Terminate SSL with TCP using our *.checkrhq.net wildcard domain.  (Example: for using with websocket protocol wss://).
+  * SSL:   Terminate SSL with TCP using the certificate from [settings](settings.md) kubedeploy:ssl_cert_arn wildcard domain  (Example: for using with websocket protocol wss://).
   * TCP:   Plain TCP (no SSL).
   * UDP:   Use UDP.  Only available for Internal service type.
 
