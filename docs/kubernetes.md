@@ -71,6 +71,7 @@ kubectl create -f codeflow-config.yaml
 
 * __Kubernetes credentials__ 
  * These must be named to match the filenames in codeflow-deployment.yaml.  Eg.
+
 ```
 # Importing credentials from Minikube example
 
