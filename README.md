@@ -9,6 +9,7 @@ Install [Docker Compose](https://docs.docker.com/compose/install/)
 ```
 $ cp server/configs/codeflow.yml server/configs/codeflow.dev.yml
 $ cp dashboard/.env dashboard/.env.development
+$ cd dashboard/ && npm install && cd ../
 ```
 
 ### To start the server and all dependencies run:
@@ -26,3 +27,7 @@ Local dashboard will be started on [http://localhost:3000](http://localhost:3000
 [https://codeflow.checkr.com/](https://codeflow.checkr.com/)
 
 `master` branch continuously deployed with Codeflow!
+
+### Screenshots
+![](/docs/images/codeflow1.png)
+![](/docs/images/codeflow2.png)
