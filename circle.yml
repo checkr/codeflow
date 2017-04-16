@@ -1,0 +1,9 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/codeflow
+    machine: true
+    steps:
+      - checkout
+      - run: cp ./dashboard/.env ./dashboard/.env.development
+      - run: make test
