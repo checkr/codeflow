@@ -78,7 +78,7 @@ class ProjectList extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = (state, _ownProps) => ({
   projects: state.projects,
   bookmarks: state.bookmarks,
   routing: state.routing.locationBeforeTransitions

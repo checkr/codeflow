@@ -6,7 +6,7 @@ import DemoLogin from './DemoLogin'
 
 class LoginPage extends Component {
   componentWillMount() {
-    this.props.authHandler() 
+    this.props.authHandler()
   }
 
   componentDidMount() {
@@ -30,7 +30,7 @@ class LoginPage extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = (state, _ownProps) => ({
   handler: state.auth.handler
 })
 

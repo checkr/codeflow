@@ -20,10 +20,10 @@ class ProjectSettings extends Component {
     }
   }
 
-  renderCheckbox(field) {   
+  renderCheckbox(field) {
     return (
       <Input {...field.input} type={field.type} placeholder={field.placeholder} />
-    )  
+    )
   }
 
   renderSelect = (field) => {

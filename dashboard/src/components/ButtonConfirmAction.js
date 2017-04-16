@@ -33,14 +33,14 @@ class ButtonConfirmAction extends Component {
     })
     this.props.onCancel()
   }
-  
+
   renderBtn() {
     if (this.props.btnIconClass !== '') {
       return (
         <Button className={this.props.btnClass} onClick={(e) => this.toggle(e)}>
           <i className={this.props.btnIconClass} aria-hidden="true" /> {this.props.btnLabel}
         </Button>
-      ) 
+      )
     }
 
     return (

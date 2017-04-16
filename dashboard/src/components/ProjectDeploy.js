@@ -47,7 +47,7 @@ class ProjectDeploy extends Component {
   paginateReleases(pathname, search) {
     this.props.fetchProjectReleases(this.props.project.slug, '?'+search, 'pagination')
   }
-  
+
   onDeployFeature(feature, e) {
     e.preventDefault()
     this.props.createProjectRelease(this.props.project.slug, feature)
@@ -57,7 +57,7 @@ class ProjectDeploy extends Component {
     e.preventDefault()
     this.props.createProjectRollbackTo(this.props.project.slug, release)
   }
-  
+
   renderFeatureHash(feature) {
     if(feature.externalLink && feature.externalLink !== '' && feature.externalLink.startsWith('http')) {
       return (<a href={feature.externalLink} target="_blank">{feature.hash.substring(0,8)}</a>)
@@ -65,7 +65,7 @@ class ProjectDeploy extends Component {
 
     return (<span>{feature.hash.substring(0,8)}</span>)
   }
-  
+
   onFeatureMouseEnterHandler(id) {
     this.setState({featureHover: id});
   }
@@ -76,7 +76,7 @@ class ProjectDeploy extends Component {
 
   renderFeatures() {
     let { records, pagination } = this.props.features
-    let features_jsx = [] 
+    let features_jsx = []
 
     if (_.isEmpty(records)) {
       return(
@@ -100,7 +100,7 @@ class ProjectDeploy extends Component {
                 <small className="text-muted">by <strong>{feature.user}</strong> {moment(feature.created).fromNow() } - {moment(feature.created).format('MMMM Do YYYY, h:mm:ss A')} </small>
               </div>
               <div className="col-xs-2 flex-xs-middle">
-                {this.state.featureHover === feature._id && 
+                {this.state.featureHover === feature._id &&
                 <button type="button" className="btn btn-secondary btn-sm float-xs-right" onClick={(e) => this.onDeployFeature(feature, e)}>Deploy</button> }
               </div>
             </div>
@@ -116,14 +116,14 @@ class ProjectDeploy extends Component {
       </div>
     )
   }
-  
+
 
   renderCurrentReleaseActions(release) {
     return <button type="button" key="btn" className="btn btn-secondary btn-sm float-xs-right" onClick={(e) => this.onDeployFeature(release.headFeature, e)}>Redeploy</button>
   }
 
   renderReleaseActions(release) {
-    let jsx = [] 
+    let jsx = []
     switch(release.state) {
       case 'waiting':
         jsx.push(<i key="waiting" className="fa fa-circle-o-notch fa-spin fa-fw float-xs-right" />)
@@ -142,7 +142,7 @@ class ProjectDeploy extends Component {
 
   renderReleaseWorkflow(release) {
     if (release.state === "complete") {
-      return null 
+      return null
     }
 
     let flows = _.map(release.workflow, (wf) => {
@@ -152,18 +152,18 @@ class ProjectDeploy extends Component {
 
       switch(wf.state) {
         case 'running':
-          return <span className="tag tag-warning flow" key={wf._id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-warning flow" key={wf._id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span>
         case 'building':
-          return <span className="tag tag-warning flow" key={wf._id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-warning flow" key={wf._id}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span>
         case 'complete':
-          return <span className="tag tag-success flow" key={wf._id}><i className="fa fa-check fa-lg" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-success flow" key={wf._id}><i className="fa fa-check fa-lg" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span>
         case 'failed':
-          return <span className="tag tag-danger flow" key={wf._id}><i className="fa fa-times fa-lg" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-danger flow" key={wf._id}><i className="fa fa-times fa-lg" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span>
         default:
-          return <span className="tag tag-info flow" key={wf._id}><i className="fa fa-cog fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span> 
+          return <span className="tag tag-info flow" key={wf._id}><i className="fa fa-cog fa-spin fa-lg fa-fw" aria-hidden="true"></i> {wf.type.toUpperCase()}:{wf.name}</span>
       }
     })
-    
+
     return (
       <div>
         <div className="row">
@@ -185,15 +185,15 @@ class ProjectDeploy extends Component {
 
   renderReleases() {
     let { records, pagination } = this.props.releases
-    let releases_jsx = [] 
-    let that = this 
-    
+    let releases_jsx = []
+    let that = this
+
     if (_.isEmpty(records)) {
       return (<li>
         <Alert color="info">
           This project has no releases. Build some features and deploy them!
         </Alert>
-      </li>) 
+      </li>)
     }
 
     records.forEach((release, i) => {
@@ -235,7 +235,7 @@ class ProjectDeploy extends Component {
 
   renderCurrentRelease() {
     let { currentRelease } = this.props
-    let releases_jsx = [] 
+    let releases_jsx = []
     releases_jsx.push(
       <li className="list-group-item" key={currentRelease._id} onMouseEnter={() => this.onReleaseMouseEnterHandler(currentRelease)} onMouseLeave={() => this.onReleaseMouseLeaveHandler()}>
         <div className="feed-element">
@@ -307,7 +307,7 @@ class ProjectDeploy extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = (state, _ownProps) => ({
   features: state.features,
   releases: state.releases,
   currentRelease: state.currentRelease,

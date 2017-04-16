@@ -42,7 +42,7 @@ class ProjectResources extends Component {
                   <div className="col-xs-10">
                     <h5>
                       <i className="fa fa-server" aria-hidden="true"></i> {service.name}
-                    </h5> 
+                    </h5>
                   </div>
                   <div className="col-xs-2">
                     <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-edit-resource" onClick={() => this.onEditService(service._id)}>
@@ -61,13 +61,13 @@ class ProjectResources extends Component {
           </div>
         </div>
       </li>
-    )    
+    )
   }
-  
+
   renderEditService(service) {
     let edit = false
     if (service._id) {
-      edit = true 
+      edit = true
     }
 
     let { serviceSpecs } = this.props
@@ -80,7 +80,7 @@ class ProjectResources extends Component {
           </div>
         </div>
       </li>
-    )    
+    )
   }
 
   renderServices() {
@@ -104,7 +104,7 @@ class ProjectResources extends Component {
     if (this.state.edit === 0) {
       return null
     } else {
-      return (<div><br/><button type="submit" className="btn btn-primary float-xs-right" onClick={(e) => this.onAddService(e)}>Add new service</button><br/></div>) 
+      return (<div><br/><button type="submit" className="btn btn-primary float-xs-right" onClick={(e) => this.onAddService(e)}>Add new service</button><br/></div>)
     }
   }
 
@@ -174,9 +174,9 @@ class ProjectResources extends Component {
           </div>
         </div>
       </li>
-    )    
+    )
   }
-  
+
   onAddService(e) {
     e.preventDefault()
     this.setState({ edit: 0 })
@@ -195,7 +195,7 @@ class ProjectResources extends Component {
     }
     this.setState({ edit: null })
   }
-  
+
   onDeleteService() {
     const { project } = this.props
     this.props.deleteProjectService(project.slug, this.props.projectService.values)
@@ -225,7 +225,7 @@ class ProjectResources extends Component {
     }
     this.setState({ editExtension: null })
   }
-  
+
   onDeleteExtension() {
     const { project } = this.props
     this.props.deleteProjectExtension(project.slug, this.props.projectExtension.values)
@@ -264,7 +264,7 @@ class ProjectResources extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = (state, _ownProps) => ({
   projectService: state.form.projectService,
   serviceSpecs: state.serviceSpecs,
   projectExtension: state.form.projectExtension,
@@ -273,13 +273,13 @@ const mapStateToProps = (state, ownProps) => ({
 })
 
 export default connect(mapStateToProps, {
-  fetchProjectServices, 
-  createProjectService, 
-  updateProjectService, 
+  fetchProjectServices,
+  createProjectService,
+  updateProjectService,
   deleteProjectService,
-  fetchProjectExtensions, 
-  createProjectExtension, 
-  updateProjectExtension, 
+  fetchProjectExtensions,
+  createProjectExtension,
+  updateProjectExtension,
   deleteProjectExtension,
   fetchServiceSpecs
 })(ProjectResources)

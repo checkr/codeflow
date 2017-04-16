@@ -62,7 +62,7 @@ class DashboardStats extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = (state, _ownProps) => ({
   stats: state.stats,
 })
 

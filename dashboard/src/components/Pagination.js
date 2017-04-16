@@ -63,14 +63,14 @@ class Pagination extends Component {
 
     this.props.onChange(this.props.routing.pathname, queryString.stringify(urlParams))
   }
-  
+
   // render Previous button enabled or disabled based on props
   renderPreviousButton() {
     return this.props.page === 1 ?
       <PaginationItem className="disabled"><PaginationLink previous disabled href="#" /></PaginationItem>:
       <PaginationItem><PaginationLink previous onClick={(e) => this.handlePrevClick(e)} href="#"/></PaginationItem>
   }
-  
+
   // render all page buttons with active page based on props
   renderPageButtons() {
     let buttons = []
@@ -95,7 +95,7 @@ class Pagination extends Component {
 
     return buttons
   }
-  
+
   // render Next button enabled or disabled based on props
   renderNextButton() {
     return this.props.page === this.props.totalPages ?
@@ -119,8 +119,8 @@ class Pagination extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
-  routing: state.routing.locationBeforeTransitions 
+const mapStateToProps = (state, _ownProps) => ({
+  routing: state.routing.locationBeforeTransitions
 })
 
 export default connect(mapStateToProps, {

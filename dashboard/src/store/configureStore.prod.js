@@ -7,7 +7,7 @@ import socketMiddleware from '../middleware/socket'
 const configureStore = preloadedState => createStore(
   rootReducer,
   preloadedState,
-  applyMiddleware(thunk, socketMiddleware, apiMiddleware) 
+  applyMiddleware(thunk, socketMiddleware, apiMiddleware)
 )
 
 export default configureStore

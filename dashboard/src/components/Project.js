@@ -38,7 +38,7 @@ class ProjectPage extends Component {
       dropdownOpen: !this.state.dropdownOpen
     })
   }
-  
+
   renderSection(project) {
     switch(this.props.params.section) {
       case 'deploy':
@@ -74,13 +74,13 @@ class ProjectPage extends Component {
           <NavLink href={project.logsUrl} target="_blank" className="float-xs-right">Logs</NavLink>
         </Nav>
 
-        {this.renderSection(project)} 
+        {this.renderSection(project)}
       </div>
     )
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = (state, _ownProps) => ({
   project: state.project
 })
 

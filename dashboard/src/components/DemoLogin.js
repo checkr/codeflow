@@ -31,7 +31,7 @@ class DevLoginPage extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({})
+const mapStateToProps = (_state, _ownProps) => ({})
 
 export default connect(mapStateToProps, {
   authCallback

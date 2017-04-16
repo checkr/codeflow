@@ -5,16 +5,16 @@ import { connect } from 'react-redux'
 
 
 class AddProject extends Component {
-  renderInput(field) {   
+  renderInput(field) {
     return (
       <Input {...field.input} type={field.type} placeholder={field.placeholder} />
-    )  
+    )
   }
 
-  renderCheckbox(field) {   
+  renderCheckbox(field) {
     return (
       <Input {...field.input} type={field.type} placeholder={field.placeholder} />
-    )  
+    )
   }
 
   renderGitUrl() {

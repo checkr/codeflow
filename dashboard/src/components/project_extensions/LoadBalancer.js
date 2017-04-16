@@ -23,15 +23,6 @@ const renderSelect = field => {
   )
 }
 
-const renderDomainSelect = field => {
-  return (
-    <select {...field.input} name={field.name} className="form-control">
-      <option disabled value="">Choose domain</option>
-      <option key="test.checkrhq.net" value="test.checkrhq.net">test.checkrhq.net</option>
-    </select>
-  )
-}
-
 const renderProtocolSelect = field => {
   return (
     <select {...field.input} name={field.name} className="form-control">
@@ -113,41 +104,6 @@ const renderListeners = ({ fields, service, tooltipServiceProtocolOpen, toggleSe
     {!_.isEmpty(service) && <div className="row">
       <div className="col-xs-2">
         <button type="button" className="btn btn-secondary btn-sm float-xs-left btn-service-action" onClick={() => fields.push({destination: {protocol: "HTTPS"}})}>Add port map</button>
-      </div>
-    </div>}
-  </div>
-  )
-}
-
-const renderDomains = ({ fields, service, formValues }) => {
-  return (
-  <div className="col-xs-12">
-    { !_.isEmpty(formValues.values.listenerPairs) && <hr /> }
-    { (fields.length > 0) &&
-    <div className="row">
-      <div className="col-xs-11">
-        <label>Domains</label>
-      </div>
-      <div className="col-xs-1" />
-    </div>
-    }
-    {fields.map((s, i) =>
-    <div className="row" key={i}>
-      <div className="col-xs-11">
-        <div className="form-group">
-          <Field className="form-control" name={'domains['+i+']'} service={service} component={renderDomainSelect}/>
-        </div>
-      </div>
-      <div className="col-xs-1">
-        <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-service-action-right" onClick={() => fields.remove(i)}>
-          <i className="fa fa-times" aria-hidden="true" />
-        </button>
-      </div>
-    </div>
-    )}
-    {!_.isEmpty(formValues.values.listenerPairs) && <div className="row">
-      <div className="col-xs-12">
-        <button type="button" className="btn btn-secondary btn-sm float-xs-left btn-service-action" onClick={() => fields.push({destination: {protocol: "HTTPS"}})}>Link domain</button>
       </div>
     </div>}
   </div>

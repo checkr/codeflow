@@ -21,8 +21,6 @@ class DockerImage extends Component {
     e.preventDefault()
 
     this.loadData(this.props)
-    if (!this.state.modal === true) {
-    }
 
     this.setState({
       modal: !this.state.modal
@@ -43,21 +41,21 @@ class DockerImage extends Component {
       modal: false
     })
   }
-  
+
   renderBtn() {
     let { workflow } = this.props
 
     switch(workflow.state) {
       case 'running':
-        return <Button className="tag tag-warning flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button> 
+        return <Button className="tag tag-warning flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button>
       case 'building':
-        return <Button className="tag tag-warning flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button> 
+        return <Button className="tag tag-warning flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-refresh fa-spin fa-lg fa-fw" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button>
       case 'complete':
-        return <span className="tag tag-success flow" key={workflow._id}><i className="fa fa-check fa-lg" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</span> 
+        return <span className="tag tag-success flow" key={workflow._id}><i className="fa fa-check fa-lg" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</span>
       case 'failed':
-        return <Button className="tag tag-danger flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-times fa-lg" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button> 
+        return <Button className="tag tag-danger flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-times fa-lg" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button>
       default:
-        return <Button className="tag tag-info flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-cog fa-spin fa-lg fa-fw" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button> 
+        return <Button className="tag tag-info flow" key={workflow._id} onClick={(e) => this.toggle(e)}><i className="fa fa-cog fa-spin fa-lg fa-fw" aria-hidden="true"></i> {workflow.type.toUpperCase()}:{workflow.name}</Button>
     }
   }
 
@@ -82,7 +80,7 @@ class DockerImage extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = (state, _ownProps) => ({
   project: state.project,
   build: state.build,
 })

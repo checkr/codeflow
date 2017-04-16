@@ -29,11 +29,11 @@ class Navigation extends Component {
 
     if (bookmarks.length > 0) {
       bookmarks_jsx.push(<li key="header-bookmarks" className="nav-header">Bookmarks</li>)
-      bookmarks.forEach(function (bookmark, i) {
+      bookmarks.forEach(bookmark =>
         bookmarks_jsx.push(<NavItem to={'/projects/'+bookmark.slug} classNames="" key={bookmark.projectId}>{bookmark.name}</NavItem>)
-      })
+      )
     } else {
-      return null 
+      return null
     }
 
     if (bookmarks_jsx.length === 0) {
@@ -89,7 +89,7 @@ class Navigation extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = (state, _ownProps) => ({
   me: state.me,
   bookmarks: state.bookmarks,
 })

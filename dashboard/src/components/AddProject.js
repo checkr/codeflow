@@ -31,7 +31,7 @@ class AddProjectsPage extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => ({
+const mapStateToProps = (state, _ownProps) => ({
   addProjectForm: state.form.addProject
 })
 

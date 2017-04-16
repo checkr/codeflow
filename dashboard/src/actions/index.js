@@ -134,12 +134,12 @@ export const fetchProjects = (query = '', callee = '') => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${authToken()}`
       },
-      types: [ 
+      types: [
         {
           type: 'PROJECTS_REQUEST',
           meta: { callee: callee }
         },
-        PROJECTS_SUCCESS, PROJECTS_FAILURE 
+        PROJECTS_SUCCESS, PROJECTS_FAILURE
       ]
     }
   }
@@ -418,7 +418,7 @@ export const fetchProjectReleases = (slug = '', query = '', callee = '') => {
           type: 'PROJECT_RELEASES_FETCH_REQUESTT',
           meta: { callee: callee }
         },
-        PROJECT_RELEASES_FETCH_SUCCESS, PROJECT_RELEASES_FETCH_FAILURE 
+        PROJECT_RELEASES_FETCH_SUCCESS, PROJECT_RELEASES_FETCH_FAILURE
       ]
     }
   }
@@ -439,7 +439,7 @@ export const fetchProjectCurrentRelease = (slug = '') => {
         'Authorization': `Bearer ${authToken()}`
       },
       types: [
-        PROJECT_CURRENT_RELEASE_FETCH_REQUEST, PROJECT_CURRENT_RELEASE_FETCH_SUCCESS, PROJECT_CURRENT_RELEASE_FETCH_FAILURE 
+        PROJECT_CURRENT_RELEASE_FETCH_REQUEST, PROJECT_CURRENT_RELEASE_FETCH_SUCCESS, PROJECT_CURRENT_RELEASE_FETCH_FAILURE
       ]
     }
   }
@@ -535,7 +535,7 @@ export const WS_SEND_MESSAGE = 'WS_SEND_MESSAGE'
 
 export const wsConnect = () => ({
   type: WS_CONNECT,
-  url: `${WS_ROOT}` 
+  url: `${WS_ROOT}`
 })
 
 export const wsConnecting = () => ({
