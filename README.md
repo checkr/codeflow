@@ -1,4 +1,4 @@
-# Codeflow
+# Codeflow [![CircleCI](https://circleci.com/gh/checkr/codeflow/tree/master.svg?style=svg)](https://circleci.com/gh/checkr/codeflow/tree/master)
 
 Extendable deployment pipeline
 
