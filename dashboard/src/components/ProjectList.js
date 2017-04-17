@@ -90,7 +90,15 @@ class ProjectList extends Component {
       <div>
         <div className="clearfix row mb-2">
           <div className="col-md-5 pull-right">
-            <input type="text" className="form-control" onChange={({ target }) => this.search(target.value)} value={this.props.routing.query['q']}/>
+            <div className="input-group">
+              <span className="input-group-addon"><i className="fa fa-search fa-fw"></i></span>
+              <input type="text"
+                placeholder="Search projects"
+                autoFocus="true"
+                className="form-control"
+                onChange={({ target }) => this.search(target.value)}
+                value={this.props.routing.query['q']}/>
+            </div>
           </div>
         </div>
         <ul className="list-group search-results">
