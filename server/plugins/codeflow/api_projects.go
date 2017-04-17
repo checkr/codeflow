@@ -71,10 +71,17 @@ func (x *Projects) serviceSpecs(w rest.ResponseWriter, r *rest.Request) {
 func (x *Projects) projects(w rest.ResponseWriter, r *rest.Request) {
 	projects := []Project{}
 	pageResults := PageResults{}
-	currentPage, _ := strconv.Atoi(r.URL.Query().Get("projects_page"))
+	query := r.URL.Query()
+	search := query.Get("q")
+	currentPage, _ := strconv.Atoi(query.Get("projects_page"))
 	perPage := 20
+	m := bson.M{}
 
-	results := db.Collection("projects").Find(bson.M{})
+	if search != "" {
+		m = bson.M{"name": bson.RegEx{search, "i"}}
+	}
+
+	results := db.Collection("projects").Find(m)
 	if pagination, err := results.Paginate(perPage, currentPage); err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 	} else {

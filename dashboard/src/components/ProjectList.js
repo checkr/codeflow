@@ -3,6 +3,8 @@ import { connect } from 'react-redux'
 import { Link } from 'react-router'
 import { fetchProjects } from '../actions'
 import _ from 'underscore'
+import merge from 'lodash/merge'
+import queryString  from 'query-string'
 import FontAwesome from 'react-fontawesome'
 import { createBookmarks, deleteBookmarks } from '../actions'
 import Pagination from './Pagination'
@@ -12,6 +14,10 @@ const loadData = props => {
 }
 
 class ProjectList extends Component {
+  static contextTypes = {
+    router: PropTypes.object
+  }
+
   static propTypes = {
     createBookmarks: PropTypes.func.isRequired,
     deleteBookmarks: PropTypes.func.isRequired
@@ -21,8 +27,21 @@ class ProjectList extends Component {
     loadData(this.props)
   }
 
-  paginate(pathname, search) {
-    this.props.fetchProjects('?'+search, 'pagination')
+  search(term) {
+    const { pathname, query } = this.props.routing
+    const { router } = this.context
+    const urlParams = merge({}, query, { q: term })
+
+    router.push({
+      pathname,
+      query: urlParams
+    })
+
+    this.paginate(queryString.stringify(urlParams))
+  }
+
+  paginate(search) {
+    this.props.fetchProjects(`?${search}`, 'pagination')
   }
 
   handleBookmarkCreate = (project, e) => {
@@ -69,10 +88,15 @@ class ProjectList extends Component {
 
     return (
       <div>
+        <div className="clearfix row mb-2">
+          <div className="col-md-5 pull-right">
+            <input type="text" className="form-control" onChange={({ target }) => this.search(target.value)} value={this.props.routing.query['q']}/>
+          </div>
+        </div>
         <ul className="list-group search-results">
           {projects_jsx}
         </ul>
-        <Pagination onChange={(p,s) => this.paginate(p,s)} totalPages={pagination.totalPages} page={pagination.current} count={pagination.recordsOnPage} queryParam="projects_page"/>
+        <Pagination onChange={(_p, s) => this.paginate(s)} totalPages={pagination.totalPages} page={pagination.current} count={pagination.recordsOnPage} queryParam="projects_page"/>
       </div>
     )
   }
