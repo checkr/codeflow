@@ -150,6 +150,7 @@ type ServiceSpec struct {
 
 type DockerRegistry struct {
 	Host     string `json:"host"`
+	Org      string `json:"org"`
 	Username string `json:"username"`
 	Password string `json:"password" role:"secret"`
 	Email    string `json:"email"`

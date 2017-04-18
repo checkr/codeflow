@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/checkr/codeflow/server/plugins"
+	"github.com/extemporalgenome/slug"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/spf13/viper"
 )
@@ -41,7 +42,7 @@ func (b *DockerBuilder) fetchCode(build *plugins.DockerBuild) error {
 
 func (b *DockerBuilder) build(build *plugins.DockerBuild) error {
 	repoPath := fmt.Sprintf("%s/%s", build.Git.Workdir, build.Project.Repository)
-	name := fmt.Sprintf("%s/%s:%s.%s", build.Registry.Host, build.Project.Repository, build.Feature.Hash, viper.GetString("environment"))
+	name := fmt.Sprintf("%s/%s/%s:%s.%s", build.Registry.Host, build.Registry.Org, slug.Slug(build.Project.Repository), build.Feature.Hash, viper.GetString("environment"))
 
 	var buildArgs []docker.BuildArg
 	for _, arg := range build.BuildArgs {
@@ -69,7 +70,7 @@ func (b *DockerBuilder) build(build *plugins.DockerBuild) error {
 
 func (b *DockerBuilder) push(build *plugins.DockerBuild) error {
 	var err error
-	name := fmt.Sprintf("%s/%s", build.Registry.Host, build.Project.Repository)
+	name := fmt.Sprintf("%s/%s/%s", build.Registry.Host, build.Registry.Org, slug.Slug(build.Project.Repository))
 	tag_hash := fmt.Sprintf("%s.%s", build.Feature.Hash, viper.GetString("environment"))
 	full_name := fmt.Sprintf("%s:%s", name, tag_hash)
 	tag_latest := "latest"
@@ -115,7 +116,7 @@ func (b *DockerBuilder) push(build *plugins.DockerBuild) error {
 		return err
 	}
 
-	build.Image = fmt.Sprintf("%s/%s:%s.%s", build.Registry.Host, build.Project.Repository, build.Feature.Hash, viper.GetString("environment"))
+	build.Image = full_name
 
 	return nil
 }

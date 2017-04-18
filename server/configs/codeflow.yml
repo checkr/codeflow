@@ -56,6 +56,7 @@ plugins:
   docker_build:
     workers: 1
     registry_host: "docker.io"
+    registry_org: ""
     registry_username: ""
     registry_password: ""
     registry_user_email: ""

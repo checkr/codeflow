@@ -632,6 +632,7 @@ func CreateDeploy(r *Release) error {
 			Image: build.Image,
 			Registry: plugins.DockerRegistry{
 				Host:     viper.GetString("plugins.docker_build.registry_host"),
+				Org:      viper.GetString("plugins.docker_build.registry_org"),
 				Username: viper.GetString("plugins.docker_build.registry_username"),
 				Password: viper.GetString("plugins.docker_build.registry_password"),
 				Email:    viper.GetString("plugins.docker_build.registry_user_email"),
@@ -939,6 +940,7 @@ func DockerBuildRebuild(r *Release) error {
 		},
 		Registry: plugins.DockerRegistry{
 			Host:     viper.GetString("plugins.docker_build.registry_host"),
+			Org:      viper.GetString("plugins.docker_build.registry_org"),
 			Username: viper.GetString("plugins.docker_build.registry_username"),
 			Password: viper.GetString("plugins.docker_build.registry_password"),
 			Email:    viper.GetString("plugins.docker_build.registry_user_email"),
