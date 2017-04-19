@@ -129,9 +129,10 @@ class ProjectSettings extends Component {
   }
 
   render() {
-    const { onSubmit } = this.props
+    const { pristine, submitting, handleSubmit } = this.props
+
     return (
-      <Form onSubmit={onSubmit}>
+      <Form onSubmit={handleSubmit}>
         <div className="hr-divider m-t-md m-b">
           <h3 className="hr-divider-content hr-divider-heading">Project</h3>
         </div>
@@ -160,7 +161,7 @@ class ProjectSettings extends Component {
         <FieldArray name="secrets" collapsed={this.state.collapsed} component={this.renderConfigVars}/>
 
         <br/>
-        <Button>Save</Button>
+        <Button disabled={submitting || pristine}>{submitting ? 'Saving…' : 'Save'}</Button>
       </Form>
     )
   }
@@ -176,7 +177,8 @@ class ProjectSettings extends Component {
 const ProjectSettingsForm = reduxForm({
   enableReinitialize: true,
   destroyOnUnmount: false,
-  form: 'projectSettings'
+  form: 'projectSettings',
+  onSubmitSuccess: (_component, _dispatch) => {}
 })(ProjectSettings)
 
 export default connect(

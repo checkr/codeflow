@@ -15,10 +15,10 @@ class ProjectSettings extends Component {
     props.fetchProjectSettings(props.project.slug)
   }
 
-  handleSubmit = e => {
-    e.preventDefault()
+  handleSubmit = () => {
     const { project } = this.props
-    this.props.updateProjectSettings(project.slug, this.props.projectSettingsForm.values).then((fetch) => {
+
+    return this.props.updateProjectSettings(project.slug, this.props.projectSettingsForm.values).then((fetch) => {
       console.log(fetch)
     })
   }
