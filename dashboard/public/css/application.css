@@ -396,6 +396,21 @@ a {
 .lb-exp {
   margin-bottom: 5px;
 }
+
+.config-vars {
+  max-height: 9999px;
+  overflow: hidden;
+  transition: max-height 250ms ease;
+}
+
+.config-vars__heading {
+  cursor: pointer;
+}
+
+.config-vars--collapsed {
+  max-height: 0;
+}
+
 .config-vars hr {
   margin-top: 15px;
   margin-bottom: 15px;

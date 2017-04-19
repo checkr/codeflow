@@ -8,6 +8,12 @@ class ProjectSettings extends Component {
     dispatch: PropTypes.func.isRequired
   }
 
+  constructor(props) {
+    super(props)
+
+    this.state = { collapsed: true }
+  }
+
   renderInput = (field) => {
     if(field['data-type'] === 'file') {
       return (
@@ -78,10 +84,12 @@ class ProjectSettings extends Component {
   renderConfigVars = ({ fields }) => {
     return (
       <div>
-        <div className="hr-divider m-t-md m-b">
-          <h3 className="hr-divider-content hr-divider-heading">Config Variables</h3>
+        <div className="hr-divider m-t-md m-b" onClick={() => this.onToggleConfigVars()}>
+          <h3 className="hr-divider-content hr-divider-heading config-vars__heading">
+            Config Variables <i className={`fa fa-caret-${this.state.collapsed ? 'up' : 'down'}`} aria-hidden="true"/>
+          </h3>
         </div>
-        <FormGroup className="config-vars">
+        <FormGroup className={`config-vars ${this.state.collapsed ? 'config-vars--collapsed' : ''}`}>
           {fields.map((s, i) => {
             let secret = this.props.formValues.values.secrets[i]
             return (<div key={i} className={'row flex-items-xs-middle config-var'}>
@@ -113,6 +121,9 @@ class ProjectSettings extends Component {
             </div>
           </div>
         </FormGroup>
+        <div className="text-sm-center mb-1" hidden={!this.state.collapsed}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => this.onToggleConfigVars()}>Reveal Variables</button>
+        </div>
       </div>
     )
   }
@@ -146,12 +157,18 @@ class ProjectSettings extends Component {
           <Field name="notifyChannels" component={this.renderInput} type="text" placeholder="#eng,#devops"/>
         </FormGroup>
 
-        <FieldArray name="secrets" component={this.renderConfigVars}/>
+        <FieldArray name="secrets" collapsed={this.state.collapsed} component={this.renderConfigVars}/>
 
         <br/>
         <Button>Save</Button>
       </Form>
     )
+  }
+
+  onToggleConfigVars() {
+    this.setState({
+      collapsed: !this.state.collapsed
+    })
   }
 }
 
