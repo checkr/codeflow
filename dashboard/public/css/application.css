@@ -398,9 +398,8 @@ a {
 }
 
 .config-vars {
-  max-height: 9999px;
+  max-height: 100%;
   overflow: hidden;
-  transition: max-height 250ms ease;
 }
 
 .config-vars__heading {
