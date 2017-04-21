@@ -206,7 +206,7 @@ const releases = (state = {}, action = {}) => {
 
 // Updates error message to notify about the failed fetches.
 const errorMessage = (state = null, action) => {
-  const { error } = action
+  const { error, payload } = action
 
   switch (action.type) {
     case ActionTypes.RESET_ERROR_MESSAGE:
@@ -215,8 +215,8 @@ const errorMessage = (state = null, action) => {
       break
   }
 
-  if (error) {
-    return action.payload.message + ' :: ' + action.payload.name
+  if (error && payload && payload.response) {
+    return payload.message + ' :: ' + payload.name
   }
 
   return state
