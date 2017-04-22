@@ -2,7 +2,7 @@ import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
 import NavItem from '../components/NavItem'
 import { logoutUser, fetchUsers, fetchBookmarks } from '../actions'
-import _ from 'underscore'
+import { isEmpty } from 'lodash'
 
 const loadData = props => {
   props.fetchUsers('me')
@@ -47,7 +47,7 @@ class Navigation extends Component {
     let { me } = this.props
     let user_jsx = []
 
-    if (_.isEmpty(me)) {
+    if (isEmpty(me)) {
       return null
     }
 

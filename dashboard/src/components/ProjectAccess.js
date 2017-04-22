@@ -1,12 +1,12 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import _ from 'underscore'
+import { isEmpty } from 'lodash'
 
 class ProjectAccess extends Component {
   render() {
     const { project } = this.props
 
-    if (_.isEmpty(project)) {
+    if (isEmpty(project)) {
       return null
     }
 

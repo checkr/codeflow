@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { Form, FormGroup, Label, Input } from 'reactstrap'
 import { Alert } from 'reactstrap'
 import { loadProject, appConfig } from '../actions'
-import _ from 'underscore'
+import { isEmpty } from 'lodash'
 
 class ProjectInit extends Component {
   componentWillMount() {
@@ -14,7 +14,7 @@ class ProjectInit extends Component {
   render() {
     const { project, config } = this.props
 
-    if (_.isEmpty(project) || project.pinged) {
+    if (isEmpty(project) || project.pinged) {
       return null
     }
 

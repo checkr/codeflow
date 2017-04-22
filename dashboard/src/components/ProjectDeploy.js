@@ -1,5 +1,5 @@
 import React, { Component } from 'react'
-import _ from 'underscore'
+import { isEmpty, map } from 'lodash'
 import { connect } from 'react-redux'
 import { Alert } from 'reactstrap'
 import { fetchProjectFeatures, createProjectRelease, createProjectRollbackTo, fetchProjectReleases, fetchProjectCurrentRelease } from '../actions'
@@ -78,7 +78,7 @@ class ProjectDeploy extends Component {
     let { records, pagination } = this.props.features
     let features_jsx = []
 
-    if (_.isEmpty(records)) {
+    if (isEmpty(records)) {
       return(
         <Alert color="info">
           This project has no deployable features. Do some work and come back!
@@ -145,7 +145,7 @@ class ProjectDeploy extends Component {
       return null
     }
 
-    let flows = _.map(release.workflow, (wf) => {
+    let flows = map(release.workflow, (wf) => {
       if (wf.name === "DockerImage") {
         return <DockerImage key={wf._id} workflow={wf}/>
       }
@@ -188,7 +188,7 @@ class ProjectDeploy extends Component {
     let releases_jsx = []
     let that = this
 
-    if (_.isEmpty(records)) {
+    if (isEmpty(records)) {
       return (<li>
         <Alert color="info">
           This project has no releases. Build some features and deploy them!
@@ -273,7 +273,7 @@ class ProjectDeploy extends Component {
   render() {
     const { project, currentRelease } = this.props
 
-    if (_.isEmpty(project) || !project.pinged) {
+    if (isEmpty(project) || !project.pinged) {
       return null
     }
 
@@ -286,7 +286,7 @@ class ProjectDeploy extends Component {
           {this.renderFeatures()}
         </div>
 
-        { !_.isEmpty(currentRelease._id) && <div className="clearfix">
+        { !isEmpty(currentRelease._id) && <div className="clearfix">
           <div className="hr-divider m-t-md m-b">
             <h3 className="hr-divider-content hr-divider-heading">Current Release</h3>
           </div>

@@ -2,7 +2,13 @@ import * as ActionTypes from '../actions'
 import { routerReducer as routing } from 'react-router-redux'
 import { combineReducers } from 'redux'
 import { reducer as form } from 'redux-form'
-import _ from 'underscore'
+import {
+  extend,
+  findWhere,
+  isEqual,
+  union,
+  without
+} from 'lodash'
 
 const appConfig = (state = {}, action = {}) => {
   switch (action.type) {
@@ -65,13 +71,13 @@ const projectServices = (state = [], action = {}) => {
     case ActionTypes.PROJECT_SERVICE_FETCH_REQUEST:
       return []
     case ActionTypes.PROJECT_SERVICE_UPDATE_SUCCESS:
-      _.extend(_.findWhere(state, { _id: action.payload._id }), action.payload)
-      return _.extend([], state)
+      extend(findWhere(state, { _id: action.payload._id }), action.payload)
+      return extend([], state)
     case ActionTypes.PROJECT_SERVICE_CREATE_SUCCESS: {
-      return _.union([], state, [action.payload])
+      return union([], state, [action.payload])
     }
     case ActionTypes.PROJECT_SERVICE_DELETE_SUCCESS: {
-      return _.without(state, _.findWhere(state, { _id: action.payload._id }))
+      return without(state, findWhere(state, { _id: action.payload._id }))
     }
     case ActionTypes.PROJECT_SERVICE_FETCH_SUCCESS:
       return action.payload
@@ -85,13 +91,13 @@ const projectExtensions = (state = [], action = {}) => {
     case ActionTypes.PROJECT_EXTENSION_FETCH_REQUEST:
       return []
     case ActionTypes.PROJECT_EXTENSION_UPDATE_SUCCESS:
-      _.extend(_.findWhere(state, { _id: action.payload._id }), action.payload)
-      return _.extend([], state)
+      extend(findWhere(state, { _id: action.payload._id }), action.payload)
+      return extend([], state)
     case ActionTypes.PROJECT_EXTENSION_CREATE_SUCCESS: {
-      return _.union([], state, [action.payload])
+      return union([], state, [action.payload])
     }
     case ActionTypes.PROJECT_EXTENSION_DELETE_SUCCESS: {
-      return _.without(state, _.findWhere(state, { _id: action.payload._id }))
+      return without(state, findWhere(state, { _id: action.payload._id }))
     }
     case ActionTypes.PROJECT_EXTENSION_FETCH_SUCCESS:
       return action.payload
@@ -142,7 +148,7 @@ const features = (state = {}, action = {}) => {
       return action.payload
     case ActionTypes.WS_MESSAGE_RECEIVED: {
       if (action.message.channel === 'features') {
-        if (_.isEqual(action.meta.project._id, action.message.data.projectId)) {
+        if (isEqual(action.meta.project._id, action.message.data.projectId)) {
           return Object.assign({dirty: true}, state)
         }
       }
@@ -161,12 +167,12 @@ const currentRelease = (state = {}, action = {}) => {
       return action.payload
     case ActionTypes.WS_MESSAGE_RECEIVED: {
       if (action.message.channel === 'releases/promote') {
-        if (_.isEqual(action.meta.project._id, action.message.data.projectId)) {
+        if (isEqual(action.meta.project._id, action.message.data.projectId)) {
           return action.message.data
         }
       }
       if (action.message.channel === 'releases') {
-        if (_.isEqual(action.meta.project._id, action.message.data.projectId) && _.isEqual(action.message.data._id, state._id)) {
+        if (isEqual(action.meta.project._id, action.message.data.projectId) && isEqual(action.message.data._id, state._id)) {
           return action.message.data
         }
       }
@@ -192,7 +198,7 @@ const releases = (state = {}, action = {}) => {
     }
     case ActionTypes.WS_MESSAGE_RECEIVED: {
       if (action.message.channel === 'releases') {
-        if (_.isEqual(action.meta.project._id, action.message.data.projectId)) {
+        if (isEqual(action.meta.project._id, action.message.data.projectId)) {
           return Object.assign({dirty: true}, state)
         }
       }

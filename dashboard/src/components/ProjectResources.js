@@ -1,6 +1,6 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import _ from 'underscore'
+import { forEach, isEmpty } from 'lodash'
 import { SubmissionError } from 'redux-form'
 
 import ProjectServiceForm from '../components/ProjectServiceForm'
@@ -99,7 +99,7 @@ class ProjectResources extends Component {
     let { services } = this.props
     let services_jsx = []
 
-    _.forEach(services, service => {
+    forEach(services, service => {
       if (this.state.edit && this.state.edit === service._id) {
         services_jsx.push(this.renderEditService(service))
       } else {
@@ -133,7 +133,7 @@ class ProjectResources extends Component {
     let { extensions } = this.props
     let extensions_jsx = []
 
-    _.forEach(extensions, extension => {
+    forEach(extensions, extension => {
       if (this.state.editExtension && this.state.extensionId === extension._id) {
         extensions_jsx.push(this.renderEditExtension(extension))
       } else {
@@ -259,7 +259,7 @@ class ProjectResources extends Component {
   render() {
     const { project } = this.props
 
-    if (_.isEmpty(project)) {
+    if (isEmpty(project)) {
       return null
     }
 

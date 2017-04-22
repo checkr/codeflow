@@ -8,7 +8,7 @@ import ProjectSettings from '../components/ProjectSettings'
 import ProjectAccess from '../components/ProjectAccess'
 import ProjectDeploy from '../components/ProjectDeploy'
 import { fetchProject } from '../actions'
-import _ from 'underscore'
+import { isEmpty } from 'lodash'
 
 const loadData = props => {
   props.fetchProject(props.params.project_slug)
@@ -61,7 +61,7 @@ class ProjectPage extends Component {
     const { project_slug } = this.props.params
     const { project } = this.props
 
-    if (_.isEmpty(project)) {
+    if (isEmpty(project)) {
       return null
     }
 

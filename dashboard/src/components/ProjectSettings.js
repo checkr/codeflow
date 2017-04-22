@@ -2,7 +2,7 @@
 
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import _ from 'underscore'
+import { isEmpty } from 'lodash'
 import ProjectSettingsForm from '../components/ProjectSettingsForm'
 import { fetchProjectSettings, updateProjectSettings } from '../actions'
 
@@ -26,7 +26,7 @@ class ProjectSettings extends Component {
   render() {
     const { project, projectSettings } = this.props
 
-    if (_.isEmpty(project)) {
+    if (isEmpty(project)) {
       return null
     }
 

@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 
-import _ from 'underscore'
+import { extend } from 'lodash'
 
 const loadConfig = () => {
   let config = {}
@@ -22,7 +22,7 @@ const loadConfig = () => {
       console.log(e);
     }
   }
-  return _.extend(config, process.env)
+  return extend(config, process.env)
 }
 
 export default loadConfig

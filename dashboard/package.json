@@ -37,8 +37,7 @@
     "redux-form": "6.6.1",
     "redux-logger": "3.0.1",
     "redux-thunk": "2.2.0",
-    "replacestream": "4.0.2",
-    "underscore": "1.8.3"
+    "replacestream": "4.0.2"
   },
   "scripts": {
     "lint": "eslint server.js src",

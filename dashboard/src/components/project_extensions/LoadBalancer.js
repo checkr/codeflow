@@ -2,7 +2,7 @@ import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import { Form, FormGroup, Input } from 'reactstrap'
 import { Field, FieldArray, reduxForm } from 'redux-form'
-import _ from 'underscore'
+import { isEmpty, findWhere } from 'lodash'
 import ButtonConfirmAction from '../../components/ButtonConfirmAction'
 import { Tooltip } from 'reactstrap';
 
@@ -37,7 +37,7 @@ const renderProtocolSelect = field => {
 }
 
 const renderListenerSelect = field => {
-  if (_.isEmpty(field.service.listeners)) {
+  if (isEmpty(field.service.listeners)) {
     return null
   }
   return (
@@ -57,7 +57,7 @@ const normalizeInt = (value, _previousValue) => {
 const renderListeners = ({ fields, service, tooltipServiceProtocolOpen, toggleServiceProtocol }) => {
   return (
   <div className="col-xs-12">
-    { !_.isEmpty(service) && <hr />}
+    { !isEmpty(service) && <hr />}
     { (fields.length > 0) &&
     <div className="row">
       <div className="col-xs-4">
@@ -101,7 +101,7 @@ const renderListeners = ({ fields, service, tooltipServiceProtocolOpen, toggleSe
       </div>
     </div>
     )}
-    {!_.isEmpty(service) && <div className="row">
+    {!isEmpty(service) && <div className="row">
       <div className="col-xs-2">
         <button type="button" className="btn btn-secondary btn-sm float-xs-left btn-service-action" onClick={() => fields.push({destination: {protocol: "HTTPS"}})}>Add port map</button>
       </div>
@@ -114,12 +114,12 @@ class LoadBalancer extends Component {
   renderShow() {
     let { services, extension } = this.props
     let service = {}
-    if (!_.isEmpty(extension) && extension.serviceId) {
-      service = _.findWhere(services, { _id: extension.serviceId })
+    if (!isEmpty(extension) && extension.serviceId) {
+      service = findWhere(services, { _id: extension.serviceId })
     }
 
     let dns = <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-globe" aria-hidden="true" /></div><input type="text" className="form-control" value={extension.type} readOnly/></div>
-    if (!_.isEmpty(extension.dnsName)) {
+    if (!isEmpty(extension.dnsName)) {
       dns = <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-globe" aria-hidden="true" /></div><input type="text" className="form-control" value={extension.dnsName} readOnly/></div>
     }
 
@@ -128,7 +128,7 @@ class LoadBalancer extends Component {
         <h5 className="lb-title">
           Load Balancer
         </h5>
-        { !_.isEmpty(service) && <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-tasks" aria-hidden="true" /></div><input type="text" className="form-control" value={service.name} readOnly/></div>
+        { !isEmpty(service) && <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-tasks" aria-hidden="true" /></div><input type="text" className="form-control" value={service.name} readOnly/></div>
  }
 
         {dns}
@@ -141,8 +141,8 @@ class LoadBalancer extends Component {
     let { services } = this.props
     let service = {}
 
-    if (!_.isEmpty(formValues) && formValues.values.serviceId) {
-      service = _.findWhere(services, { _id: formValues.values.serviceId })
+    if (!isEmpty(formValues) && formValues.values.serviceId) {
+      service = findWhere(services, { _id: formValues.values.serviceId })
     }
     return (
       <Form>
