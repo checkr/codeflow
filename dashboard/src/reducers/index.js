@@ -4,7 +4,7 @@ import { combineReducers } from 'redux'
 import { reducer as form } from 'redux-form'
 import {
   extend,
-  findWhere,
+  find,
   isEqual,
   union,
   without
@@ -71,13 +71,13 @@ const projectServices = (state = [], action = {}) => {
     case ActionTypes.PROJECT_SERVICE_FETCH_REQUEST:
       return []
     case ActionTypes.PROJECT_SERVICE_UPDATE_SUCCESS:
-      extend(findWhere(state, { _id: action.payload._id }), action.payload)
+      extend(find(state, { _id: action.payload._id }), action.payload)
       return extend([], state)
     case ActionTypes.PROJECT_SERVICE_CREATE_SUCCESS: {
       return union([], state, [action.payload])
     }
     case ActionTypes.PROJECT_SERVICE_DELETE_SUCCESS: {
-      return without(state, findWhere(state, { _id: action.payload._id }))
+      return without(state, find(state, { _id: action.payload._id }))
     }
     case ActionTypes.PROJECT_SERVICE_FETCH_SUCCESS:
       return action.payload
@@ -91,13 +91,13 @@ const projectExtensions = (state = [], action = {}) => {
     case ActionTypes.PROJECT_EXTENSION_FETCH_REQUEST:
       return []
     case ActionTypes.PROJECT_EXTENSION_UPDATE_SUCCESS:
-      extend(findWhere(state, { _id: action.payload._id }), action.payload)
+      extend(find(state, { _id: action.payload._id }), action.payload)
       return extend([], state)
     case ActionTypes.PROJECT_EXTENSION_CREATE_SUCCESS: {
       return union([], state, [action.payload])
     }
     case ActionTypes.PROJECT_EXTENSION_DELETE_SUCCESS: {
-      return without(state, findWhere(state, { _id: action.payload._id }))
+      return without(state, find(state, { _id: action.payload._id }))
     }
     case ActionTypes.PROJECT_EXTENSION_FETCH_SUCCESS:
       return action.payload

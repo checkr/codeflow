@@ -2,7 +2,7 @@ import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import { Form, FormGroup, Input } from 'reactstrap'
 import { Field, FieldArray, reduxForm } from 'redux-form'
-import { isEmpty, findWhere } from 'lodash'
+import { isEmpty, find } from 'lodash'
 import ButtonConfirmAction from '../../components/ButtonConfirmAction'
 import { Tooltip } from 'reactstrap';
 
@@ -115,7 +115,7 @@ class LoadBalancer extends Component {
     let { services, extension } = this.props
     let service = {}
     if (!isEmpty(extension) && extension.serviceId) {
-      service = findWhere(services, { _id: extension.serviceId })
+      service = find(services, { _id: extension.serviceId })
     }
 
     let dns = <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-globe" aria-hidden="true" /></div><input type="text" className="form-control" value={extension.type} readOnly/></div>
@@ -142,7 +142,7 @@ class LoadBalancer extends Component {
     let service = {}
 
     if (!isEmpty(formValues) && formValues.values.serviceId) {
-      service = findWhere(services, { _id: formValues.values.serviceId })
+      service = find(services, { _id: formValues.values.serviceId })
     }
     return (
       <Form>

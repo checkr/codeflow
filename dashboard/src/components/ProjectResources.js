@@ -87,7 +87,7 @@ class ProjectResources extends Component {
     return(
       <li className="list-group-item" key={"service-" + service._id}>
         <div className="feed-element">
-          <div className="media-body ">
+          <div className="media-body">
             <ProjectServiceForm initialValues={service} serviceSpecs={serviceSpecs} edit={edit} onSubmit={this.onSaveService} onCancel={() => this.onCancelEditService()} onDelete={() => this.onDeleteService()}/>
           </div>
         </div>

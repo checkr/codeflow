@@ -2,7 +2,7 @@ import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router'
 import { fetchProjects } from '../actions'
-import { isEmpty, findWhere } from 'lodash'
+import { isEmpty, find } from 'lodash'
 import merge from 'lodash/merge'
 import queryString  from 'query-string'
 import FontAwesome from 'react-fontawesome'
@@ -68,7 +68,7 @@ class ProjectList extends Component {
     records.forEach(function (project) {
       let star = 'star-o'
       let action = that.handleBookmarkCreate
-      let bookmark = findWhere(bookmarks, { projectId: project._id })
+      let bookmark = find(bookmarks, { projectId: project._id })
       if (!isEmpty(bookmark)) {
         star = 'star'
         action = that.handleBookmarkDelete

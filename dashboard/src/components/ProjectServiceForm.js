@@ -2,7 +2,7 @@ import React, { Component } from 'react'
 import { Alert, Form, FormGroup, FormFeedback, Input } from 'reactstrap'
 import { Field, FieldArray, reduxForm } from 'redux-form'
 import { Tooltip } from 'reactstrap'
-import { toSafeInteger } from 'lodash'
+import { toSafeInteger, without } from 'lodash'
 
 const MIN_PORT = 1
 const MAX_PORT = 65535
@@ -16,8 +16,9 @@ const validatePortRange = value => {
 }
 
 const renderInput = ({input, _meta, ...field}) => {
+  let _field = without(field, ["meta"])
   return (
-    <Input {...field} {...input} type={field.type} placeholder={field.placeholder} disabled={field.disabled} />
+    <Input {..._field} {...input} type={field.type} placeholder={field.placeholder} disabled={field.disabled} />
   )
 }
 
