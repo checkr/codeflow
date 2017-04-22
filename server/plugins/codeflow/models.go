@@ -140,6 +140,20 @@ func (s *Service) BeforeSave(collection *bongo.Collection) error {
 	return nil
 }
 
+func (s *Service) Validate(collection *bongo.Collection) []error {
+	var err []error
+	var listener Listener
+
+	for i := 0; i < len(s.Listeners); i++ {
+		listener = s.Listeners[i]
+		if listener.Port < 1 || listener.Port > 65535 {
+			err = append(err, errors.New("Port out of range"))
+		}
+	}
+
+	return err
+}
+
 func (s *Service) AfterFind(collection *bongo.Collection) error {
 	spec := ServiceSpec{}
 	match := bson.M{"default": true}

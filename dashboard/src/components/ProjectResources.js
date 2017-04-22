@@ -1,6 +1,8 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import _ from 'underscore'
+import { SubmissionError } from 'redux-form'
+
 import ProjectServiceForm from '../components/ProjectServiceForm'
 import { fetchServiceSpecs, fetchProjectServices, createProjectService, updateProjectService, deleteProjectService } from '../actions'
 import { fetchProjectExtensions, createProjectExtension, updateProjectExtension, deleteProjectExtension } from '../actions'
@@ -12,6 +14,14 @@ const loadData = props => {
   props.fetchServiceSpecs(props.project.slug)
 }
 
+const createOrUpdateProjectService = (project, projectService, create, update) => {
+  if (projectService.values._id) {
+    return update(project.slug, projectService.values)
+  } else {
+    return create(project.slug, projectService.values)
+  }
+}
+
 class ProjectResources extends Component {
   constructor(props) {
     super(props)
@@ -19,6 +29,8 @@ class ProjectResources extends Component {
       edit: null,
       editExtension: null
     }
+
+    this.onSaveService = this.onSaveService.bind(this)
   }
 
   componentWillMount() {
@@ -70,13 +82,13 @@ class ProjectResources extends Component {
       edit = true
     }
 
-    let { serviceSpecs } = this.props
+    const { serviceSpecs } = this.props
 
     return(
       <li className="list-group-item" key={"service-" + service._id}>
         <div className="feed-element">
           <div className="media-body ">
-            <ProjectServiceForm initialValues={service} serviceSpecs={serviceSpecs} edit={edit} onSave={() => this.onSaveService()} onCancel={() => this.onCancelEditService()} onDelete={() => this.onDeleteService()}/>
+            <ProjectServiceForm initialValues={service} serviceSpecs={serviceSpecs} edit={edit} onSubmit={this.onSaveService} onCancel={() => this.onCancelEditService()} onDelete={() => this.onDeleteService()}/>
           </div>
         </div>
       </li>
@@ -187,13 +199,22 @@ class ProjectResources extends Component {
   }
 
   onSaveService() {
-    const { project } = this.props
-    if(this.props.projectService.values._id) {
-      this.props.updateProjectService(project.slug, this.props.projectService.values)
-    } else {
-      this.props.createProjectService(project.slug, this.props.projectService.values)
-    }
-    this.setState({ edit: null })
+    const {
+      project,
+      projectService,
+      createProjectService,
+      updateProjectService
+    } = this.props
+
+    return createOrUpdateProjectService(project, projectService, createProjectService, updateProjectService)
+      .then(action => {
+        if (action.error) {
+          const errorMessage = action.payload.response.Error
+          throw new SubmissionError({  _error: errorMessage })
+        } else {
+          this.setState({ edit: null })
+        }
+      })
   }
 
   onDeleteService() {
@@ -205,7 +226,6 @@ class ProjectResources extends Component {
   onCancelEditService() {
     this.setState({ edit: null })
   }
-
 
   onAddExtension(name, e) {
     e.preventDefault()
