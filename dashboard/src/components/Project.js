@@ -1,7 +1,7 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import { Nav, NavLink } from 'reactstrap'
-import NavItem from '../components/NavItem'
+import { Nav, NavLink, NavItem, ButtonDropdown, DropdownToggle, DropdownMenu, DropdownItem } from 'reactstrap'
+import NavItemCustom from '../components/NavItem'
 import ProjectInit from '../components/ProjectInit'
 import ProjectResources from '../components/ProjectResources'
 import ProjectSettings from '../components/ProjectSettings'
@@ -19,7 +19,7 @@ class ProjectPage extends Component {
     super(props)
     this.toggle = this.toggle.bind(this)
     this.state = {
-      dropdownOpen: false
+      dropdownOpen: false,
     }
   }
 
@@ -34,6 +34,7 @@ class ProjectPage extends Component {
   }
 
   toggle() {
+    console.log(this.state.dropdownOpen)
     this.setState({
       dropdownOpen: !this.state.dropdownOpen
     })
@@ -68,10 +69,22 @@ class ProjectPage extends Component {
     return (
       <div>
         <Nav pills>
-          <NavItem to={'/projects/' + project_slug + '/deploy'} classNames="nav-item">Deploy</NavItem>
-          <NavItem to={'/projects/' + project_slug + '/resources'} classNames="nav-item">Resources</NavItem>
-          <NavItem to={'/projects/' + project_slug + '/settings'} classNames="nav-item">Settings</NavItem>
-          <NavLink href={project.logsUrl} target="_blank" className="float-xs-right">Logs</NavLink>
+          <NavItemCustom to={'/projects/' + project_slug + '/deploy'} className="nav-item">Deploy</NavItemCustom>
+          <NavItemCustom to={'/projects/' + project_slug + '/resources'} className="nav-item">Resources</NavItemCustom>
+          <NavItemCustom to={'/projects/' + project_slug + '/settings'} className="nav-item">Settings</NavItemCustom>
+          <NavItem to="" className="nav-item">
+            <NavLink href={project.logsUrl} target="_blank" className="nav-item">Logs</NavLink>
+          </NavItem>
+          <ButtonDropdown isOpen={this.state.dropdownOpen} toggle={this.toggle} className="float-xs-right">
+            <DropdownToggle caret>
+              PRODUCTION
+            </DropdownToggle>
+            <DropdownMenu>
+              <DropdownItem>Development</DropdownItem>
+              <DropdownItem>Staging</DropdownItem>
+              <DropdownItem>Production</DropdownItem>
+            </DropdownMenu>
+          </ButtonDropdown>
         </Nav>
 
         {this.renderSection(project)}

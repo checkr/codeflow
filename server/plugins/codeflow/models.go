@@ -23,17 +23,29 @@ type User struct {
 }
 
 type Project struct {
+	bongo.DocumentBase `bson:",inline"`
+	Name               string      `bson:"name" json:"name"`
+	Slug               string      `bson:"slug" json:"slug"`
+	Repository         string      `bson:"repository" json:"repository"`
+	Secret             string      `bson:"secret" json:"secret"`
+	Pinged             bool        `bson:"pinged" json:"pinged"`
+	GitUrl             string      `bson:"gitUrl" json:"gitUrl" validate:"required"`
+	GitProtocol        string      `bson:"gitProtocol" json:"gitProtocol" validate:"required"`
+	RsaPrivateKey      string      `bson:"rsaPrivateKey" json:"-"`
+	RsaPublicKey       string      `bson:"rsaPublicKey" json:"rsaPublicKey"`
+	Bokmarked          bool        `bson:"-" json:"bookmarked"`
+	Environments       Environment `bson:"environments" json:"evironments"`
+
+	ContinuousIntegration bool     `bson:"continuousIntegration" json:"continuousIntegration"`
+	ContinuousDelivery    bool     `bson:"continuousDelivery" json:"continuousDelivery"`
+	Workflows             []string `bson:"workflows" json:"workflows"`
+	LogsUrl               string   `bson:"-" json:"logsUrl"`
+	NotifyChannels        string   `bson:"notifyChannels" json:"notifyChannels"`
+}
+
+type Environment struct {
 	bongo.DocumentBase    `bson:",inline"`
 	Name                  string   `bson:"name" json:"name"`
-	Slug                  string   `bson:"slug" json:"slug"`
-	Repository            string   `bson:"repository" json:"repository"`
-	Secret                string   `bson:"secret" json:"secret"`
-	Pinged                bool     `bson:"pinged" json:"pinged"`
-	GitUrl                string   `bson:"gitUrl" json:"gitUrl" validate:"required"`
-	GitProtocol           string   `bson:"gitProtocol" json:"gitProtocol" validate:"required"`
-	RsaPrivateKey         string   `bson:"rsaPrivateKey" json:"-"`
-	RsaPublicKey          string   `bson:"rsaPublicKey" json:"rsaPublicKey"`
-	Bokmarked             bool     `bson:"-" json:"bookmarked"`
 	ContinuousIntegration bool     `bson:"continuousIntegration" json:"continuousIntegration"`
 	ContinuousDelivery    bool     `bson:"continuousDelivery" json:"continuousDelivery"`
 	Workflows             []string `bson:"workflows" json:"workflows"`

@@ -137,8 +137,8 @@ class ProjectSettings extends Component {
           <h3 className="hr-divider-content hr-divider-heading">Project</h3>
         </div>
         <FormGroup>
-          <Label for="gitSshUrl">Git SSH Url</Label>
-          <Field name="gitSshUrl" component={this.renderInput} type="text" placeholder="git@github.com:checkr/codeflow.git"/>
+          <Label for="branch">Git Branch</Label>
+          <Field name="branch" component={this.renderInput} type="text" placeholder="master"/>
         </FormGroup>
 
         <FormGroup check>
