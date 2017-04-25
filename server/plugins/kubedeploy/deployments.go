@@ -374,13 +374,9 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 			nodeSelector = map[string]string{arrayKeyValue[0]: arrayKeyValue[1]}
 		}
 
-		restartPolicy := v1.RestartPolicyAlways
-		if service.OneShot {
-			restartPolicy = v1.RestartPolicyNever
-		}
-
 		var revisionHistoryLimit int32 = 10
 		terminationGracePeriodSeconds := service.Spec.TerminationGracePeriodSeconds
+
 		deployParams := &v1beta1.Deployment{
 			TypeMeta: unversioned.TypeMeta{
 				Kind:       "Deployment",
@@ -431,7 +427,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 							},
 						},
 						Volumes:       deployVolumes,
-						RestartPolicy: restartPolicy,
+						RestartPolicy: v1.RestartPolicyAlways,
 						DNSPolicy:     v1.DNSClusterFirst,
 					},
 				},
