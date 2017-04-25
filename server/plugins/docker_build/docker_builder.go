@@ -41,7 +41,7 @@ func (b *DockerBuilder) fetchCode(build *plugins.DockerBuild) error {
 }
 
 func (b *DockerBuilder) build(build *plugins.DockerBuild) error {
-	repoPath := fmt.Sprintf("%s/%s", build.Git.Workdir, build.Project.Repository)
+	repoPath := fmt.Sprintf("%s/%s_%s", build.Git.Workdir, build.Project.Repository, build.Git.Protocol)
 	name := fmt.Sprintf("%s/%s/%s:%s.%s", build.Registry.Host, build.Registry.Org, slug.Slug(build.Project.Repository), build.Feature.Hash, viper.GetString("environment"))
 
 	var buildArgs []docker.BuildArg
