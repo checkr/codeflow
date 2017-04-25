@@ -4,7 +4,7 @@ import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import { isEmpty } from 'lodash'
 import ProjectSettingsForm from '../components/ProjectSettingsForm'
-import { fetchProjectSettings, updateProjectSettings } from '../actions'
+import { fetchProjectSettings, updateProjectSettings, deleteProject } from '../actions'
 
 class ProjectSettings extends Component {
   componentWillMount() {
@@ -24,7 +24,7 @@ class ProjectSettings extends Component {
   }
 
   render() {
-    const { project, projectSettings } = this.props
+    const { project, projectSettings, deleteProject } = this.props
 
     if (isEmpty(project)) {
       return null
@@ -32,7 +32,7 @@ class ProjectSettings extends Component {
 
     return (
       <div>
-        <ProjectSettingsForm initialValues={projectSettings} onSubmit={this.handleSubmit}/>
+        <ProjectSettingsForm initialValues={projectSettings} onSubmit={this.handleSubmit} deleteProject={deleteProject} project={project}/>
       </div>
     )
   }
@@ -45,5 +45,6 @@ const mapStateToProps = (state, _ownProps) => ({
 
 export default connect(mapStateToProps, {
   fetchProjectSettings,
-  updateProjectSettings
+  updateProjectSettings,
+  deleteProject
 })(ProjectSettings)

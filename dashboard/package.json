@@ -40,7 +40,7 @@
     "replacestream": "4.0.2"
   },
   "scripts": {
-    "lint": "eslint server.js src",
+    "lint": "./node_modules/eslint/bin/eslint.js server.js src",
     "start": "./node_modules/react-scripts/bin/react-scripts.js start",
     "build": "./node_modules/react-scripts/bin/react-scripts.js build",
     "eject": "./node_modules/react-scripts/bin/react-scripts.js eject"

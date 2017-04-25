@@ -907,3 +907,11 @@ func (r *MongoDbMigrator) V001_init_workflows_up(c *bongo.Connection) error {
 func (r *MongoDbMigrator) V001_init_workflows_down(c *bongo.Connection) error {
 	return c.Session.DB(r.DbName()).C("workflows").DropCollection()
 }
+
+func (r *MongoDbMigrator) V002_projects_deleted_up(c *bongo.Connection) error {
+	return c.Session.DB(r.DbName()).C("projects").Update(bson.M{}, bson.M{"$set": bson.M{"deleted": false}})
+}
+
+func (r *MongoDbMigrator) V002_projects_deleted_down(c *bongo.Connection) error {
+	return c.Session.DB(r.DbName()).C("projects").Update(bson.M{}, bson.M{"$unset": bson.M{"deleted": ""}})
+}

@@ -39,6 +39,7 @@ type Project struct {
 	Workflows             []string `bson:"workflows" json:"workflows"`
 	LogsUrl               string   `bson:"-" json:"logsUrl"`
 	NotifyChannels        string   `bson:"notifyChannels" json:"notifyChannels"`
+	Deleted               bool     `bson:"deleted" json:"-"`
 }
 
 func (p *Project) AfterFind(*bongo.Collection) error {
@@ -52,6 +53,13 @@ func (p *Project) BeforeSave(collection *bongo.Collection) error {
 	p.Name = repository
 	p.Repository = repository
 	p.Slug = slug.Slug(repository)
+
+	deletedProject := Project{}
+
+	if err := collection.FindOne(bson.M{}, &deletedProject); err == nil {
+		p.SetId(deletedProject.Id)
+		p.Pinged = true
+	}
 
 	return nil
 }
@@ -83,7 +91,7 @@ type Bookmark struct {
 
 func (b *Bookmark) AfterFind(collection *bongo.Collection) error {
 	project := Project{}
-	if err := collection.Connection.Collection("projects").FindById(b.ProjectId, &project); err != nil {
+	if err := collection.Connection.Collection("projects").FindOne(bson.M{"_id": b.ProjectId, "deleted": false}, &project); err != nil {
 		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 			log.Printf("Projects::FindById::DocumentNotFoundError: _id: `%v`", b.ProjectId)
 			collection.Connection.Collection("bookmarks").DeleteDocument(b)

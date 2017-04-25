@@ -2,6 +2,7 @@ import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Button, Form, FormGroup, Label, Input } from 'reactstrap'
 import { Field, FieldArray, reduxForm, change } from 'redux-form'
+import ButtonConfirmAction from '../components/ButtonConfirmAction'
 
 class ProjectSettings extends Component {
   static propTypes = {
@@ -127,6 +128,16 @@ class ProjectSettings extends Component {
       </div>
     )
   }
+  
+  onProjectDelete() {
+    this.props.deleteProject(this.props.project.slug).then(() => {
+      window.location = "/"
+    })
+  }
+
+  onProjectDeleteCancel() {
+
+  }
 
   render() {
     const { pristine, submitting, handleSubmit } = this.props
@@ -161,7 +172,11 @@ class ProjectSettings extends Component {
         <FieldArray name="secrets" collapsed={this.state.collapsed} component={this.renderConfigVars}/>
 
         <br/>
+
         <Button disabled={submitting || pristine}>{submitting ? 'Saving…' : 'Save'}</Button>
+        <ButtonConfirmAction btnLabel="Delete Project" onConfirm={() => this.onProjectDelete()} onCancel={this.onProjectCancel} btnClass="btn btn-danger float-xs-right">
+          Are you sure?
+        </ButtonConfirmAction>
       </Form>
     )
   }
@@ -184,6 +199,6 @@ const ProjectSettingsForm = reduxForm({
 export default connect(
   state => {
     const formValues = state.form.projectSettings
-    return { formValues: formValues }
+    return { formValues: formValues}
   }
 )(ProjectSettingsForm)

@@ -34,26 +34,10 @@ class ButtonConfirmAction extends Component {
     this.props.onCancel()
   }
 
-  renderBtn() {
-    if (this.props.btnIconClass !== '') {
-      return (
-        <Button className={this.props.btnClass} onClick={(e) => this.toggle(e)}>
-          <i className={this.props.btnIconClass} aria-hidden="true" /> {this.props.btnLabel}
-        </Button>
-      )
-    }
-
+  render() {
     return (
       <Button className={this.props.btnClass} onClick={(e) => this.toggle(e)}>
         <i className={this.props.btnIconClass} aria-hidden="true" /> {this.props.btnLabel}
-      </Button>
-    )
-  }
-
-  render() {
-    return (
-      <div>
-        {this.renderBtn()}
         <Modal isOpen={this.state.modal} toggle={this.toggle} className={this.props.className}>
           <ModalHeader toggle={this.toggle}>Confirmation needed</ModalHeader>
           <ModalBody>
@@ -64,7 +48,7 @@ class ButtonConfirmAction extends Component {
             <Button color="secondary" onClick={(e) => this.onCancel(e)}>Cancel</Button>
           </ModalFooter>
         </Modal>
-      </div>
+      </Button>
     )
   }
 }

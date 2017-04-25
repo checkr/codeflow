@@ -120,6 +120,25 @@ export const createNewProject = (payload) => {
   }
 }
 
+export const DELETE_PROJECT_REQUEST = 'DELETE_PROJECT_REQUEST'
+export const DELETE_PROJECT_SUCCESS = 'DELETE_PROJECT_SUCCESS'
+export const DELETE_PROJECT_FAILURE = 'DELETE_PROJECT_FAILURE'
+
+export const deleteProject = (slug) => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/projects/${slug}`,
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [ DELETE_PROJECT_REQUEST, DELETE_PROJECT_SUCCESS, DELETE_PROJECT_FAILURE ]
+    }
+  }
+}
+
 export const PROJECTS_REQUEST = 'PROJECTS_REQUEST'
 export const PROJECTS_SUCCESS = 'PROJECTS_SUCCESS'
 export const PROJECTS_FAILURE = 'PROJECTS_FAILURE'

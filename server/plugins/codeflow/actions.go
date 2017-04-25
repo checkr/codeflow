@@ -61,6 +61,24 @@ func ProjectCreated(p *Project) error {
 	return nil
 }
 
+func ProjectDeleted(p *Project) error {
+	projectMsg := plugins.Project{
+		Action:     plugins.Destroy,
+		Slug:       p.Slug,
+		Repository: p.Repository,
+	}
+
+	cf.Events <- agent.NewEvent(projectMsg, nil)
+
+	wsMsg := plugins.WebsocketMsg{
+		Channel: "projects_deleted",
+		Payload: p,
+	}
+	cf.Events <- agent.NewEvent(wsMsg, nil)
+
+	return nil
+}
+
 func ServiceCreated(s *Service) error {
 	project := Project{}
 
@@ -823,7 +841,7 @@ func StringToState(s string) plugins.State {
 
 func CollectStats(save bool, stats *Statistics) error {
 	// Project stats
-	if count, err := db.Collection("projects").Collection().Find(bson.M{}).Count(); err != nil {
+	if count, err := db.Collection("projects").Collection().Find(bson.M{"deleted": false}).Count(); err != nil {
 		return err
 	} else {
 		stats.Projects = count
@@ -966,9 +984,9 @@ func GitSyncProjects(ids []bson.ObjectId) error {
 	project := Project{}
 
 	if len(ids) > 0 {
-		query = bson.M{"_id": bson.M{"$in": ids}}
+		query = bson.M{"_id": bson.M{"$in": ids}, "deleted": false}
 	} else {
-		query = bson.M{}
+		query = bson.M{"deleted": false}
 	}
 
 	results := db.Collection("projects").Find(query)

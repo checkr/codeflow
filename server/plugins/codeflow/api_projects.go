@@ -47,6 +47,7 @@ func (x *Projects) Register(api *rest.Api) []*rest.Route {
 		rest.Get(x.Path+"/#slug/features", x.features),
 		rest.Get(x.Path+"/#slug", x.project),
 		rest.Post(x.Path, x.createProjects),
+		rest.Delete(x.Path+"/#slug", x.deleteProjects),
 		rest.Get(x.Path+"/#slug/releases/#id/build", x.releaseBuild),
 		rest.Post(x.Path+"/#slug/releases/#id/build", x.updateReleaseBuild),
 		rest.Get(x.Path+"/#slug/serviceSpecs", x.serviceSpecs),
@@ -75,10 +76,10 @@ func (x *Projects) projects(w rest.ResponseWriter, r *rest.Request) {
 	search := query.Get("q")
 	currentPage, _ := strconv.Atoi(query.Get("projects_page"))
 	perPage := 20
-	m := bson.M{}
+	m := bson.M{"deleted": false}
 
 	if search != "" {
-		m = bson.M{"name": bson.RegEx{search, "i"}}
+		m = bson.M{"deleted": false, "name": bson.RegEx{search, "i"}}
 	}
 
 	results := db.Collection("projects").Find(m)
@@ -156,6 +157,8 @@ func (x *Projects) createProjects(w rest.ResponseWriter, r *rest.Request) {
 	// TODO: make this dynamic based on type of the project
 	project.Workflows = []string{"build/DockerImage"}
 
+	project.Deleted = false
+
 	if err := db.Collection("projects").Save(&project); err != nil {
 		if vErr, ok := err.(*bongo.ValidationError); ok {
 			rest.Error(w, "Validation error", http.StatusBadRequest)
@@ -184,6 +187,26 @@ func (x *Projects) createProjects(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	ProjectCreated(&project)
+
+	w.WriteJson(project)
+}
+
+func (x *Projects) deleteProjects(w rest.ResponseWriter, r *rest.Request) {
+	project := Project{}
+
+	if err := CurrentProject(r, &project); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	project.Deleted = true
+
+	if err := db.Collection("projects").Save(&project); err != nil {
+		log.Printf("Project::Save::Error: %v", err.Error())
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	ProjectDeleted(&project)
 
 	w.WriteJson(project)
 }

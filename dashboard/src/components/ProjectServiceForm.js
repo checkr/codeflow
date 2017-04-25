@@ -1,7 +1,8 @@
 import React, { Component } from 'react'
 import { Alert, Form, FormGroup, FormFeedback, Input } from 'reactstrap'
 import { Field, FieldArray, reduxForm } from 'redux-form'
-import { Tooltip } from 'reactstrap'
+import { Tooltip } from 'reactstrap';
+import ButtonConfirmAction from '../components/ButtonConfirmAction'
 import { toSafeInteger, without } from 'lodash'
 
 const MIN_PORT = 1
@@ -151,10 +152,10 @@ class ProjectServiceForm extends Component {
                   <i className="fa fa-times" aria-hidden="true" /> Cancel
                 </button>
                 { edit &&
-                <button type="button" className="btn btn-danger btn-sm float-xs-right btn-service-action-right" onClick={() => onDelete()}>
-                  <i className="fa fa-trash" aria-hidden="true" /> Delete
-                </button> }
-                <button type="submit" className="btn btn-success btn-sm float-xs-right btn-service-action-right">
+                <ButtonConfirmAction btnLabel="Delete" btnIconClass="fa fa-trash" onConfirm={onDelete} btnClass="btn btn-danger btn-sm float-xs-right btn-service-action-right">
+                  Are you sure?
+                </ButtonConfirmAction>}
+                <button type="button" className="btn btn-success btn-sm float-xs-right btn-service-action-right">
                   <i className="fa fa-check" aria-hidden="true" /> Save
                 </button>
               </div>

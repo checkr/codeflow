@@ -75,7 +75,7 @@ func GitFetch(project Project, git Git) (*git2go.Repository, error) {
 	var repo *git2go.Repository
 	var err error
 
-	repoPath := fmt.Sprintf("%s/%s", git.Workdir, project.Repository)
+	repoPath := fmt.Sprintf("%s/%s_%s", git.Workdir, project.Repository, git.Protocol)
 
 	if _, err = os.Stat(repoPath); err != nil {
 		if os.IsNotExist(err) {
