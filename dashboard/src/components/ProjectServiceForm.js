@@ -132,9 +132,11 @@ class ProjectServiceForm extends Component {
                   <label>Command</label>
                   <Field name="command" className="form-control" component={renderInput} type="text"/>
                 </div>
-                <div className="form-group">
+                
+                {/* <div className="form-group">
                   <Field className="form-check-input" name="oneShot" component={renderInput} type="checkbox" value="false"/> One-shot
-                </div>
+                </div> */}
+
                 <div className="row">
                   <div className="col-xs-12">
                     <i className="fa fa-question-circle" id="ToolTipContainerPort" aria-hidden="true" style={{ position: 'absolute', zIndex: 100, bottom: '-20px', left: '175px' }}></i>
@@ -155,7 +157,7 @@ class ProjectServiceForm extends Component {
                 <ButtonConfirmAction btnLabel="Delete" btnIconClass="fa fa-trash" onConfirm={onDelete} btnClass="btn btn-danger btn-sm float-xs-right btn-service-action-right">
                   Are you sure?
                 </ButtonConfirmAction>}
-                <button type="button" className="btn btn-success btn-sm float-xs-right btn-service-action-right">
+                <button type="submit" className="btn btn-success btn-sm float-xs-right btn-service-action-right">
                   <i className="fa fa-check" aria-hidden="true" /> Save
                 </button>
               </div>
