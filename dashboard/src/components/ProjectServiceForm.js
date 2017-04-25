@@ -157,7 +157,7 @@ class ProjectServiceForm extends Component {
                 <ButtonConfirmAction btnLabel="Delete" btnIconClass="fa fa-trash" onConfirm={onDelete} btnClass="btn btn-danger btn-sm float-xs-right btn-service-action-right">
                   Are you sure?
                 </ButtonConfirmAction>}
-                <button type="button" className="btn btn-success btn-sm float-xs-right btn-service-action-right">
+                <button type="submit" className="btn btn-success btn-sm float-xs-right btn-service-action-right">
                   <i className="fa fa-check" aria-hidden="true" /> Save
                 </button>
               </div>
