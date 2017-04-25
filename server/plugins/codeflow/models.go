@@ -56,7 +56,7 @@ func (p *Project) BeforeSave(collection *bongo.Collection) error {
 
 	deletedProject := Project{}
 
-	if err := collection.FindOne(bson.M{}, &deletedProject); err == nil {
+	if err := collection.FindOne(bson.M{"repository": repository, "deleted": true}, &deletedProject); err == nil {
 		p.SetId(deletedProject.Id)
 		p.Pinged = true
 	}
