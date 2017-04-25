@@ -110,6 +110,7 @@ type Service struct {
 	Count              int           `bson:"count" json:"count"`
 	Command            string        `bson:"command" json:"command"`
 	Listeners          []Listener    `bson:"listeners" json:"listeners"`
+	OneShot            bool          `bson:"oneShot" json:"oneShot"`
 }
 
 func (s *Service) BeforeSave(collection *bongo.Collection) error {

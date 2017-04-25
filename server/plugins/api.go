@@ -138,6 +138,7 @@ type Service struct {
 	State        State       `json:"state"`
 	StateMessage string      `json:"stateMessage"`
 	Spec         ServiceSpec `json:"spec"`
+	OneShot      bool        `json:"oneShot"`
 }
 
 type ServiceSpec struct {

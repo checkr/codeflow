@@ -580,6 +580,7 @@ func CreateDeploy(r *Release) error {
 				MemoryLimit:                   spec.MemoryLimit,
 				TerminationGracePeriodSeconds: spec.TerminationGracePeriodSeconds,
 			},
+			OneShot: service.OneShot,
 		})
 	}
 

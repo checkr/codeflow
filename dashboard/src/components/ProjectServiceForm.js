@@ -131,6 +131,9 @@ class ProjectServiceForm extends Component {
                   <label>Command</label>
                   <Field name="command" className="form-control" component={renderInput} type="text"/>
                 </div>
+                <div className="form-group">
+                  <Field className="form-check-input" name="oneShot" component={renderInput} type="checkbox" value="false"/> One-shot
+                </div>
                 <div className="row">
                   <div className="col-xs-12">
                     <i className="fa fa-question-circle" id="ToolTipContainerPort" aria-hidden="true" style={{ position: 'absolute', zIndex: 100, bottom: '-20px', left: '175px' }}></i>
