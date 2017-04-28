@@ -18,7 +18,7 @@ class ProjectSettings extends Component {
   renderInput = (field) => {
     if(field['data-type'] === 'file') {
       return (
-        <Input {...field.input} type='textarea' placeholder={field.placeholder} />
+        <Input {...field.input} type='textarea' wrap="off" placeholder={field.placeholder} />
       )
     } else {
       return (
@@ -101,7 +101,7 @@ class ProjectSettings extends Component {
                 <Field name={'secrets['+i+'].key'} component={this.renderInput} type="text" placeholder="SOME_KEY"/>
               </div>
               <div className="col-xs-4">
-                <Field name={'secrets['+i+'].value'} data-type={secret.type} component={this.renderInput} type="textarea" placeholder="******"/>
+                <Field name={'secrets['+i+'].value'} data-type={secret.type} component={this.renderInput} type="textarea" wrap="off" placeholder="******"/>
               </div>
               <div className="col-xs-2">
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => this.deleteConfigVar(secret, fields, i)}>
