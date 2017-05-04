@@ -43,6 +43,32 @@ func CurrentUser(r *rest.Request, user *User) error {
 	return nil
 }
 
+func IsAdmin(r *rest.Request) bool {
+	var user User
+	if err := db.Collection("users").FindOne(bson.M{"username": r.Env["REMOTE_USER"]}, user); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Users::FindOne::DocumentNotFoundError: username: `%v`", r.Env["REMOTE_USER"])
+		} else {
+			log.Printf("Users::FindOne::Error: %s", err.Error())
+		}
+		return false
+	}
+	return user.IsAdmin
+}
+
+func IsEngineer(r *rest.Request) bool {
+	var user User
+	if err := db.Collection("users").FindOne(bson.M{"username": r.Env["REMOTE_USER"]}, user); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Users::FindOne::DocumentNotFoundError: username: `%v`", r.Env["REMOTE_USER"])
+		} else {
+			log.Printf("Users::FindOne::Error: %s", err.Error())
+		}
+		return false
+	}
+	return user.IsEngineer
+}
+
 func ProjectCreated(p *Project) error {
 	projectMsg := plugins.Project{
 		Action:     plugins.Create,

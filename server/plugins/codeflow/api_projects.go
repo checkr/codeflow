@@ -592,6 +592,9 @@ func (x *Projects) settings(w rest.ResponseWriter, r *rest.Request) {
 	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "deleted": false})
 	results.Query.Sort("$natural")
 	for results.Next(&secret) {
+		if secret.Type == plugins.ProtectedEnv {
+			secret.Value = ""
+		}
 		secrets = append(secrets, secret)
 	}
 
@@ -712,6 +715,9 @@ func (x *Projects) updateSettings(w rest.ResponseWriter, r *rest.Request) {
 	results := db.Collection("secrets").Find(bson.M{"projectId": project.Id, "deleted": false})
 	results.Query.Sort("$natural")
 	for results.Next(&secret) {
+		if secret.Type == plugins.ProtectedEnv {
+			secret.Value = ""
+		}
 		secrets = append(secrets, secret)
 	}
 

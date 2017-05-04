@@ -43,6 +43,10 @@ plugins:
       path: "/auth"
       handler: "demo"
       okta_org: ""
+      admin_groups:
+        - admins
+      engineer_groups:
+        - engineering
     users:
       path: "/users"
     features:

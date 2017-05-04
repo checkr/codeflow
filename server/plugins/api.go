@@ -37,12 +37,13 @@ const (
 type Type string
 
 const (
-	File     Type = "file"
-	Env           = "env"
-	Build         = "build"
-	Internal      = "internal"
-	External      = "external"
-	Office        = "office"
+	File         Type = "file"
+	Env               = "env"
+	ProtectedEnv      = "protected-env"
+	Build             = "build"
+	Internal          = "internal"
+	External          = "external"
+	Office            = "office"
 )
 
 type Action string

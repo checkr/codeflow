@@ -11,6 +11,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/ant0ine/go-json-rest/rest"
+	"github.com/checkr/codeflow/server/agent"
 	jwt_m "github.com/cheungpat/go-json-rest-middleware-jwt"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/lestrrat/go-jwx/jwk"
@@ -87,9 +88,11 @@ func (a *Auth) handler(w rest.ResponseWriter, r *rest.Request) {
 
 func (a *Auth) demoCallbackHandler(writer rest.ResponseWriter, r *rest.Request) {
 	user := User{
-		Name:     "Demo",
-		Username: "demo@development.com",
-		Email:    "demo@development.com",
+		Name:       "Demo",
+		Username:   "demo@development.com",
+		Email:      "demo@development.com",
+		IsAdmin:    true,
+		IsEngineer: true,
 	}
 
 	usersCol := db.Collection("users")
@@ -192,6 +195,21 @@ func (o *Okta) getKey(token *jwt.Token) (interface{}, error) {
 	return nil, errors.New("unable to find key")
 }
 
+func updateUserPermissions(user *User, groups []interface{}) {
+	// Set user permissions
+	admin_groups := viper.GetStringSlice("plugins.codeflow.auth.admin_groups")
+	engineer_groups := viper.GetStringSlice("plugins.codeflow.auth.engineer_groups")
+
+	for _, g := range groups {
+		if user.IsAdmin == false {
+			user.IsAdmin = agent.SliceContains(g.(string), admin_groups)
+		}
+		if user.IsEngineer == false {
+			user.IsEngineer = agent.SliceContains(g.(string), engineer_groups)
+		}
+	}
+}
+
 // oktaCallbackEventHandler can be used by clients to get a jwt token.
 func (o *Okta) oktaCallbackHandler(writer rest.ResponseWriter, request *rest.Request) {
 	var idToken map[string]string
@@ -206,11 +224,14 @@ func (o *Okta) oktaCallbackHandler(writer rest.ResponseWriter, request *rest.Req
 		oktaClaims := token.Claims.(jwt.MapClaims)
 		email := oktaClaims["email"].(string)
 		name := oktaClaims["name"].(string)
+		groups := oktaClaims["groups"].([]interface{})
 
 		user := User{
-			Name:     name,
-			Username: email,
-			Email:    email,
+			Name:       name,
+			Username:   email,
+			Email:      email,
+			IsAdmin:    false,
+			IsEngineer: false,
 		}
 
 		usersCol := db.Collection("users")
@@ -218,6 +239,7 @@ func (o *Okta) oktaCallbackHandler(writer rest.ResponseWriter, request *rest.Req
 			if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 				log.Printf("Users::FindOne::DocumentNotFound: email: `%v`", user.Email)
 				log.Printf("Creating new user: email: `%v`", user.Email)
+				updateUserPermissions(&user, groups)
 				if err := usersCol.Save(&user); err != nil {
 					log.Printf("Users::Save::Error: %v", err.Error())
 					rest.Error(writer, err.Error(), http.StatusInternalServerError)
@@ -228,6 +250,7 @@ func (o *Okta) oktaCallbackHandler(writer rest.ResponseWriter, request *rest.Req
 				return
 			}
 		} else {
+			updateUserPermissions(&user, groups)
 			if err := usersCol.Save(&user); err != nil {
 				log.Printf("Users::Save::Error: %v", err.Error())
 				rest.Error(writer, err.Error(), http.StatusInternalServerError)
