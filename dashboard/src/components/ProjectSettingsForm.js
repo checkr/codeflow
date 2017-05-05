@@ -37,6 +37,7 @@ class ProjectSettings extends Component {
     return (
       <select {...field.input} className="form-control">
         <option value="env">Env</option>
+        <option value="protected-env">Protected Env</option>
         <option value="build">Build Arg</option>
         <option value="file">File</option>
       </select>

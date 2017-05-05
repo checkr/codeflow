@@ -20,6 +20,8 @@ type User struct {
 	Name               string `bson:"name" json:"name"`
 	Username           string `bson:"username" json:"username"`
 	Email              string `bson:"email" json:"email"`
+	IsAdmin            bool   `bson:"isAdmin" json:"isAdmin"`
+	IsEngineer         bool   `bson:"isEngineer" json:"isEngineer"`
 }
 
 type Project struct {
