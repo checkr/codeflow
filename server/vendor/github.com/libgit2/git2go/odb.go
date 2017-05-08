@@ -36,8 +36,8 @@ func NewOdb() (odb *Odb, err error) {
 	return odb, nil
 }
 
-func NewOdbBackendFromC(ptr *C.git_odb_backend) (backend *OdbBackend) {
-	backend = &OdbBackend{ptr}
+func NewOdbBackendFromC(ptr unsafe.Pointer) (backend *OdbBackend) {
+	backend = &OdbBackend{(*C.git_odb_backend)(ptr)}
 	return backend
 }
 
@@ -224,6 +224,10 @@ func (object *OdbObject) Id() (oid *Oid) {
 
 func (object *OdbObject) Len() (len uint64) {
 	return uint64(C.git_odb_object_size(object.ptr))
+}
+
+func (object *OdbObject) Type() ObjectType {
+	return ObjectType(C.git_odb_object_type(object.ptr))
 }
 
 func (object *OdbObject) Data() (data []byte) {

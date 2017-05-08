@@ -1,5 +1,5 @@
-hash: 3b69cd745e17ec546cb586e7f0d9269cb35d32a11cef7a7404340adb8a3ece8c
-updated: 2017-03-29T16:25:01.287279467-07:00
+hash: eb20b66d893c36dde1bc19d684055dc5504efacb0cbcccd0a5a9d5813e4fa00b
+updated: 2017-05-08T13:22:27.551125509-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -165,7 +165,7 @@ imports:
   - jwa
   - jwk
 - name: github.com/libgit2/git2go
-  version: 22091886372e73de5d66168e8665775676ec13c5
+  version: 334260d743d713a55ff3c097ec6707f2bb39e9d5
 - name: github.com/magiconair/properties
   version: 51463bfca2576e06c62a8504b5c0f06d61312647
 - name: github.com/mailru/easyjson
@@ -217,7 +217,7 @@ imports:
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
 - name: github.com/Sirupsen/logrus
-  version: 10f801ebc38b33738c9d17d50860f484a0988ff5
+  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/spf13/afero
   version: 9be650865eab0c12963d8753212f4f9c66cdcf12
   subpackages:
@@ -237,7 +237,7 @@ imports:
   subpackages:
   - codec
 - name: golang.org/x/crypto
-  version: 459e26527287adbc2adcc5d0d49abff9a5f315a7
+  version: 122d919ec1efcfb58483215da23f815853e24b81
   subpackages:
   - curve25519
   - ed25519
