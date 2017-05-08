@@ -2,7 +2,7 @@ import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Button, Form, FormGroup, Label, Input } from 'reactstrap'
 import { Field, FieldArray, reduxForm, change } from 'redux-form'
-import ButtonConfirmAction from '../components/ButtonConfirmAction'
+import ButtonConfirmAction from '../ButtonConfirmAction'
 
 class ProjectSettings extends Component {
   static propTypes = {
@@ -129,7 +129,7 @@ class ProjectSettings extends Component {
       </div>
     )
   }
-  
+
   onProjectDelete() {
     this.props.deleteProject(this.props.project.slug).then(() => {
       window.location = "/"

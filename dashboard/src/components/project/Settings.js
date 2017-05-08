@@ -3,8 +3,8 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import { isEmpty } from 'lodash'
-import ProjectSettingsForm from '../components/ProjectSettingsForm'
-import { fetchProjectSettings, updateProjectSettings, deleteProject } from '../actions'
+import ProjectSettingsForm from './SettingsForm'
+import { fetchProjectSettings, updateProjectSettings, deleteProject } from '../../actions'
 
 class ProjectSettings extends Component {
   componentWillMount() {

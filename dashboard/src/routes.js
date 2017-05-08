@@ -6,7 +6,7 @@ import EmptyLayout from './containers/EmptyLayout'
 import Dashboard from './components/Dashboard'
 import Projects from './components/Projects'
 import AddProject from './components/AddProject'
-import Project from './components/Project'
+import Project from './components/project'
 import Login from './components/Login'
 import { RequireAuthentication } from './components/AuthenticatedComponent'
 

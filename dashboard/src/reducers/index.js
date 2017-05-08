@@ -183,6 +183,25 @@ const currentRelease = (state = {}, action = {}) => {
   }
 }
 
+const bookmarkReleases = (state = {}, action = {}) => {
+  switch(action.type) {
+    case ActionTypes.BOOKMARK_CURRENT_RELEASE_FETCH_SUCCESS:
+      return (() => {
+        const o = {}
+        if (action.payload.projectId) {
+          o[action.payload.projectId] = action.payload
+        }
+        return  Object.assign({}, state, o)
+      })()
+    case ActionTypes.REMOVE_BOOKMARK_CURRENT_RELEASES:
+      return {}
+    case ActionTypes.BOOKMARK_CURRENT_RELEASE_DISMISS:
+      return {}
+    default:
+      return state
+  }
+}
+
 const releases = (state = {}, action = {}) => {
   switch (action.type) {
     case ActionTypes.PROJECT_RELEASES_FETCH_REQUEST:
@@ -207,7 +226,6 @@ const releases = (state = {}, action = {}) => {
     default:
       return state
   }
-
 }
 
 // Updates error message to notify about the failed fetches.
@@ -350,6 +368,7 @@ const rootReducer = combineReducers({
   projectSettings,
   serviceSpecs,
   bookmarks,
+  bookmarkReleases,
   features,
   releases,
   currentRelease,

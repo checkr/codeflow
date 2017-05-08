@@ -2,10 +2,11 @@ import React, { Component } from 'react'
 import { isEmpty, map } from 'lodash'
 import { connect } from 'react-redux'
 import { Alert } from 'reactstrap'
-import { fetchProjectFeatures, createProjectRelease, createProjectRollbackTo, fetchProjectReleases, fetchProjectCurrentRelease } from '../actions'
+import { fetchProjectFeatures, createProjectRelease, createProjectRollbackTo, fetchProjectReleases, fetchProjectCurrentRelease } from '../../actions'
 import moment from 'moment'
-import Pagination from './Pagination'
-import DockerImage from './workflows/DockerImage'
+import Pagination from '../Pagination'
+import DockerImage from '../workflows/DockerImage'
+import Release from './Release'
 
 const loadData = props => {
   if (props.project.slug) {
@@ -76,7 +77,7 @@ class ProjectDeploy extends Component {
 
   renderFeatures() {
     let { records, pagination } = this.props.features
-    let features_jsx = []
+    let featureItems = []
 
     if (isEmpty(records)) {
       return(
@@ -91,27 +92,19 @@ class ProjectDeploy extends Component {
       if (this.state.featureHover === feature._id) {
         includedClass = " feature-included"
       }
-      features_jsx.push(
-        <li className={"list-group-item" + includedClass} key={feature.hash} onMouseEnter={() => this.onFeatureMouseEnterHandler(feature._id)} onMouseLeave={() => this.onFeatureMouseLeaveHandler()}>
-          <div className="feed-element">
-            <div className="row media-body">
-              <div className="col-xs-10">
-                <strong>{this.renderFeatureHash(feature)} - {feature.message}</strong> <br/>
-                <small className="text-muted">by <strong>{feature.user}</strong> {moment(feature.created).fromNow() } - {moment(feature.created).format('MMMM Do YYYY, h:mm:ss A')} </small>
-              </div>
-              <div className="col-xs-2 flex-xs-middle">
-                {this.state.featureHover === feature._id &&
-                <button type="button" className="btn btn-secondary btn-sm float-xs-right" onClick={(e) => this.onDeployFeature(feature, e)}>Deploy</button> }
-              </div>
-            </div>
-          </div>
-        </li>
-      )
+
+      let actionBtn
+
+      if (this.state.featureHover === feature._id) {
+        actionBtn = <button type="button" className="btn btn-secondary btn-sm float-xs-right" onClick={(e) => this.onDeployFeature(feature, e)}>Deploy</button>
+      }
+
+      featureItems.push(<Release onMouseEnter={() => this.onFeatureMouseEnterHandler(feature._id)} onMouseLeave={() => this.onFeatureMouseLeaveHandler()} className={`${includedClass}`} actionBtn={actionBtn} />)
     })
 
     return (
       <div>
-        <ul className="list-group">{features_jsx}</ul>
+        <ul className="list-group">{featureItems}</ul>
         <Pagination onChange={(p,s) => this.paginateFeatures(p,s)} totalPages={pagination.totalPages} page={pagination.current} count={pagination.recordsOnPage} queryParam="features_page"/>
       </div>
     )

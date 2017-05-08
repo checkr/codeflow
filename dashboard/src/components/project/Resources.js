@@ -3,10 +3,19 @@ import { connect } from 'react-redux'
 import { forEach, isEmpty } from 'lodash'
 import { SubmissionError } from 'redux-form'
 
-import ProjectServiceForm from '../components/ProjectServiceForm'
-import { fetchServiceSpecs, fetchProjectServices, createProjectService, updateProjectService, deleteProjectService } from '../actions'
-import { fetchProjectExtensions, createProjectExtension, updateProjectExtension, deleteProjectExtension } from '../actions'
-import * as Extensions from '../components/project_extensions/'
+import ProjectServiceForm from './ServiceForm'
+import {
+  fetchServiceSpecs,
+  fetchProjectExtensions,
+  fetchProjectServices,
+  createProjectExtension,
+  createProjectService,
+  deleteProjectExtension,
+  deleteProjectService,
+  updateProjectService,
+  updateProjectExtension
+} from '../../actions'
+import * as Extensions from '../project_extensions/'
 
 const loadData = props => {
   props.fetchProjectServices(props.project.slug)

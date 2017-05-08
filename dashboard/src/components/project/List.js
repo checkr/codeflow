@@ -1,13 +1,12 @@
 import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router'
-import { fetchProjects } from '../actions'
 import { isEmpty, find } from 'lodash'
 import merge from 'lodash/merge'
 import queryString  from 'query-string'
 import FontAwesome from 'react-fontawesome'
-import { createBookmarks, deleteBookmarks } from '../actions'
-import Pagination from './Pagination'
+import { createBookmarks, deleteBookmarks, fetchProjects } from '../../actions'
+import Pagination from '../Pagination'
 
 const loadData = props => {
   props.fetchProjects(props.routing.search)

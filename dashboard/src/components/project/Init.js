@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import { Link } from 'react-router'
 import { Form, FormGroup, Label, Input } from 'reactstrap'
 import { Alert } from 'reactstrap'
-import { loadProject, appConfig } from '../actions'
+import { loadProject, appConfig } from '../../actions'
 import { isEmpty } from 'lodash'
 
 class ProjectInit extends Component {
