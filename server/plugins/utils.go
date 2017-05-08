@@ -81,11 +81,17 @@ func GitFetch(project Project, git Git) (*git2go.Repository, error) {
 		if os.IsNotExist(err) {
 			cloneOptions := GitCloneOptions(git)
 			repo, err = git2go.Clone(git.Url, repoPath, &cloneOptions)
+			if err != nil {
+				return nil, err
+			}
 		} else {
 			return &git2go.Repository{}, err
 		}
 	} else {
 		repo, err = git2go.OpenRepository(repoPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	remote, err := repo.Remotes.Lookup("origin")

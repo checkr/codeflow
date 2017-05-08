@@ -212,7 +212,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 	// This is for building the configuration to use the secrets from inside the deployment
 	// as ENVs
 	for _, secret := range data.Secrets {
-		if secret.Type == plugins.Env {
+		if secret.Type == plugins.Env || secret.Type == plugins.ProtectedEnv {
 			newEnv := v1.EnvVar{
 				Name: secret.Key,
 				ValueFrom: &v1.EnvVarSource{
