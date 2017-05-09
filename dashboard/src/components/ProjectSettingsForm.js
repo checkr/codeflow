@@ -175,7 +175,7 @@ class ProjectSettings extends Component {
         <br/>
 
         <Button disabled={submitting || pristine}>{submitting ? 'Saving…' : 'Save'}</Button>
-        <ButtonConfirmAction btnLabel="Delete Project" onConfirm={() => this.onProjectDelete()} onCancel={this.onProjectCancel} btnClass="btn btn-danger float-xs-right">
+        <ButtonConfirmAction btnLabel="Delete Project" onConfirm={() => this.onProjectDelete()} onCancel={this.onProjectCancel} btnClass="btn btn-link text-danger float-xs-right">
           Are you sure?
         </ButtonConfirmAction>
       </Form>
