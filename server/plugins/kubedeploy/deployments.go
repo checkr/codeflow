@@ -308,6 +308,11 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 			// If the service is TCP, use a TCP Probe
 			myPort := service.Listeners[0].Port
 			readyProbe = v1.Probe{
+				InitialDelaySeconds: 5,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
+				TimeoutSeconds:      1,
 				Handler: v1.Handler{
 					TCPSocket: &v1.TCPSocketAction{
 						Port: intstr.IntOrString{IntVal: myPort},
@@ -315,7 +320,11 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				},
 			}
 			liveProbe = v1.Probe{
-				InitialDelaySeconds: 5,
+				InitialDelaySeconds: 15,
+				PeriodSeconds:       20,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
+				TimeoutSeconds:      1,
 				Handler: v1.Handler{
 					TCPSocket: &v1.TCPSocketAction{
 						Port: intstr.IntOrString{IntVal: myPort},
@@ -346,7 +355,11 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				},
 			}
 			liveProbe = v1.Probe{
-				InitialDelaySeconds: 5,
+				InitialDelaySeconds: 15,
+				PeriodSeconds:       20,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
+				TimeoutSeconds:      1,
 				Handler: v1.Handler{
 					Exec: &v1.ExecAction{
 						Command: runThis,
