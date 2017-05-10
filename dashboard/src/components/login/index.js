@@ -1,10 +1,10 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import { authHandler } from '../actions'
-import OktaLogin from './OktaLogin'
-import DemoLogin from './DemoLogin'
+import { authHandler } from '../../actions'
+import OktaLogin from './Okta'
+import DemoLogin from './Demo'
 
-class LoginPage extends Component {
+class Login extends Component {
   componentWillMount() {
     this.props.authHandler()
   }
@@ -36,4 +36,4 @@ const mapStateToProps = (state, _ownProps) => ({
 
 export default connect(mapStateToProps, {
   authHandler
-})(LoginPage)
+})(Login)

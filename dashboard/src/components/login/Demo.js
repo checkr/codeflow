@@ -1,6 +1,6 @@
 import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
-import { authCallback } from '../actions'
+import { authCallback } from '../../actions'
 
 class DevLoginPage extends Component {
   static propTypes = {

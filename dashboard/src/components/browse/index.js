@@ -1,8 +1,8 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import ProjectList from './project/List'
+import ProjectList from './ProjectList'
 
-class ProjectsPage extends Component {
+class Browse extends Component {
   render() {
     return (
       <div>
@@ -15,4 +15,4 @@ class ProjectsPage extends Component {
 const mapStateToProps = (_state, _ownProps) => ({})
 
 export default connect(mapStateToProps, {
-})(ProjectsPage)
+})(Browse)

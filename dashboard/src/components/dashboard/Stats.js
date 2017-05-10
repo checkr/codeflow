@@ -1,6 +1,6 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import { fetchStats } from '../actions'
+import { fetchStats } from '../../actions'
 
 class DashboardStats extends Component {
   loadData = props => {

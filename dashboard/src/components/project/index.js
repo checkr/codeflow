@@ -1,7 +1,7 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import { Nav, NavLink } from 'reactstrap'
-import NavItem from '../NavItem'
+import NavItem from '../navigation/Item'
 import { isEmpty } from 'lodash'
 
 import ProjectInit      from './Init'
@@ -16,7 +16,7 @@ const loadData = props => {
   props.fetchProject(props.params.project_slug)
 }
 
-class ProjectPage extends Component {
+class Project extends Component {
   constructor(props) {
     super(props)
     this.toggle = this.toggle.bind(this)
@@ -88,7 +88,7 @@ const mapStateToProps = (state, _ownProps) => ({
 
 export default connect(mapStateToProps, {
   fetchProject
-})(ProjectPage)
+})(Project)
 
 export {
   Release

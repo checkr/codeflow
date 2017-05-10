@@ -1,8 +1,8 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
 
-import DashboardStats    from '../components/DashboardStats'
-import DashboardReleases from '../components/DashboardReleases'
+import DashboardStats    from './Stats'
+import DashboardReleases from './Releases'
 
 class DashboardPage extends Component {
   render() {

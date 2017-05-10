@@ -1,10 +1,10 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import { ListGroup } from 'reactstrap'
-import { fetchBookmarkCurrentRelease, removeBookmarkCurrentReleases } from '../actions'
+import { fetchBookmarkCurrentRelease, removeBookmarkCurrentReleases } from '../../actions'
 import { map, tap, isEqual } from 'lodash'
 
-import Release from './project/Release'
+import Release from '../project/Release'
 
 const getProjectIds = (bookmarks) => {
   return tap({}, (obj) => {

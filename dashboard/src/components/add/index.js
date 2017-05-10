@@ -1,7 +1,7 @@
 import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
-import { createNewProject } from '../actions'
-import AddProjectForm from '../components/AddProjectForm'
+import { createNewProject } from '../../actions'
+import AddProjectForm from './Form'
 
 class AddProjectsPage extends Component {
   static propTypes = {

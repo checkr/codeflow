@@ -15,7 +15,7 @@ import {
   updateProjectService,
   updateProjectExtension
 } from '../../actions'
-import * as Extensions from '../project_extensions/'
+import * as Extensions from './extensions/'
 
 const loadData = props => {
   props.fetchProjectServices(props.project.slug)

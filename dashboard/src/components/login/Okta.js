@@ -1,11 +1,11 @@
 import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
-import { authCallback, resetErrorMessage } from '../actions'
-import loadConfig from "../config"
+import { authCallback, resetErrorMessage } from '../../actions'
+import loadConfig from "../../config"
 
-import OktaSignIn from '../../public/okta-signin-widget-1.9.0/js/okta-sign-in.min.js';
-import '../../public/okta-signin-widget-1.9.0/css/okta-sign-in.css';
-import '../../public/okta-signin-widget-1.9.0/css/okta-theme.css';
+import OktaSignIn from '../../../public/okta-signin-widget-1.9.0/js/okta-sign-in.min.js';
+import '../../../public/okta-signin-widget-1.9.0/css/okta-sign-in.css';
+import '../../../public/okta-signin-widget-1.9.0/css/okta-theme.css';
 
 
 class OktaLoginPage extends Component {

@@ -148,36 +148,26 @@ class ProjectSettings extends Component {
         <div className="hr-divider m-t-md m-b">
           <h3 className="hr-divider-content hr-divider-heading">Project</h3>
         </div>
-        <FormGroup>
-          <Label for="gitSshUrl">Git SSH Url</Label>
-          <Field name="gitSshUrl" component={this.renderInput} type="text" placeholder="git@github.com:checkr/codeflow.git"/>
-        </FormGroup>
-
         <FormGroup check>
           <Label check>
             <Field name="continuousIntegration" component={this.renderCheckbox} type="checkbox"/> Continuous Integration (CircleCI)
           </Label>
         </FormGroup>
-
         <FormGroup check>
           <Label check>
             <Field name="continuousDelivery" component={this.renderCheckbox} type="checkbox"/> Continuous Delivery (Deploy on green)
           </Label>
         </FormGroup>
-
         <FormGroup>
           <Label for="notifyChannels">Notify Channels (Slack)</Label>
           <Field name="notifyChannels" component={this.renderInput} type="text" placeholder="#eng,#devops"/>
         </FormGroup>
-
         <FieldArray name="secrets" collapsed={this.state.collapsed} component={this.renderConfigVars}/>
-
         <br/>
-
-        <Button disabled={submitting || pristine}>{submitting ? 'Saving…' : 'Save'}</Button>
-        <ButtonConfirmAction btnLabel="Delete Project" onConfirm={() => this.onProjectDelete()} onCancel={this.onProjectCancel} btnClass="btn btn-link text-danger float-xs-right">
+        <ButtonConfirmAction btnLabel="Delete Project" onConfirm={() => this.onProjectDelete()} onCancel={this.onProjectCancel} btnClass="btn btn-link text-danger">
           Are you sure?
         </ButtonConfirmAction>
+        <Button disabled={submitting || pristine} className="float-xs-right">{submitting ? 'Saving…' : 'Save'}</Button>
       </Form>
     )
   }

@@ -1,7 +1,7 @@
 import React, { Component, PropTypes } from 'react'
 import { connect } from 'react-redux'
-import NavItem from '../components/NavItem'
-import { logoutUser, fetchUsers, fetchBookmarks } from '../actions'
+import NavItem from './Item'
+import { logoutUser, fetchUsers, fetchBookmarks } from '../../actions'
 import { isEmpty } from 'lodash'
 
 const loadData = props => {
@@ -74,8 +74,8 @@ class Navigation extends Component {
             <NavItem to="/" onlyActiveOnIndex>Dashboard</NavItem>
 
             <li className="nav-header">Projects</li>
-            <NavItem to="/projects/add">Add new</NavItem>
-            <NavItem to="/projects">Browse</NavItem>
+            <NavItem to="/add">Add new</NavItem>
+            <NavItem to="/browse">Browse</NavItem>
 
             {this.renderBookmarks()}
 
