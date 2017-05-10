@@ -6,7 +6,7 @@ import { fetchProjectFeatures, createProjectRelease, createProjectRollbackTo, fe
 import moment from 'moment'
 import Pagination from '../Pagination'
 import DockerImage from '../workflows/DockerImage'
-import Release from './Release'
+import Feature from './Feature'
 
 const loadData = props => {
   if (props.project.slug) {
@@ -89,17 +89,23 @@ class ProjectDeploy extends Component {
 
     let includedClass = ""
     records.forEach(feature => {
-      if (this.state.featureHover === feature._id) {
+      const isFeatureHovered = this.state.featureHover === feature._id
+
+      if (isFeatureHovered) {
         includedClass = " feature-included"
       }
 
-      let actionBtn
-
-      if (this.state.featureHover === feature._id) {
-        actionBtn = <button type="button" className="btn btn-secondary btn-sm float-xs-right" onClick={(e) => this.onDeployFeature(feature, e)}>Deploy</button>
-      }
-
-      featureItems.push(<Release onMouseEnter={() => this.onFeatureMouseEnterHandler(feature._id)} onMouseLeave={() => this.onFeatureMouseLeaveHandler()} className={`${includedClass}`} actionBtn={actionBtn} />)
+      featureItems.push(
+        <Feature
+          key={feature._id}
+          feature={feature}
+          isFeatureHovered={isFeatureHovered}
+          onMouseEnter={() => this.onFeatureMouseEnterHandler(feature._id)}
+          onMouseLeave={() => this.onFeatureMouseLeaveHandler()}
+          includedClass={includedClass}
+          handleDeploy={ (e) => this.onDeployFeature(feature, e) }
+        />
+      )
     })
 
     return (

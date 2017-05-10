@@ -14,15 +14,14 @@ const renderFeatureHash = (feature) => {
   return (<span>{feature.hash.substring(0,8)}</span>)
 }
 
-
-const Release = ({className, onMouseEnter, onMouseLeave, projectName, projectSlug, showHeader, release, actionBtn}) => {
+const Release = ({className, projectName, projectSlug, showHeader, release, actionBtn}) => {
   if (!release) {
     return null
   }
 
   return (
     <ListGroupItem className={className} >
-      <div className="feed-element media-body" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+      <div className="feed-element media-body">
         { showHeader && <div className="row">
           <div className="col-xs-12">
             <ListGroupItemHeading><Link to={`projects/${projectSlug}/deploy`}>{projectName}</Link></ListGroupItemHeading>
