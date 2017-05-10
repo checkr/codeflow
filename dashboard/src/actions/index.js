@@ -447,22 +447,48 @@ export const PROJECT_CURRENT_RELEASE_FETCH_REQUEST = 'PROJECT_CURRENT_RELEASE_FE
 export const PROJECT_CURRENT_RELEASE_FETCH_SUCCESS = 'PROJECT_CURRENT_RELEASE_FETCH_SUCCESS'
 export const PROJECT_CURRENT_RELEASE_FETCH_FAILURE = 'PROJECT_CURRENT_RELEASE_FETCH_FAILURE'
 
-export const fetchProjectCurrentRelease = (slug = '') => {
-  return {
-    [CALL_API]: {
-      endpoint: `${API_ROOT}/projects/${slug}/releases/current`,
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken()}`
-      },
-      types: [
-        PROJECT_CURRENT_RELEASE_FETCH_REQUEST, PROJECT_CURRENT_RELEASE_FETCH_SUCCESS, PROJECT_CURRENT_RELEASE_FETCH_FAILURE
-      ]
-    }
+const fetchProjectCurrentReleaseFactory = ({slug, types}) => ({
+  [CALL_API]: {
+    endpoint: `${API_ROOT}/projects/${slug}/releases/current`,
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken()}`
+    },
+    types
   }
+})
+
+export const fetchProjectCurrentRelease = (slug = '') => {
+  const types = [
+    PROJECT_CURRENT_RELEASE_FETCH_REQUEST,
+    PROJECT_CURRENT_RELEASE_FETCH_SUCCESS,
+    PROJECT_CURRENT_RELEASE_FETCH_FAILURE
+  ]
+
+  return fetchProjectCurrentReleaseFactory({slug, types})
 }
+
+export const BOOKMARK_CURRENT_RELEASE_FETCH_REQUEST = 'BOOKMARK_CURRENT_RELEASE_FETCH_REQUEST'
+export const BOOKMARK_CURRENT_RELEASE_FETCH_SUCCESS = 'BOOKMARK_CURRENT_RELEASE_FETCH_SUCCESS'
+export const BOOKMARK_CURRENT_RELEASE_FETCH_FAILURE = 'BOOKMARK_CURRENT_RELEASE_FETCH_FAILURE'
+export const BOOKMARK_CURRENT_RELEASE_DISMISS = 'BOOKMARK_CURRENT_RELEASE_DISMISS'
+
+export const fetchBookmarkCurrentRelease = ({slug = ''}) => {
+  const types = [
+    BOOKMARK_CURRENT_RELEASE_FETCH_REQUEST,
+    BOOKMARK_CURRENT_RELEASE_FETCH_SUCCESS,
+    BOOKMARK_CURRENT_RELEASE_FETCH_FAILURE
+  ]
+
+  return fetchProjectCurrentReleaseFactory({slug, types})
+}
+
+export const REMOVE_BOOKMARK_CURRENT_RELEASES = 'REMOVE_BOOKMARK_CURRENT_RELEASES'
+export const removeBookmarkCurrentReleases = () => ({
+  type: REMOVE_BOOKMARK_CURRENT_RELEASES
+})
 
 export const PROJECT_EXTENSION_FETCH_REQUEST = 'PROJECT_EXTENSION_FETCH_REQUEST'
 export const PROJECT_EXTENSION_FETCH_SUCCESS = 'PROJECT_EXTENSION_FETCH_SUCCESS'

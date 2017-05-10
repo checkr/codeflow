@@ -1,14 +1,16 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import { Nav, NavLink } from 'reactstrap'
-import NavItem from '../components/NavItem'
-import ProjectInit from '../components/ProjectInit'
-import ProjectResources from '../components/ProjectResources'
-import ProjectSettings from '../components/ProjectSettings'
-import ProjectAccess from '../components/ProjectAccess'
-import ProjectDeploy from '../components/ProjectDeploy'
-import { fetchProject } from '../actions'
+import NavItem from '../NavItem'
 import { isEmpty } from 'lodash'
+
+import ProjectInit      from './Init'
+import ProjectResources from './Resources'
+import ProjectSettings  from './Settings'
+import ProjectAccess    from './Access'
+import ProjectDeploy    from './Deploy'
+import Release          from './Release'
+import { fetchProject } from '../../actions'
 
 const loadData = props => {
   props.fetchProject(props.params.project_slug)
@@ -87,3 +89,7 @@ const mapStateToProps = (state, _ownProps) => ({
 export default connect(mapStateToProps, {
   fetchProject
 })(ProjectPage)
+
+export {
+  Release
+}

@@ -2,7 +2,7 @@ import React, { Component } from 'react'
 import { Alert, Form, FormGroup, FormFeedback, Input } from 'reactstrap'
 import { Field, FieldArray, reduxForm } from 'redux-form'
 import { Tooltip } from 'reactstrap';
-import ButtonConfirmAction from '../components/ButtonConfirmAction'
+import ButtonConfirmAction from '../ButtonConfirmAction'
 import { toSafeInteger, without } from 'lodash'
 
 const MIN_PORT = 1
@@ -132,7 +132,7 @@ class ProjectServiceForm extends Component {
                   <label>Command</label>
                   <Field name="command" className="form-control" component={renderInput} type="text"/>
                 </div>
-                
+
                 {/* <div className="form-group">
                   <Field className="form-check-input" name="oneShot" component={renderInput} type="checkbox" value="false"/> One-shot
                 </div> */}

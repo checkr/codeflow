@@ -1,6 +1,6 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import ProjectList from '../components/ProjectList'
+import ProjectList from './project/List'
 
 class ProjectsPage extends Component {
   render() {
