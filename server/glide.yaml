@@ -49,3 +49,6 @@ import:
   - tools/clientcmd
 - package: github.com/ashwanthkumar/slack-go-webhook
 - package: github.com/mattes/migrate
+  version: v1.3.1
+- package: github.com/aws/aws-sdk-go
+  version: v1.8.21

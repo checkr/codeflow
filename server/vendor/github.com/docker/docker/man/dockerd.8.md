@@ -17,6 +17,7 @@ dockerd - Enable daemon mode
 [**--cluster-store-opt**[=*map[]*]]
 [**--config-file**[=*/etc/docker/daemon.json*]]
 [**--containerd**[=*SOCKET-PATH*]]
+[**--data-root**[=*/var/lib/docker*]]
 [**-D**|**--debug**]
 [**--default-gateway**[=*DEFAULT-GATEWAY*]]
 [**--default-gateway-v6**[=*DEFAULT-GATEWAY-V6*]]
@@ -33,7 +34,6 @@ dockerd - Enable daemon mode
 [**--fixed-cidr**[=*FIXED-CIDR*]]
 [**--fixed-cidr-v6**[=*FIXED-CIDR-V6*]]
 [**-G**|**--group**[=*docker*]]
-[**-g**|**--graph**[=*/var/lib/docker*]]
 [**-H**|**--host**[=*[]*]]
 [**--help**]
 [**--icc**[=*true*]]
@@ -152,6 +152,11 @@ $ sudo dockerd --add-runtime runc=runc --add-runtime custom=/usr/local/bin/my-ru
 **--containerd**=""
   Path to containerd socket.
 
+**--data-root**=""
+  Path to the directory used to store persisted Docker data such as
+  configuration for resources, swarm cluster state, and filesystem data for
+  images, containers, and local volumes. Default is `/var/lib/docker`.
+
 **-D**, **--debug**=*true*|*false*
   Enable debug mode. Default is false.
 
@@ -203,9 +208,6 @@ $ sudo dockerd --add-runtime runc=runc --add-runtime custom=/usr/local/bin/my-ru
 **-G**, **--group**=""
   Group to assign the unix socket specified by -H when running in daemon mode.
   use '' (the empty string) to disable setting of a group. Default is `docker`.
-
-**-g**, **--graph**=""
-  Path to use as the root of the Docker runtime. Default is `/var/lib/docker`.
 
 **-H**, **--host**=[*unix:///var/run/docker.sock*]: tcp://[host:port] to bind or
 unix://[/path/to/socket] to use.
@@ -417,6 +419,54 @@ Example use:
 
    $ dockerd \
          --storage-opt dm.thinpooldev=/dev/mapper/thin-pool
+
+#### dm.directlvm_device
+
+As an alternative to manually creating a thin pool as above, Docker can
+automatically configure a block device for you.
+
+Example use:
+
+   $ dockerd \
+         --storage-opt dm.directlvm_device=/dev/xvdf
+
+##### dm.thinp_percent
+
+Sets the percentage of passed in block device to use for storage.
+
+###### Example:
+
+   $ sudo dockerd \
+        --storage-opt dm.thinp_percent=95
+
+##### `dm.thinp_metapercent`
+
+Sets the percentage of the passed in block device to use for metadata storage.
+
+###### Example:
+
+   $ sudo dockerd \
+         --storage-opt dm.thinp_metapercent=1
+
+##### dm.thinp_autoextend_threshold
+
+Sets the value of the percentage of space used before `lvm` attempts to
+autoextend the available space [100 = disabled]
+
+###### Example:
+
+   $ sudo dockerd \
+         --storage-opt dm.thinp_autoextend_threshold=80
+
+##### dm.thinp_autoextend_percent
+
+Sets the value percentage value to increase the thin pool by when when `lvm`
+attempts to autoextend the available space [100 = disabled]
+
+###### Example:
+
+   $ sudo dockerd \
+         --storage-opt dm.thinp_autoextend_percent=20
 
 #### dm.basesize
 
@@ -699,10 +749,10 @@ specification file. The plugin's implementation determines whether you can
 specify a name or path. Consult with your Docker administrator to get
 information about the plugins available to you.
 
-Once a plugin is installed, requests made to the `daemon` through the command
-line or Docker's Engine API are allowed or denied by the plugin.  If you have
-multiple plugins installed, at least one must allow the request for it to
-complete.
+Once a plugin is installed, requests made to the `daemon` through the
+command line or Docker's Engine API are allowed or denied by the plugin.
+If you have multiple plugins installed, each plugin, in order, must
+allow the request for it to complete.
 
 For information about how to create an authorization plugin, see [authorization
 plugin](https://docs.docker.com/engine/extend/authorization/) section in the

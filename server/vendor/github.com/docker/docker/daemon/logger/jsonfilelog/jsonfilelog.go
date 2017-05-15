@@ -27,6 +27,7 @@ type JSONFileLogger struct {
 	mu      sync.Mutex
 	readers map[*logger.LogWatcher]struct{} // stores the active log followers
 	extra   []byte                          // json-encoded extra attributes
+	closed  bool
 }
 
 func init() {
@@ -67,7 +68,11 @@ func New(info logger.Info) (logger.Logger, error) {
 	}
 
 	var extra []byte
-	if attrs := info.ExtraAttributes(nil); len(attrs) > 0 {
+	attrs, err := info.ExtraAttributes(nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(attrs) > 0 {
 		var err error
 		extra, err = json.Marshal(attrs)
 		if err != nil {
@@ -122,6 +127,7 @@ func ValidateLogOpt(cfg map[string]string) error {
 		case "max-size":
 		case "labels":
 		case "env":
+		case "env-regex":
 		default:
 			return fmt.Errorf("unknown log opt '%s' for json-file log driver", key)
 		}
@@ -137,6 +143,7 @@ func (l *JSONFileLogger) LogPath() string {
 // Close closes underlying file and signals all readers to stop.
 func (l *JSONFileLogger) Close() error {
 	l.mu.Lock()
+	l.closed = true
 	err := l.writer.Close()
 	for r := range l.readers {
 		r.Close()

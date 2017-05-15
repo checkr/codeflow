@@ -10,7 +10,7 @@ import (
 	mounttypes "github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 )
 
@@ -120,6 +120,28 @@ type MountPoint struct {
 
 	// Sepc is a copy of the API request that created this mount.
 	Spec mounttypes.Mount
+
+	// Track usage of this mountpoint
+	// Specicially needed for containers which are running and calls to `docker cp`
+	// because both these actions require mounting the volumes.
+	active int
+}
+
+// Cleanup frees resources used by the mountpoint
+func (m *MountPoint) Cleanup() error {
+	if m.Volume == nil || m.ID == "" {
+		return nil
+	}
+
+	if err := m.Volume.Unmount(m.ID); err != nil {
+		return errors.Wrapf(err, "error unmounting volume %s", m.Volume.Name())
+	}
+
+	m.active--
+	if m.active == 0 {
+		m.ID = ""
+	}
+	return nil
 }
 
 // Setup sets up a mount point by either mounting the volume if it is
@@ -147,12 +169,16 @@ func (m *MountPoint) Setup(mountLabel string, rootUID, rootGID int) (path string
 		if err != nil {
 			return "", errors.Wrapf(err, "error while mounting volume '%s'", m.Source)
 		}
+
 		m.ID = id
+		m.active++
 		return path, nil
 	}
+
 	if len(m.Source) == 0 {
 		return "", fmt.Errorf("Unable to setup mount point, neither source nor volume defined")
 	}
+
 	// system.MkdirAll() produces an error if m.Source exists and is a file (not a directory),
 	if m.Type == mounttypes.TypeBind {
 		// idtools.MkdirAllNewAs() produces an error if m.Source exists and is a file (not a directory)
@@ -311,10 +337,12 @@ func ParseMountSpec(cfg mounttypes.Mount, options ...func(*validateOpts)) (*Moun
 		}
 	case mounttypes.TypeBind:
 		mp.Source = clean(convertSlash(cfg.Source))
-		if cfg.BindOptions != nil {
-			if len(cfg.BindOptions.Propagation) > 0 {
-				mp.Propagation = cfg.BindOptions.Propagation
-			}
+		if cfg.BindOptions != nil && len(cfg.BindOptions.Propagation) > 0 {
+			mp.Propagation = cfg.BindOptions.Propagation
+		} else {
+			// If user did not specify a propagation mode, get
+			// default propagation mode.
+			mp.Propagation = DefaultPropagationMode
 		}
 	case mounttypes.TypeTmpfs:
 		// NOP

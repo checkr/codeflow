@@ -56,14 +56,15 @@ func UpdateLBHTTPS(t plugins.Type) agent.Event {
 
 func LBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalancer {
 	project := plugins.Project{
-		Slug: "nginx-test-success",
+		Slug:       "nginx-test-success",
+		Repository: "checkr/nginx-test-success",
 	}
 	service := plugins.Service{
 		Action:  action,
 		Name:    "nginx",
 		Command: "nginx -g 'daemon off;'",
 		Listeners: []plugins.Listener{
-			plugins.Listener{
+			{
 				Port:     80,
 				Protocol: "TCP",
 			},
@@ -86,11 +87,12 @@ func LBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalancer {
 		Project:     project,
 		Service:     service,
 		ListenerPairs: []plugins.ListenerPair{
-			plugins.ListenerPair{
+			{
 				Source:      plugins.Listener{Port: 443, Protocol: "TCP"},
 				Destination: plugins.Listener{Port: 80, Protocol: "TCP"},
 			},
 		},
+		Subdomain: "nginx-testing.checkrhq-dev.net",
 	}
 	return lbe
 }
@@ -104,11 +106,11 @@ func UpdateLBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalan
 		Name:    "nginx",
 		Command: "nginx -g 'daemon off;'",
 		Listeners: []plugins.Listener{
-			plugins.Listener{
+			{
 				Port:     3000,
 				Protocol: "TCP",
 			},
-			plugins.Listener{
+			{
 				Port:     3001,
 				Protocol: "TCP",
 			},
@@ -131,11 +133,11 @@ func UpdateLBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalan
 		Project:     project,
 		Service:     service,
 		ListenerPairs: []plugins.ListenerPair{
-			plugins.ListenerPair{
+			{
 				Source:      plugins.Listener{Port: 80, Protocol: "TCP"},
 				Destination: plugins.Listener{Port: 3000, Protocol: "TCP"},
 			},
-			plugins.ListenerPair{
+			{
 				Source:      plugins.Listener{Port: 443, Protocol: "TCP"},
 				Destination: plugins.Listener{Port: 3001, Protocol: "TCP"},
 			},
@@ -271,7 +273,7 @@ func DeployDataMixedActions(name string, actions []plugins.Action) plugins.Docke
 		Release:     release,
 		Services:    serviceArray,
 		Secrets: []plugins.Secret{
-			plugins.Secret{
+			{
 				Key:   "MY_SECRET_KEY",
 				Value: "MY_SECRET_VALUE",
 				Type:  plugins.Env,
@@ -359,7 +361,7 @@ func DeployDataRenamed(name string, action plugins.Action) plugins.DockerDeploy 
 		Release:     release,
 		Services:    serviceArray,
 		Secrets: []plugins.Secret{
-			plugins.Secret{
+			{
 				Key:   "MY_SECRET_KEY",
 				Value: "MY_SECRET_VALUE",
 				Type:  plugins.Env,
@@ -447,7 +449,7 @@ func DeployData(name string, action plugins.Action) plugins.DockerDeploy {
 		Release:     release,
 		Services:    serviceArray,
 		Secrets: []plugins.Secret{
-			plugins.Secret{
+			{
 				Key:   "MY_SECRET_KEY",
 				Value: "MY_SECRET_VALUE",
 				Type:  plugins.Env,
@@ -535,7 +537,7 @@ func DeployDataFail(name string, action plugins.Action) plugins.DockerDeploy {
 		Release:     release,
 		Services:    serviceArray,
 		Secrets: []plugins.Secret{
-			plugins.Secret{
+			{
 				Key:   "MY_SECRET_KEY",
 				Value: "MY_SECRET_VALUE",
 				Type:  plugins.Env,

@@ -9,22 +9,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/peer"
-
-	"golang.org/x/net/context"
-
 	"github.com/Sirupsen/logrus"
 	"github.com/coreos/etcd/pkg/idutil"
 	"github.com/coreos/etcd/raft"
 	"github.com/coreos/etcd/raft/raftpb"
+	"github.com/docker/docker/pkg/signal"
 	"github.com/docker/go-events"
 	"github.com/docker/swarmkit/api"
 	"github.com/docker/swarmkit/ca"
 	"github.com/docker/swarmkit/log"
 	"github.com/docker/swarmkit/manager/raftselector"
+	"github.com/docker/swarmkit/manager/state"
 	"github.com/docker/swarmkit/manager/state/raft/membership"
 	"github.com/docker/swarmkit/manager/state/raft/storage"
 	"github.com/docker/swarmkit/manager/state/raft/transport"
@@ -33,6 +28,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/pivotal-golang/clock"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
+	"golang.org/x/time/rate"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 )
 
 var (
@@ -57,6 +58,10 @@ var (
 	// ErrMemberUnknown is sent in response to a message from an
 	// unrecognized peer.
 	ErrMemberUnknown = errors.New("raft: member unknown")
+
+	// work around lint
+	lostQuorumMessage = "The swarm does not have a leader. It's possible that too few managers are online. Make sure more than half of the managers are online."
+	errLostQuorum     = errors.New(lostQuorumMessage)
 )
 
 // LeadershipState indicates whether the node is a leader or follower.
@@ -67,6 +72,10 @@ const (
 	IsLeader LeadershipState = iota
 	// IsFollower indicates that the node is a raft follower.
 	IsFollower
+
+	// lostQuorumTimeout is the number of ticks that can elapse with no
+	// leader before LeaderConn starts returning an error right away.
+	lostQuorumTimeout = 10
 )
 
 // EncryptionKeys are the current and, if necessary, pending DEKs with which to
@@ -142,6 +151,7 @@ type Node struct {
 	rotationQueued      bool
 	clearData           bool
 	waitForAppliedIndex uint64
+	ticksWithNoLeader   uint32
 }
 
 // NodeOptions provides node-level options.
@@ -170,8 +180,10 @@ type NodeOptions struct {
 	// nodes. Leave this as 0 to get the default value.
 	SendTimeout    time.Duration
 	TLSCredentials credentials.TransportCredentials
-
-	KeyRotator EncryptionKeyRotator
+	KeyRotator     EncryptionKeyRotator
+	// DisableStackDump prevents Run from dumping goroutine stacks when the
+	// store becomes stuck.
+	DisableStackDump bool
 }
 
 func init() {
@@ -204,6 +216,7 @@ func NewNode(opts NodeOptions) *Node {
 			MaxSizePerMsg:   cfg.MaxSizePerMsg,
 			MaxInflightMsgs: cfg.MaxInflightMsgs,
 			Logger:          cfg.Logger,
+			CheckQuorum:     cfg.CheckQuorum,
 		},
 		doneCh:              make(chan struct{}),
 		RemovedFromRaft:     make(chan struct{}),
@@ -519,17 +532,40 @@ func (n *Node) Run(ctx context.Context) error {
 	}()
 
 	wasLeader := false
+	transferLeadershipLimit := rate.NewLimiter(rate.Every(time.Minute), 1)
 
 	for {
 		select {
 		case <-n.ticker.C():
 			n.raftNode.Tick()
+
+			if n.leader() == raft.None {
+				atomic.AddUint32(&n.ticksWithNoLeader, 1)
+			} else {
+				atomic.StoreUint32(&n.ticksWithNoLeader, 0)
+			}
 		case rd := <-n.raftNode.Ready():
 			raftConfig := n.getCurrentRaftConfig()
 
 			// Save entries to storage
 			if err := n.saveToStorage(ctx, &raftConfig, rd.HardState, rd.Entries, rd.Snapshot); err != nil {
 				return errors.Wrap(err, "failed to save entries to storage")
+			}
+
+			if wasLeader &&
+				(rd.SoftState == nil || rd.SoftState.RaftState == raft.StateLeader) &&
+				n.memoryStore.Wedged() &&
+				transferLeadershipLimit.Allow() {
+				if !n.opts.DisableStackDump {
+					signal.DumpStacks("")
+				}
+				transferee, err := n.transport.LongestActive()
+				if err != nil {
+					log.G(ctx).WithError(err).Error("failed to get longest-active member")
+				} else {
+					log.G(ctx).Error("data store lock held too long - transferring leadership")
+					n.raftNode.TransferLeadership(ctx, n.Config.ID, transferee)
+				}
 			}
 
 			for _, msg := range rd.Messages {
@@ -678,9 +714,7 @@ func (n *Node) restoreFromSnapshot(ctx context.Context, data []byte) error {
 
 	for _, removedMember := range snapCluster.Removed {
 		n.cluster.RemoveMember(removedMember)
-		if err := n.transport.RemovePeer(removedMember); err != nil {
-			log.G(ctx).WithError(err).Errorf("failed to remove peer %x from transport", removedMember)
-		}
+		n.transport.RemovePeer(removedMember)
 		delete(oldMembers, removedMember)
 	}
 
@@ -1336,6 +1370,10 @@ func (n *Node) getLeaderConn() (*grpc.ClientConn, error) {
 // LeaderConn returns current connection to cluster leader or raftselector.ErrIsLeader
 // if current machine is leader.
 func (n *Node) LeaderConn(ctx context.Context) (*grpc.ClientConn, error) {
+	if atomic.LoadUint32(&n.ticksWithNoLeader) > lostQuorumTimeout {
+		return nil, errLostQuorum
+	}
+
 	cc, err := n.getLeaderConn()
 	if err == nil {
 		return cc, nil
@@ -1411,7 +1449,7 @@ func (n *Node) registerNode(node *api.RaftMember) error {
 
 // ProposeValue calls Propose on the raft and waits
 // on the commit log action before returning a result
-func (n *Node) ProposeValue(ctx context.Context, storeAction []*api.StoreAction, cb func()) error {
+func (n *Node) ProposeValue(ctx context.Context, storeAction []api.StoreAction, cb func()) error {
 	ctx, cancel := n.WithContext(ctx)
 	defer cancel()
 	_, err := n.processInternalRaftRequest(ctx, &api.InternalRaftRequest{Action: storeAction}, cb)
@@ -1432,6 +1470,52 @@ func (n *Node) GetVersion() *api.Version {
 
 	status := n.Status()
 	return &api.Version{Index: status.Commit}
+}
+
+// ChangesBetween returns the changes starting after "from", up to and
+// including "to". If these changes are not available because the log
+// has been compacted, an error will be returned.
+func (n *Node) ChangesBetween(from, to api.Version) ([]state.Change, error) {
+	n.stopMu.RLock()
+	defer n.stopMu.RUnlock()
+
+	if from.Index > to.Index {
+		return nil, errors.New("versions are out of order")
+	}
+
+	if !n.IsMember() {
+		return nil, ErrNoRaftMember
+	}
+
+	// never returns error
+	last, _ := n.raftStore.LastIndex()
+
+	if to.Index > last {
+		return nil, errors.New("last version is out of bounds")
+	}
+
+	pbs, err := n.raftStore.Entries(from.Index+1, to.Index+1, math.MaxUint64)
+	if err != nil {
+		return nil, err
+	}
+
+	var changes []state.Change
+	for _, pb := range pbs {
+		if pb.Type != raftpb.EntryNormal || pb.Data == nil {
+			continue
+		}
+		r := &api.InternalRaftRequest{}
+		err := proto.Unmarshal(pb.Data, r)
+		if err != nil {
+			return nil, errors.Wrap(err, "error umarshalling internal raft request")
+		}
+
+		if r.Action != nil {
+			changes = append(changes, state.Change{StoreActions: r.Action, Version: api.Version{Index: pb.Index}})
+		}
+	}
+
+	return changes, nil
 }
 
 // SubscribePeers subscribes to peer updates in cluster. It sends always full
@@ -1661,10 +1745,6 @@ func (n *Node) processEntry(ctx context.Context, entry raftpb.Entry) error {
 	err := proto.Unmarshal(entry.Data, r)
 	if err != nil {
 		return err
-	}
-
-	if r.Action == nil {
-		return nil
 	}
 
 	if !n.wait.trigger(r.ID, r) {

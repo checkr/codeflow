@@ -7,7 +7,9 @@ import "time"
 type ClusterInfo struct {
 	ID string
 	Meta
-	Spec Spec
+	Spec                   Spec
+	TLSInfo                TLSInfo
+	RootRotationInProgress bool
 }
 
 // Swarm represents a swarm.
@@ -126,12 +128,17 @@ type ExternalCA struct {
 	// Options is a set of additional key/value pairs whose interpretation
 	// depends on the specified CA type.
 	Options map[string]string `json:",omitempty"`
+
+	// CACert specifies which root CA is used by this external CA.  This certificate must
+	// be in PEM format.
+	CACert string
 }
 
 // InitRequest is the request used to init a swarm.
 type InitRequest struct {
 	ListenAddr       string
 	AdvertiseAddr    string
+	DataPathAddr     string
 	ForceNewCluster  bool
 	Spec             Spec
 	AutoLockManagers bool
@@ -142,6 +149,7 @@ type InitRequest struct {
 type JoinRequest struct {
 	ListenAddr    string
 	AdvertiseAddr string
+	DataPathAddr  string
 	RemoteAddrs   []string
 	JoinToken     string // accept by secret
 	Availability  NodeAvailability

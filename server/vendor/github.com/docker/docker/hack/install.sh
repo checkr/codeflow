@@ -112,6 +112,10 @@ case "$mirror" in
 		apt_url="https://mirror.azure.cn/docker-engine/apt"
 		yum_url="https://mirror.azure.cn/docker-engine/yum"
 		;;
+	Aliyun)
+		apt_url="https://mirrors.aliyun.com/docker-engine/apt"
+		yum_url="https://mirrors.aliyun.com/docker-engine/yum"
+		;;
 esac
 
 command_exists() {
@@ -438,7 +442,7 @@ do_install() {
 					else
 						echo >&2 'Warning: current kernel is not supported by the linux-image-extra-virtual'
 						echo >&2 ' package.  We have no AUFS support.  Consider installing the packages'
-						echo >&2 ' linux-image-virtual kernel and linux-image-extra-virtual for AUFS support.'
+						echo >&2 ' "linux-image-virtual" and "linux-image-extra-virtual" for AUFS support.'
 						( set -x; sleep 10 )
 					fi
 				fi
@@ -478,7 +482,7 @@ do_install() {
 
 			(
 			set -x
-			echo "$docker_key" | apt-key add -
+			echo "$docker_key" | $sh_c 'apt-key add -'
 			$sh_c "mkdir -p /etc/apt/sources.list.d"
 			$sh_c "echo deb \[arch=$(dpkg --print-architecture)\] ${apt_url}/repo ${lsb_dist}-${dist_version} ${repo} > /etc/apt/sources.list.d/docker.list"
 			$sh_c 'sleep 3; apt-get update; apt-get install -y -q docker-engine'

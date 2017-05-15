@@ -80,12 +80,12 @@ func (suite *TestLoadBalancers) TestLBTCPExternal() {
 	suite.agent.Events <- testdata.CreateLBTCP(plugins.External)
 	e = suite.agent.GetTestEvent("plugins.LoadBalancer:status", 60)
 	assert.Equal(suite.T(), string(plugins.Complete), string(e.Payload.(plugins.LoadBalancer).State))
-	assert.NotNil(suite.T(), string(e.Payload.(plugins.LoadBalancer).DNSName))
+	assert.NotNil(suite.T(), string(e.Payload.(plugins.LoadBalancer).DNS))
 
 	suite.agent.Events <- testdata.UpdateLBTCP(plugins.External)
 	e = suite.agent.GetTestEvent("plugins.LoadBalancer:status", 60)
 	assert.Equal(suite.T(), string(plugins.Complete), string(e.Payload.(plugins.LoadBalancer).State))
-	assert.NotNil(suite.T(), string(e.Payload.(plugins.LoadBalancer).DNSName))
+	assert.NotNil(suite.T(), string(e.Payload.(plugins.LoadBalancer).DNS))
 
 	suite.agent.Events <- testdata.TearDownLBTCP(plugins.External)
 	e = suite.agent.GetTestEvent("plugins.LoadBalancer:status", 60)
@@ -98,12 +98,12 @@ func (suite *TestLoadBalancers) TestLBHTTPSExternal() {
 	suite.agent.Events <- testdata.CreateLBHTTPS(plugins.External)
 	e = suite.agent.GetTestEvent("plugins.LoadBalancer:status", 60)
 	assert.Equal(suite.T(), string(plugins.Complete), string(e.Payload.(plugins.LoadBalancer).State))
-	assert.NotNil(suite.T(), string(e.Payload.(plugins.LoadBalancer).DNSName))
+	assert.NotNil(suite.T(), string(e.Payload.(plugins.LoadBalancer).DNS))
 
 	suite.agent.Events <- testdata.UpdateLBHTTPS(plugins.External)
 	e = suite.agent.GetTestEvent("plugins.LoadBalancer:status", 60)
 	assert.Equal(suite.T(), string(plugins.Complete), string(e.Payload.(plugins.LoadBalancer).State))
-	assert.NotNil(suite.T(), string(e.Payload.(plugins.LoadBalancer).DNSName))
+	assert.NotNil(suite.T(), string(e.Payload.(plugins.LoadBalancer).DNS))
 
 	suite.agent.Events <- testdata.TearDownLBHTTPS(plugins.External)
 	e = suite.agent.GetTestEvent("plugins.LoadBalancer:status", 60)

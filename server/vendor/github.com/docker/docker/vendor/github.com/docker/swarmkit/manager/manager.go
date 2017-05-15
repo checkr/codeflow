@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/cloudflare/cfssl/helpers"
 	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/go-events"
 	"github.com/docker/swarmkit/api"
@@ -33,9 +34,9 @@ import (
 	"github.com/docker/swarmkit/manager/orchestrator/taskreaper"
 	"github.com/docker/swarmkit/manager/resourceapi"
 	"github.com/docker/swarmkit/manager/scheduler"
-	"github.com/docker/swarmkit/manager/state"
 	"github.com/docker/swarmkit/manager/state/raft"
 	"github.com/docker/swarmkit/manager/state/store"
+	"github.com/docker/swarmkit/manager/watchapi"
 	"github.com/docker/swarmkit/remotes"
 	"github.com/docker/swarmkit/xnet"
 	gogotypes "github.com/gogo/protobuf/types"
@@ -64,6 +65,9 @@ type RemoteAddrs struct {
 // Config is used to tune the Manager.
 type Config struct {
 	SecurityConfig *ca.SecurityConfig
+
+	// RootCAPaths is the path to which new root certs should be save
+	RootCAPaths ca.CertPaths
 
 	// ExternalCAs is a list of initial CAs to which a manager node
 	// will make certificate signing requests for node certificates.
@@ -210,7 +214,7 @@ func New(config *Config) (*Manager, error) {
 
 	m := &Manager{
 		config:          *config,
-		caserver:        ca.NewServer(raftNode.MemoryStore(), config.SecurityConfig),
+		caserver:        ca.NewServer(raftNode.MemoryStore(), config.SecurityConfig, config.RootCAPaths),
 		dispatcher:      dispatcher.New(raftNode, dispatcher.DefaultConfig()),
 		logbroker:       logbroker.New(raftNode.MemoryStore()),
 		server:          grpc.NewServer(opts...),
@@ -389,12 +393,14 @@ func (m *Manager) Run(parent context.Context) error {
 		return err
 	}
 
-	baseControlAPI := controlapi.NewServer(m.raftNode.MemoryStore(), m.raftNode, m.config.SecurityConfig.RootCA(), m.config.PluginGetter)
+	baseControlAPI := controlapi.NewServer(m.raftNode.MemoryStore(), m.raftNode, m.config.SecurityConfig, m.caserver, m.config.PluginGetter)
+	baseWatchAPI := watchapi.NewServer(m.raftNode.MemoryStore())
 	baseResourceAPI := resourceapi.New(m.raftNode.MemoryStore())
 	healthServer := health.NewHealthServer()
 	localHealthServer := health.NewHealthServer()
 
 	authenticatedControlAPI := api.NewAuthenticatedWrapperControlServer(baseControlAPI, authorize)
+	authenticatedWatchAPI := api.NewAuthenticatedWrapperWatchServer(baseWatchAPI, authorize)
 	authenticatedResourceAPI := api.NewAuthenticatedWrapperResourceAllocatorServer(baseResourceAPI, authorize)
 	authenticatedLogsServerAPI := api.NewAuthenticatedWrapperLogsServer(m.logbroker, authorize)
 	authenticatedLogBrokerAPI := api.NewAuthenticatedWrapperLogBrokerServer(m.logbroker, authorize)
@@ -459,6 +465,7 @@ func (m *Manager) Run(parent context.Context) error {
 	api.RegisterHealthServer(m.server, authenticatedHealthAPI)
 	api.RegisterRaftMembershipServer(m.server, proxyRaftMembershipAPI)
 	api.RegisterControlServer(m.server, authenticatedControlAPI)
+	api.RegisterWatchServer(m.server, authenticatedWatchAPI)
 	api.RegisterLogsServer(m.server, authenticatedLogsServerAPI)
 	api.RegisterLogBrokerServer(m.server, proxyLogBrokerAPI)
 	api.RegisterResourceAllocatorServer(m.server, proxyResourceAPI)
@@ -466,6 +473,7 @@ func (m *Manager) Run(parent context.Context) error {
 	grpc_prometheus.Register(m.server)
 
 	api.RegisterControlServer(m.localserver, localProxyControlAPI)
+	api.RegisterWatchServer(m.localserver, baseWatchAPI)
 	api.RegisterLogsServer(m.localserver, localProxyLogsAPI)
 	api.RegisterHealthServer(m.localserver, localHealthServer)
 	api.RegisterDispatcherServer(m.localserver, localProxyDispatcherAPI)
@@ -688,12 +696,14 @@ func (m *Manager) watchForClusterChanges(ctx context.Context) error {
 			if cluster == nil {
 				return fmt.Errorf("unable to get current cluster")
 			}
-			m.caserver.UpdateRootCA(ctx, cluster)
+			if err := m.caserver.UpdateRootCA(ctx, cluster); err != nil {
+				log.G(ctx).WithError(err).Error("could not update security config")
+			}
 			return m.updateKEK(ctx, cluster)
 		},
-		state.EventUpdateCluster{
+		api.EventUpdateCluster{
 			Cluster: &api.Cluster{ID: clusterID},
-			Checks:  []state.ClusterCheckFunc{state.ClusterCheckID},
+			Checks:  []api.ClusterCheckFunc{api.ClusterCheckID},
 		},
 	)
 	if err != nil {
@@ -703,8 +713,10 @@ func (m *Manager) watchForClusterChanges(ctx context.Context) error {
 		for {
 			select {
 			case event := <-clusterWatch:
-				clusterEvent := event.(state.EventUpdateCluster)
-				m.caserver.UpdateRootCA(ctx, clusterEvent.Cluster)
+				clusterEvent := event.(api.EventUpdateCluster)
+				if err := m.caserver.UpdateRootCA(ctx, clusterEvent.Cluster); err != nil {
+					log.G(ctx).WithError(err).Error("could not update security config")
+				}
 				m.updateKEK(ctx, clusterEvent.Cluster)
 			case <-ctx.Done():
 				clusterWatchCancel()
@@ -724,10 +736,15 @@ func (m *Manager) watchForClusterChanges(ctx context.Context) error {
 func (m *Manager) rotateRootCAKEK(ctx context.Context, clusterID string) error {
 	// If we don't have a KEK, we won't ever be rotating anything
 	strPassphrase := os.Getenv(ca.PassphraseENVVar)
-	if strPassphrase == "" {
+	strPassphrasePrev := os.Getenv(ca.PassphraseENVVarPrev)
+	if strPassphrase == "" && strPassphrasePrev == "" {
 		return nil
 	}
-	strPassphrasePrev := os.Getenv(ca.PassphraseENVVarPrev)
+	if strPassphrase != "" {
+		log.G(ctx).Warn("Encrypting the root CA key in swarm using environment variables is deprecated. " +
+			"Support for decrypting or rotating the key will be removed in the future.")
+	}
+
 	passphrase := []byte(strPassphrase)
 	passphrasePrev := []byte(strPassphrasePrev)
 
@@ -738,72 +755,79 @@ func (m *Manager) rotateRootCAKEK(ctx context.Context, clusterID string) error {
 		finalKey []byte
 	)
 	// Retrieve the cluster identified by ClusterID
-	s.View(func(readTx store.ReadTx) {
-		cluster = store.GetCluster(readTx, clusterID)
-	})
-	if cluster == nil {
-		return fmt.Errorf("cluster not found: %s", clusterID)
-	}
-
-	// Try to get the private key from the cluster
-	privKeyPEM := cluster.RootCA.CAKey
-	if len(privKeyPEM) == 0 {
-		// We have no PEM root private key in this cluster.
-		log.G(ctx).Warnf("cluster %s does not have private key material", clusterID)
-		return nil
-	}
-
-	// Decode the PEM private key
-	keyBlock, _ := pem.Decode(privKeyPEM)
-	if keyBlock == nil {
-		return fmt.Errorf("invalid PEM-encoded private key inside of cluster %s", clusterID)
-	}
-	// If this key is not encrypted, then we have to encrypt it
-	if !x509.IsEncryptedPEMBlock(keyBlock) {
-		finalKey, err = ca.EncryptECPrivateKey(privKeyPEM, strPassphrase)
-		if err != nil {
-			return err
-		}
-	} else {
-		// This key is already encrypted, let's try to decrypt with the current main passphrase
-		_, err = x509.DecryptPEMBlock(keyBlock, []byte(passphrase))
-		if err == nil {
-			// The main key is the correct KEK, nothing to do here
-			return nil
-		}
-		// This key is already encrypted, but failed with current main passphrase.
-		// Let's try to decrypt with the previous passphrase
-		unencryptedKey, err := x509.DecryptPEMBlock(keyBlock, []byte(passphrasePrev))
-		if err != nil {
-			// We were not able to decrypt either with the main or backup passphrase, error
-			return err
-		}
-		unencryptedKeyBlock := &pem.Block{
-			Type:    keyBlock.Type,
-			Bytes:   unencryptedKey,
-			Headers: keyBlock.Headers,
-		}
-
-		// We were able to decrypt the key, but with the previous passphrase. Let's encrypt
-		// with the new one and store it in raft
-		finalKey, err = ca.EncryptECPrivateKey(pem.EncodeToMemory(unencryptedKeyBlock), strPassphrase)
-		if err != nil {
-			log.G(ctx).Debugf("failed to rotate the key-encrypting-key for the root key material of cluster %s", clusterID)
-			return err
-		}
-	}
-
-	log.G(ctx).Infof("Re-encrypting the root key material of cluster %s", clusterID)
-	// Let's update the key in the cluster object
 	return s.Update(func(tx store.Tx) error {
 		cluster = store.GetCluster(tx, clusterID)
 		if cluster == nil {
 			return fmt.Errorf("cluster not found: %s", clusterID)
 		}
+
+		// Try to get the private key from the cluster
+		privKeyPEM := cluster.RootCA.CAKey
+		if len(privKeyPEM) == 0 {
+			// We have no PEM root private key in this cluster.
+			log.G(ctx).Warnf("cluster %s does not have private key material", clusterID)
+			return nil
+		}
+
+		// Decode the PEM private key
+		keyBlock, _ := pem.Decode(privKeyPEM)
+		if keyBlock == nil {
+			return fmt.Errorf("invalid PEM-encoded private key inside of cluster %s", clusterID)
+		}
+
+		if x509.IsEncryptedPEMBlock(keyBlock) {
+			// PEM encryption does not have a digest, so sometimes decryption doesn't
+			// error even with the wrong passphrase.  So actually try to parse it into a valid key.
+			_, err := helpers.ParsePrivateKeyPEMWithPassword(privKeyPEM, []byte(passphrase))
+			if err == nil {
+				// This key is already correctly encrypted with the correct KEK, nothing to do here
+				return nil
+			}
+
+			// This key is already encrypted, but failed with current main passphrase.
+			// Let's try to decrypt with the previous passphrase, and parse into a valid key, for the
+			// same reason as above.
+			_, err = helpers.ParsePrivateKeyPEMWithPassword(privKeyPEM, []byte(passphrasePrev))
+			if err != nil {
+				// We were not able to decrypt either with the main or backup passphrase, error
+				return err
+			}
+			// ok the above passphrase is correct, so decrypt the PEM block so we can re-encrypt -
+			// since the key was successfully decrypted above, there will be no error doing PEM
+			// decryption
+			unencryptedDER, _ := x509.DecryptPEMBlock(keyBlock, []byte(passphrasePrev))
+			unencryptedKeyBlock := &pem.Block{
+				Type:  keyBlock.Type,
+				Bytes: unencryptedDER,
+			}
+
+			// we were able to decrypt the key with the previous passphrase - if the current passphrase is empty,
+			// the we store the decrypted key in raft
+			finalKey = pem.EncodeToMemory(unencryptedKeyBlock)
+
+			// the current passphrase is not empty, so let's encrypt with the new one and store it in raft
+			if strPassphrase != "" {
+				finalKey, err = ca.EncryptECPrivateKey(finalKey, strPassphrase)
+				if err != nil {
+					log.G(ctx).WithError(err).Debugf("failed to rotate the key-encrypting-key for the root key material of cluster %s", clusterID)
+					return err
+				}
+			}
+		} else if strPassphrase != "" {
+			// If this key is not encrypted, and the passphrase is not nil, then we have to encrypt it
+			finalKey, err = ca.EncryptECPrivateKey(privKeyPEM, strPassphrase)
+			if err != nil {
+				log.G(ctx).WithError(err).Debugf("failed to rotate the key-encrypting-key for the root key material of cluster %s", clusterID)
+				return err
+			}
+		} else {
+			return nil // don't update if it's not encrypted and we don't want it encrypted
+		}
+
+		log.G(ctx).Infof("Updating the encryption on the root key material of cluster %s", clusterID)
 		cluster.RootCA.CAKey = finalKey
 		return store.UpdateCluster(tx, cluster)
 	})
-
 }
 
 // handleLeadershipEvents handles the is leader event or is follower event.
@@ -1045,8 +1069,8 @@ func defaultClusterObject(
 	initialUnlockKeys []*api.EncryptionKey,
 	rootCA *ca.RootCA) *api.Cluster {
 	var caKey []byte
-	if rootCA.Signer != nil {
-		caKey = rootCA.Signer.Key
+	if rcaSigner, err := rootCA.Signer(); err == nil {
+		caKey = rcaSigner.Key
 	}
 
 	return &api.Cluster{
@@ -1067,7 +1091,7 @@ func defaultClusterObject(
 		},
 		RootCA: api.RootCA{
 			CAKey:      caKey,
-			CACert:     rootCA.Cert,
+			CACert:     rootCA.Certs,
 			CACertHash: rootCA.Digest.String(),
 			JoinTokens: api.JoinTokens{
 				Worker:  ca.GenerateJoinToken(rootCA),

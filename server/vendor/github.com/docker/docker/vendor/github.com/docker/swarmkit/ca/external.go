@@ -11,12 +11,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/cloudflare/cfssl/api"
 	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/csr"
-	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -30,6 +30,8 @@ var ErrNoExternalCAURLs = errors.New("no external CA URLs")
 // ExternalCA is able to make certificate signing requests to one of a list
 // remote CFSSL API endpoints.
 type ExternalCA struct {
+	ExternalRequestTimeout time.Duration
+
 	mu     sync.Mutex
 	rootCA *RootCA
 	urls   []string
@@ -40,13 +42,27 @@ type ExternalCA struct {
 // authenticate to any of the given URLS of CFSSL API endpoints.
 func NewExternalCA(rootCA *RootCA, tlsConfig *tls.Config, urls ...string) *ExternalCA {
 	return &ExternalCA{
-		rootCA: rootCA,
-		urls:   urls,
+		ExternalRequestTimeout: 5 * time.Second,
+		rootCA:                 rootCA,
+		urls:                   urls,
 		client: &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: tlsConfig,
 			},
 		},
+	}
+}
+
+// Copy returns a copy of the external CA that can be updated independently
+func (eca *ExternalCA) Copy() *ExternalCA {
+	eca.mu.Lock()
+	defer eca.mu.Unlock()
+
+	return &ExternalCA{
+		ExternalRequestTimeout: eca.ExternalRequestTimeout,
+		rootCA:                 eca.rootCA,
+		urls:                   eca.urls,
+		client:                 eca.client,
 	}
 }
 
@@ -94,7 +110,9 @@ func (eca *ExternalCA) Sign(ctx context.Context, req signer.SignRequest) (cert [
 	// Try each configured proxy URL. Return after the first success. If
 	// all fail then the last error will be returned.
 	for _, url := range urls {
-		cert, err = makeExternalSignRequest(ctx, client, url, csrJSON)
+		requestCtx, cancel := context.WithTimeout(ctx, eca.ExternalRequestTimeout)
+		cert, err = makeExternalSignRequest(requestCtx, client, url, csrJSON)
+		cancel()
 		if err == nil {
 			return append(cert, eca.rootCA.Intermediates...), err
 		}
@@ -107,20 +125,14 @@ func (eca *ExternalCA) Sign(ctx context.Context, req signer.SignRequest) (cert [
 // CrossSignRootCA takes a RootCA object, generates a CA CSR, sends a signing request with the CA CSR to the external
 // CFSSL API server in order to obtain a cross-signed root
 func (eca *ExternalCA) CrossSignRootCA(ctx context.Context, rca RootCA) ([]byte, error) {
-	if !rca.CanSign() {
-		return nil, errors.Wrap(ErrNoValidSigner, "cannot generate CSR for a cross-signed root")
-	}
-	rootCert, err := helpers.ParseCertificatePEM(rca.Cert)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not parse CA certificate")
-	}
-	rootSigner, err := helpers.ParsePrivateKeyPEM(rca.Signer.Key)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not parse old CA key")
-	}
 	// ExtractCertificateRequest generates a new key request, and we want to continue to use the old
 	// key.  However, ExtractCertificateRequest will also convert the pkix.Name to csr.Name, which we
 	// need in order to generate a signing request
+	rcaSigner, err := rca.Signer()
+	if err != nil {
+		return nil, err
+	}
+	rootCert := rcaSigner.parsedCert
 	cfCSRObj := csr.ExtractCertificateRequest(rootCert)
 
 	der, err := x509.CreateCertificateRequest(cryptorand.Reader, &x509.CertificateRequest{
@@ -132,7 +144,7 @@ func (eca *ExternalCA) CrossSignRootCA(ctx context.Context, rca RootCA) ([]byte,
 		DNSNames:                rootCert.DNSNames,
 		EmailAddresses:          rootCert.EmailAddresses,
 		IPAddresses:             rootCert.IPAddresses,
-	}, rootSigner)
+	}, rcaSigner.cryptoSigner)
 	if err != nil {
 		return nil, err
 	}

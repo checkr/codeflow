@@ -32,7 +32,7 @@ func New(store *store.MemoryStore) *ConstraintEnforcer {
 func (ce *ConstraintEnforcer) Run() {
 	defer close(ce.doneChan)
 
-	watcher, cancelWatch := state.Watch(ce.store.WatchQueue(), state.EventUpdateNode{})
+	watcher, cancelWatch := state.Watch(ce.store.WatchQueue(), api.EventUpdateNode{})
 	defer cancelWatch()
 
 	var (
@@ -53,7 +53,7 @@ func (ce *ConstraintEnforcer) Run() {
 	for {
 		select {
 		case event := <-watcher:
-			node := event.(state.EventUpdateNode).Node
+			node := event.(api.EventUpdateNode).Node
 			ce.rejectNoncompliantTasks(node)
 		case <-ce.stopChan:
 			return
@@ -129,7 +129,7 @@ func (ce *ConstraintEnforcer) rejectNoncompliantTasks(node *api.Node) {
 	}
 
 	if len(removeTasks) != 0 {
-		_, err := ce.store.Batch(func(batch *store.Batch) error {
+		err := ce.store.Batch(func(batch *store.Batch) error {
 			for _, t := range removeTasks {
 				err := batch.Update(func(tx store.Tx) error {
 					t = store.GetTask(tx, t.ID)

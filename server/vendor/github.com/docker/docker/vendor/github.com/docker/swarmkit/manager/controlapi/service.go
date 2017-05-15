@@ -2,7 +2,6 @@ package controlapi
 
 import (
 	"errors"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -10,6 +9,8 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/docker/swarmkit/api"
+	"github.com/docker/swarmkit/api/defaults"
+	"github.com/docker/swarmkit/api/naming"
 	"github.com/docker/swarmkit/identity"
 	"github.com/docker/swarmkit/manager/allocator"
 	"github.com/docker/swarmkit/manager/constraint"
@@ -23,10 +24,12 @@ import (
 )
 
 var (
-	errNetworkUpdateNotSupported = errors.New("changing network in service is not supported")
+	errNetworkUpdateNotSupported = errors.New("networks must be migrated to TaskSpec before being changed")
 	errRenameNotSupported        = errors.New("renaming services is not supported")
 	errModeChangeNotAllowed      = errors.New("service mode change is not allowed")
 )
+
+const minimumDuration = 1 * time.Millisecond
 
 func validateResources(r *api.Resources) error {
 	if r == nil {
@@ -118,25 +121,138 @@ func validateUpdate(uc *api.UpdateConfig) error {
 	return nil
 }
 
-func validateContainerSpec(container *api.ContainerSpec) error {
-	if container == nil {
-		return grpc.Errorf(codes.InvalidArgument, "ContainerSpec: missing in service spec")
+func validateContainerSpec(taskSpec api.TaskSpec) error {
+	// Building a empty/dummy Task to validate the templating and
+	// the resulting container spec as well. This is a *best effort*
+	// validation.
+	container, err := template.ExpandContainerSpec(&api.Task{
+		Spec:      taskSpec,
+		ServiceID: "serviceid",
+		Slot:      1,
+		NodeID:    "nodeid",
+		Networks:  []*api.NetworkAttachment{},
+		Annotations: api.Annotations{
+			Name: "taskname",
+		},
+		ServiceAnnotations: api.Annotations{
+			Name: "servicename",
+		},
+		Endpoint:  &api.Endpoint{},
+		LogDriver: taskSpec.LogDriver,
+	})
+	if err != nil {
+		return grpc.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	if container.Image == "" {
+	if err := validateImage(container.Image); err != nil {
+		return err
+	}
+
+	if err := validateMounts(container.Mounts); err != nil {
+		return err
+	}
+
+	if err := validateHealthCheck(container.Healthcheck); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateImage validates image name in containerSpec
+func validateImage(image string) error {
+	if image == "" {
 		return grpc.Errorf(codes.InvalidArgument, "ContainerSpec: image reference must be provided")
 	}
 
-	if _, err := reference.ParseNormalizedNamed(container.Image); err != nil {
-		return grpc.Errorf(codes.InvalidArgument, "ContainerSpec: %q is not a valid repository/tag", container.Image)
+	if _, err := reference.ParseNormalizedNamed(image); err != nil {
+		return grpc.Errorf(codes.InvalidArgument, "ContainerSpec: %q is not a valid repository/tag", image)
 	}
+	return nil
+}
 
+// validateMounts validates if there are duplicate mounts in containerSpec
+func validateMounts(mounts []api.Mount) error {
 	mountMap := make(map[string]bool)
-	for _, mount := range container.Mounts {
+	for _, mount := range mounts {
 		if _, exists := mountMap[mount.Target]; exists {
 			return grpc.Errorf(codes.InvalidArgument, "ContainerSpec: duplicate mount point: %s", mount.Target)
 		}
 		mountMap[mount.Target] = true
+	}
+
+	return nil
+}
+
+// validateHealthCheck validates configs about container's health check
+func validateHealthCheck(hc *api.HealthConfig) error {
+	if hc == nil {
+		return nil
+	}
+
+	if hc.Interval != nil {
+		interval, err := gogotypes.DurationFromProto(hc.Interval)
+		if err != nil {
+			return err
+		}
+		if interval != 0 && interval < time.Duration(minimumDuration) {
+			return grpc.Errorf(codes.InvalidArgument, "ContainerSpec: Interval in HealthConfig cannot be less than %s", minimumDuration)
+		}
+	}
+
+	if hc.Timeout != nil {
+		timeout, err := gogotypes.DurationFromProto(hc.Timeout)
+		if err != nil {
+			return err
+		}
+		if timeout != 0 && timeout < time.Duration(minimumDuration) {
+			return grpc.Errorf(codes.InvalidArgument, "ContainerSpec: Timeout in HealthConfig cannot be less than %s", minimumDuration)
+		}
+	}
+
+	if hc.StartPeriod != nil {
+		sp, err := gogotypes.DurationFromProto(hc.StartPeriod)
+		if err != nil {
+			return err
+		}
+		if sp != 0 && sp < time.Duration(minimumDuration) {
+			return grpc.Errorf(codes.InvalidArgument, "ContainerSpec: StartPeriod in HealthConfig cannot be less than %s", minimumDuration)
+		}
+	}
+
+	if hc.Retries < 0 {
+		return grpc.Errorf(codes.InvalidArgument, "ContainerSpec: Retries in HealthConfig cannot be negative")
+	}
+
+	return nil
+}
+
+func validateGenericRuntimeSpec(taskSpec api.TaskSpec) error {
+	generic := taskSpec.GetGeneric()
+
+	if len(generic.Kind) < 3 {
+		return grpc.Errorf(codes.InvalidArgument, "Generic runtime: Invalid name %q", generic.Kind)
+	}
+
+	reservedNames := []string{"container", "attachment"}
+	for _, n := range reservedNames {
+		if strings.ToLower(generic.Kind) == n {
+			return grpc.Errorf(codes.InvalidArgument, "Generic runtime: %q is a reserved name", generic.Kind)
+		}
+	}
+
+	payload := generic.Payload
+
+	if payload == nil {
+		return grpc.Errorf(codes.InvalidArgument, "Generic runtime is missing payload")
+	}
+
+	if payload.TypeUrl == "" {
+		return grpc.Errorf(codes.InvalidArgument, "Generic runtime is missing payload type")
+	}
+
+	if len(payload.Value) == 0 {
+		return grpc.Errorf(codes.InvalidArgument, "Generic runtime has an empty payload")
 	}
 
 	return nil
@@ -155,8 +271,13 @@ func validateTaskSpec(taskSpec api.TaskSpec) error {
 		return err
 	}
 
-	// Check to see if the Secret Reference portion of the spec is valid
+	// Check to see if the secret reference portion of the spec is valid
 	if err := validateSecretRefsSpec(taskSpec); err != nil {
+		return err
+	}
+
+	// Check to see if the config reference portion of the spec is valid
+	if err := validateConfigRefsSpec(taskSpec); err != nil {
 		return err
 	}
 
@@ -164,34 +285,17 @@ func validateTaskSpec(taskSpec api.TaskSpec) error {
 		return grpc.Errorf(codes.InvalidArgument, "TaskSpec: missing runtime")
 	}
 
-	_, ok := taskSpec.GetRuntime().(*api.TaskSpec_Container)
-	if !ok {
+	switch taskSpec.GetRuntime().(type) {
+	case *api.TaskSpec_Container:
+		if err := validateContainerSpec(taskSpec); err != nil {
+			return err
+		}
+	case *api.TaskSpec_Generic:
+		if err := validateGenericRuntimeSpec(taskSpec); err != nil {
+			return err
+		}
+	default:
 		return grpc.Errorf(codes.Unimplemented, "RuntimeSpec: unimplemented runtime in service spec")
-	}
-
-	// Building a empty/dummy Task to validate the templating and
-	// the resulting container spec as well. This is a *best effort*
-	// validation.
-	preparedSpec, err := template.ExpandContainerSpec(&api.Task{
-		Spec:      taskSpec,
-		ServiceID: "serviceid",
-		Slot:      1,
-		NodeID:    "nodeid",
-		Networks:  []*api.NetworkAttachment{},
-		Annotations: api.Annotations{
-			Name: "taskname",
-		},
-		ServiceAnnotations: api.Annotations{
-			Name: "servicename",
-		},
-		Endpoint:  &api.Endpoint{},
-		LogDriver: taskSpec.LogDriver,
-	})
-	if err != nil {
-		return grpc.Errorf(codes.InvalidArgument, err.Error())
-	}
-	if err := validateContainerSpec(preparedSpec); err != nil {
-		return err
 	}
 
 	return nil
@@ -263,17 +367,57 @@ func validateSecretRefsSpec(spec api.TaskSpec) error {
 		// If this is a file target, we will ensure filename uniqueness
 		if secretRef.GetFile() != nil {
 			fileName := secretRef.GetFile().Name
-			// Validate the file name
-			if fileName == "" || fileName != filepath.Base(filepath.Clean(fileName)) {
+			if fileName == "" {
 				return grpc.Errorf(codes.InvalidArgument, "malformed file secret reference, invalid target file name provided")
 			}
-
 			// If this target is already in use, we have conflicting targets
 			if prevSecretName, ok := existingTargets[fileName]; ok {
 				return grpc.Errorf(codes.InvalidArgument, "secret references '%s' and '%s' have a conflicting target: '%s'", prevSecretName, secretRef.SecretName, fileName)
 			}
 
 			existingTargets[fileName] = secretRef.SecretName
+		}
+	}
+
+	return nil
+}
+
+// validateConfigRefsSpec finds if the configs passed in spec are valid and have no
+// conflicting targets.
+func validateConfigRefsSpec(spec api.TaskSpec) error {
+	container := spec.GetContainer()
+	if container == nil {
+		return nil
+	}
+
+	// Keep a map to track all the targets that will be exposed
+	// The string returned is only used for logging. It could as well be struct{}{}
+	existingTargets := make(map[string]string)
+	for _, configRef := range container.Configs {
+		// ConfigID and ConfigName are mandatory, we have invalid references without them
+		if configRef.ConfigID == "" || configRef.ConfigName == "" {
+			return grpc.Errorf(codes.InvalidArgument, "malformed config reference")
+		}
+
+		// Every config reference requires a Target
+		if configRef.GetTarget() == nil {
+			return grpc.Errorf(codes.InvalidArgument, "malformed config reference, no target provided")
+		}
+
+		// If this is a file target, we will ensure filename uniqueness
+		if configRef.GetFile() != nil {
+			fileName := configRef.GetFile().Name
+			// Validate the file name
+			if fileName == "" {
+				return grpc.Errorf(codes.InvalidArgument, "malformed file config reference, invalid target file name provided")
+			}
+
+			// If this target is already in use, we have conflicting targets
+			if prevConfigName, ok := existingTargets[fileName]; ok {
+				return grpc.Errorf(codes.InvalidArgument, "config references '%s' and '%s' have a conflicting target: '%s'", prevConfigName, configRef.ConfigName, fileName)
+			}
+
+			existingTargets[fileName] = configRef.ConfigName
 		}
 	}
 
@@ -425,34 +569,33 @@ func (s *Server) checkSecretExistence(tx store.Tx, spec *api.ServiceSpec) error 
 	return nil
 }
 
-func doesServiceNeedIngress(srv *api.Service) bool {
-	// Only VIP mode with target ports needs routing mesh.
-	// If no endpoint is specified, it defaults to VIP mode but no target ports
-	// are specified, so the service does not need the routing mesh.
-	if srv.Spec.Endpoint == nil || srv.Spec.Endpoint.Mode != api.ResolutionModeVirtualIP {
-		return false
+// checkConfigExistence finds if the config exists
+func (s *Server) checkConfigExistence(tx store.Tx, spec *api.ServiceSpec) error {
+	container := spec.Task.GetContainer()
+	if container == nil {
+		return nil
 	}
-	// Go through the ports' config
-	for _, p := range srv.Spec.Endpoint.Ports {
-		if p.PublishMode != api.PublishModeIngress {
-			continue
-		}
-		if p.PublishedPort != 0 {
-			return true
-		}
-	}
-	// Go through the ports' state
-	if srv.Endpoint != nil {
-		for _, p := range srv.Endpoint.Ports {
-			if p.PublishMode != api.PublishModeIngress {
-				continue
-			}
-			if p.PublishedPort != 0 {
-				return true
-			}
+
+	var failedConfigs []string
+	for _, configRef := range container.Configs {
+		config := store.GetConfig(tx, configRef.ConfigID)
+		// Check to see if the config exists and configRef.ConfigName matches the actual configName
+		if config == nil || config.Spec.Annotations.Name != configRef.ConfigName {
+			failedConfigs = append(failedConfigs, configRef.ConfigName)
 		}
 	}
-	return false
+
+	if len(failedConfigs) > 0 {
+		configStr := "configs"
+		if len(failedConfigs) == 1 {
+			configStr = "config"
+		}
+
+		return grpc.Errorf(codes.InvalidArgument, "%s not found: %v", configStr, strings.Join(failedConfigs, ", "))
+
+	}
+
+	return nil
 }
 
 // CreateService creates and returns a Service based on the provided ServiceSpec.
@@ -476,11 +619,12 @@ func (s *Server) CreateService(ctx context.Context, request *api.CreateServiceRe
 	// TODO(aluzzardi): Consider using `Name` as a primary key to handle
 	// duplicate creations. See #65
 	service := &api.Service{
-		ID:   identity.NewID(),
-		Spec: *request.Spec,
+		ID:          identity.NewID(),
+		Spec:        *request.Spec,
+		SpecVersion: &api.Version{},
 	}
 
-	if doesServiceNeedIngress(service) {
+	if allocator.IsIngressNetworkNeeded(service) {
 		if _, err := allocator.GetIngressNetwork(s.store); err == allocator.ErrNoIngress {
 			return nil, grpc.Errorf(codes.FailedPrecondition, "service needs ingress network, but no ingress network is present")
 		}
@@ -490,6 +634,10 @@ func (s *Server) CreateService(ctx context.Context, request *api.CreateServiceRe
 		// Check to see if all the secrets being added exist as objects
 		// in our datastore
 		err := s.checkSecretExistence(tx, request.Spec)
+		if err != nil {
+			return err
+		}
+		err = s.checkConfigExistence(tx, request.Spec)
 		if err != nil {
 			return err
 		}
@@ -519,6 +667,10 @@ func (s *Server) GetService(ctx context.Context, request *api.GetServiceRequest)
 	})
 	if service == nil {
 		return nil, grpc.Errorf(codes.NotFound, "service %s not found", request.ServiceID)
+	}
+
+	if request.InsertDefaults {
+		service.Spec = *defaults.InterpolateService(&service.Spec)
 	}
 
 	return &api.GetServiceResponse{
@@ -558,24 +710,25 @@ func (s *Server) UpdateService(ctx context.Context, request *api.UpdateServiceRe
 		if service == nil {
 			return grpc.Errorf(codes.NotFound, "service %s not found", request.ServiceID)
 		}
-		// temporary disable network update
-		requestSpecNetworks := request.Spec.Task.Networks
-		if len(requestSpecNetworks) == 0 {
-			requestSpecNetworks = request.Spec.Networks
-		}
 
-		specNetworks := service.Spec.Task.Networks
-		if len(specNetworks) == 0 {
-			specNetworks = service.Spec.Networks
-		}
-
-		if !reflect.DeepEqual(requestSpecNetworks, specNetworks) {
+		// It's not okay to update Service.Spec.Networks on its own.
+		// However, if Service.Spec.Task.Networks is also being
+		// updated, that's okay (for example when migrating from the
+		// deprecated Spec.Networks field to Spec.Task.Networks).
+		if (len(request.Spec.Networks) != 0 || len(service.Spec.Networks) != 0) &&
+			!reflect.DeepEqual(request.Spec.Networks, service.Spec.Networks) &&
+			reflect.DeepEqual(request.Spec.Task.Networks, service.Spec.Task.Networks) {
 			return grpc.Errorf(codes.Unimplemented, errNetworkUpdateNotSupported.Error())
 		}
 
 		// Check to see if all the secrets being added exist as objects
 		// in our datastore
 		err := s.checkSecretExistence(tx, request.Spec)
+		if err != nil {
+			return err
+		}
+
+		err = s.checkConfigExistence(tx, request.Spec)
 		if err != nil {
 			return err
 		}
@@ -599,8 +752,11 @@ func (s *Server) UpdateService(ctx context.Context, request *api.UpdateServiceRe
 			}
 
 			curSpec := service.Spec.Copy()
+			curSpecVersion := service.SpecVersion
 			service.Spec = *service.PreviousSpec.Copy()
+			service.SpecVersion = service.PreviousSpecVersion.Copy()
 			service.PreviousSpec = curSpec
+			service.PreviousSpecVersion = curSpecVersion
 
 			service.UpdateStatus = &api.UpdateStatus{
 				State:     api.UpdateStatus_ROLLBACK_STARTED,
@@ -609,13 +765,19 @@ func (s *Server) UpdateService(ctx context.Context, request *api.UpdateServiceRe
 			}
 		} else {
 			service.PreviousSpec = service.Spec.Copy()
+			service.PreviousSpecVersion = service.SpecVersion
 			service.Spec = *request.Spec.Copy()
+			// Set spec version. Note that this will not match the
+			// service's Meta.Version after the store update. The
+			// versions for the spec and the service itself are not
+			// meant to be directly comparable.
+			service.SpecVersion = service.Meta.Version.Copy()
 
 			// Reset update status
 			service.UpdateStatus = nil
 		}
 
-		if doesServiceNeedIngress(service) {
+		if allocator.IsIngressNetworkNeeded(service) {
 			if _, err := allocator.GetIngressNetwork(s.store); err == allocator.ErrNoIngress {
 				return grpc.Errorf(codes.FailedPrecondition, "service needs ingress network, but no ingress network is present")
 			}
@@ -687,6 +849,8 @@ func (s *Server) ListServices(ctx context.Context, request *api.ListServicesRequ
 			services, err = store.FindServices(tx, buildFilters(store.ByNamePrefix, request.Filters.NamePrefixes))
 		case request.Filters != nil && len(request.Filters.IDPrefixes) > 0:
 			services, err = store.FindServices(tx, buildFilters(store.ByIDPrefix, request.Filters.IDPrefixes))
+		case request.Filters != nil && len(request.Filters.Runtimes) > 0:
+			services, err = store.FindServices(tx, buildFilters(store.ByRuntime, request.Filters.Runtimes))
 		default:
 			services, err = store.FindServices(tx, store.All)
 		}
@@ -708,6 +872,16 @@ func (s *Server) ListServices(ctx context.Context, request *api.ListServicesRequ
 			},
 			func(e *api.Service) bool {
 				return filterMatchLabels(e.Spec.Annotations.Labels, request.Filters.Labels)
+			},
+			func(e *api.Service) bool {
+				if len(request.Filters.Runtimes) == 0 {
+					return true
+				}
+				r, err := naming.Runtime(e.Spec.Task)
+				if err != nil {
+					return false
+				}
+				return filterContains(r, request.Filters.Runtimes)
 			},
 		)
 	}

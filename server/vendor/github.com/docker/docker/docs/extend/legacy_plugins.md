@@ -58,6 +58,7 @@ Plugin                                                                          
 Plugin                                                                              | Description
 ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 [Azure File Storage plugin](https://github.com/Azure/azurefile-dockervolumedriver)  | Lets you mount Microsoft [Azure File Storage](https://azure.microsoft.com/blog/azure-file-storage-now-generally-available/) shares to Docker containers as volumes using the SMB 3.0 protocol. [Learn more](https://azure.microsoft.com/blog/persistent-docker-volumes-with-azure-file-storage/).
+[BeeGFS Volume Plugin](https://github.com/RedCoolBeans/docker-volume-beegfs)        | An open source volume plugin to create persistent volumes in a BeeGFS parallel file system.
 [Blockbridge plugin](https://github.com/blockbridge/blockbridge-docker-volume)      | A volume plugin that provides access to an extensible set of container-based persistent storage options. It supports single and multi-host Docker environments with features that include tenant isolation, automated provisioning, encryption, secure deletion, snapshots and QoS.
 [Contiv Volume Plugin](https://github.com/contiv/volplugin)                         | An open source volume plugin that provides multi-tenant, persistent, distributed storage with intent based consumption. It has support for Ceph and NFS.
 [Convoy plugin](https://github.com/rancher/convoy)                                  | A volume plugin for a variety of storage back-ends including device mapper and NFS. It's a simple standalone executable written in Go and provides the framework to support vendor-specific extensions such as snapshots, backups and restore.
@@ -87,6 +88,7 @@ Plugin                                                                          
  Plugin                                                       | Description
 ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  [Twistlock AuthZ Broker](https://github.com/twistlock/authz) | A basic extendable authorization plugin that runs directly on the host or inside a container. This plugin allows you to define user policies that it evaluates during authorization. Basic authorization is provided if Docker daemon is started with the --tlsverify flag (username is extracted from the certificate common name).
+ [HBM plugin](https://github.com/kassisol/hbm)                | An authorization plugin that prevents from executing commands with certains parameters.
 
 ## Troubleshooting a plugin
 

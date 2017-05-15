@@ -27,13 +27,13 @@ type Backend interface {
 	CreateManagedNetwork(clustertypes.NetworkCreateRequest) error
 	DeleteManagedNetwork(name string) error
 	FindNetwork(idName string) (libnetwork.Network, error)
-	SetupIngress(req clustertypes.NetworkCreateRequest, nodeIP string) error
-	ReleaseIngress() error
+	SetupIngress(clustertypes.NetworkCreateRequest, string) (<-chan struct{}, error)
+	ReleaseIngress() (<-chan struct{}, error)
 	PullImage(ctx context.Context, image, tag string, metaHeaders map[string][]string, authConfig *types.AuthConfig, outStream io.Writer) error
 	CreateManagedContainer(config types.ContainerCreateConfig) (container.ContainerCreateCreatedBody, error)
 	ContainerStart(name string, hostConfig *container.HostConfig, checkpoint string, checkpointDir string) error
 	ContainerStop(name string, seconds *int) error
-	ContainerLogs(context.Context, string, *backend.ContainerLogsConfig, chan struct{}) error
+	ContainerLogs(context.Context, string, *types.ContainerLogsOptions) (<-chan *backend.LogMessage, error)
 	ConnectContainerToNetwork(containerName, networkName string, endpointConfig *network.EndpointSettings) error
 	ActivateContainerServiceBinding(containerName string) error
 	DeactivateContainerServiceBinding(containerName string) error
@@ -55,7 +55,7 @@ type Backend interface {
 	UnsubscribeFromEvents(listener chan interface{})
 	UpdateAttachment(string, string, string, *network.NetworkingConfig) error
 	WaitForDetachment(context.Context, string, string, string, string) error
-	GetRepository(context.Context, reference.NamedTagged, *types.AuthConfig) (distribution.Repository, bool, error)
+	GetRepository(context.Context, reference.Named, *types.AuthConfig) (distribution.Repository, bool, error)
 	LookupImage(name string) (*types.ImageInspect, error)
 	PluginManager() *plugin.Manager
 	PluginGetter() *plugin.Store

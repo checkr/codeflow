@@ -412,12 +412,12 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 						NodeSelector:                  nodeSelector,
 						TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 						ImagePullSecrets: []v1.LocalObjectReference{
-							v1.LocalObjectReference{
+							{
 								Name: "docker-io",
 							},
 						},
 						Containers: []v1.Container{
-							v1.Container{
+							{
 								Name:  service.Name,
 								Image: data.Docker.Image,
 								Ports: deployPorts,

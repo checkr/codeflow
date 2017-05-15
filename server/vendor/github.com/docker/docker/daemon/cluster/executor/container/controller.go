@@ -1,11 +1,7 @@
 package container
 
 import (
-	"bufio"
-	"bytes"
-	"encoding/binary"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -441,15 +437,27 @@ func (r *controller) Logs(ctx context.Context, publisher exec.LogPublisher, opti
 		return err
 	}
 
-	if err := r.waitReady(ctx); err != nil {
-		return errors.Wrap(err, "container not ready for logs")
+	// if we're following, wait for this container to be ready. there is a
+	// problem here: if the container will never be ready (for example, it has
+	// been totally deleted) then this will wait forever. however, this doesn't
+	// actually cause any UI issues, and shouldn't be a problem. the stuck wait
+	// will go away when the follow (context) is canceled.
+	if options.Follow {
+		if err := r.waitReady(ctx); err != nil {
+			return errors.Wrap(err, "container not ready for logs")
+		}
 	}
+	// if we're not following, we're not gonna wait for the container to be
+	// ready. just call logs. if the container isn't ready, the call will fail
+	// and return an error. no big deal, we don't care, we only want the logs
+	// we can get RIGHT NOW with no follow
 
-	rc, err := r.adapter.logs(ctx, options)
+	logsContext, cancel := context.WithCancel(ctx)
+	msgs, err := r.adapter.logs(logsContext, options)
+	defer cancel()
 	if err != nil {
 		return errors.Wrap(err, "failed getting container logs")
 	}
-	defer rc.Close()
 
 	var (
 		// use a rate limiter to keep things under control but also provides some
@@ -462,53 +470,38 @@ func (r *controller) Logs(ctx context.Context, publisher exec.LogPublisher, opti
 		}
 	)
 
-	brd := bufio.NewReader(rc)
 	for {
-		// so, message header is 8 bytes, treat as uint64, pull stream off MSB
-		var header uint64
-		if err := binary.Read(brd, binary.BigEndian, &header); err != nil {
-			if err == io.EOF {
-				return nil
-			}
-
-			return errors.Wrap(err, "failed reading log header")
+		msg, ok := <-msgs
+		if !ok {
+			// we're done here, no more messages
+			return nil
 		}
 
-		stream, size := (header>>(7<<3))&0xFF, header & ^(uint64(0xFF)<<(7<<3))
+		if msg.Err != nil {
+			// the defered cancel closes the adapter's log stream
+			return msg.Err
+		}
 
-		// limit here to decrease allocation back pressure.
-		if err := limiter.WaitN(ctx, int(size)); err != nil {
+		// wait here for the limiter to catch up
+		if err := limiter.WaitN(ctx, len(msg.Line)); err != nil {
 			return errors.Wrap(err, "failed rate limiter")
 		}
-
-		buf := make([]byte, size)
-		_, err := io.ReadFull(brd, buf)
-		if err != nil {
-			return errors.Wrap(err, "failed reading buffer")
-		}
-
-		// Timestamp is RFC3339Nano with 1 space after. Lop, parse, publish
-		parts := bytes.SplitN(buf, []byte(" "), 2)
-		if len(parts) != 2 {
-			return fmt.Errorf("invalid timestamp in log message: %v", buf)
-		}
-
-		ts, err := time.Parse(time.RFC3339Nano, string(parts[0]))
-		if err != nil {
-			return errors.Wrap(err, "failed to parse timestamp")
-		}
-
-		tsp, err := gogotypes.TimestampProto(ts)
+		tsp, err := gogotypes.TimestampProto(msg.Timestamp)
 		if err != nil {
 			return errors.Wrap(err, "failed to convert timestamp")
+		}
+		var stream api.LogStream
+		if msg.Source == "stdout" {
+			stream = api.LogStreamStdout
+		} else if msg.Source == "stderr" {
+			stream = api.LogStreamStderr
 		}
 
 		if err := publisher.Publish(ctx, api.LogMessage{
 			Context:   msgctx,
 			Timestamp: tsp,
-			Stream:    api.LogStream(stream),
-
-			Data: parts[1],
+			Stream:    stream,
+			Data:      msg.Line,
 		}); err != nil {
 			return errors.Wrap(err, "failed to publish log message")
 		}

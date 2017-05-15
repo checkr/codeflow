@@ -27,7 +27,7 @@ type copyBackend interface {
 	ContainerArchivePath(name string, path string) (content io.ReadCloser, stat *types.ContainerPathStat, err error)
 	ContainerCopy(name string, res string) (io.ReadCloser, error)
 	ContainerExport(name string, out io.Writer) error
-	ContainerExtractToDir(name, path string, noOverwriteDirNonDir bool, content io.Reader) error
+	ContainerExtractToDir(name, path string, copyUIDGID, noOverwriteDirNonDir bool, content io.Reader) error
 	ContainerStatPath(name string, path string) (stat *types.ContainerPathStat, err error)
 }
 
@@ -51,7 +51,7 @@ type stateBackend interface {
 type monitorBackend interface {
 	ContainerChanges(name string) ([]archive.Change, error)
 	ContainerInspect(name string, size bool, version string) (interface{}, error)
-	ContainerLogs(ctx context.Context, name string, config *backend.ContainerLogsConfig, started chan struct{}) error
+	ContainerLogs(ctx context.Context, name string, config *types.ContainerLogsOptions) (<-chan *backend.LogMessage, error)
 	ContainerStats(ctx context.Context, name string, config *backend.ContainerStatsConfig) error
 	ContainerTop(name string, psArgs string) (*container.ContainerTopOKBody, error)
 
@@ -65,7 +65,7 @@ type attachBackend interface {
 
 // systemBackend includes functions to implement to provide system wide containers functionality
 type systemBackend interface {
-	ContainersPrune(pruneFilters filters.Args) (*types.ContainersPruneReport, error)
+	ContainersPrune(ctx context.Context, pruneFilters filters.Args) (*types.ContainersPruneReport, error)
 }
 
 // Backend is all the methods that need to be implemented to provide container specific functionality.

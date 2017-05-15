@@ -35,6 +35,7 @@ Options:
       --containerd string                     Path to containerd socket
       --cpu-rt-period int                     Limit the CPU real-time period in microseconds
       --cpu-rt-runtime int                    Limit the CPU real-time runtime in microseconds
+      --data-root string                      Root directory of persistent Docker state (default "/var/lib/docker")
   -D, --debug                                 Enable debug mode
       --default-gateway ip                    Container default gateway IPv4 address
       --default-gateway-v6 ip                 Container default gateway IPv6 address
@@ -49,7 +50,6 @@ Options:
       --experimental                          Enable experimental features
       --fixed-cidr string                     IPv4 subnet for fixed IPs
       --fixed-cidr-v6 string                  IPv6 subnet for fixed IPs
-  -g, --graph string                          Root of the Docker runtime (default "/var/lib/docker")
   -G, --group string                          Group for the unix socket (default "docker")
       --help                                  Print usage
   -H, --host list                             Daemon socket(s) to connect to (default [])
@@ -71,6 +71,7 @@ Options:
       --max-concurrent-uploads int            Set the max concurrent uploads for each push (default 5)
       --metrics-addr string                   Set default address and port to serve the metrics api on
       --mtu int                               Set the containers network MTU
+      --no-new-privileges                     Set no-new-privileges by default for new containers
       --oom-score-adjust int                  Set the oom_score_adj for the daemon (default -500)
   -p, --pidfile string                        Path to use for daemon PID file (default "/var/run/docker.pid")
       --raw-logs                              Full timestamps without ANSI coloring
@@ -302,6 +303,19 @@ options for `zfs` start with `zfs` and options for `btrfs` start with `btrfs`.
 
 #### Devicemapper options
 
+This is an example of the configuration file for devicemapper on Linux:
+
+```json
+{
+  "storage-driver": "devicemapper",
+  "storage-opts": [
+    "dm.thinpooldev=/dev/mapper/thin-pool",
+    "dm.use_deferred_deletion=true",
+    "dm.use_deferred_removal=true"
+  ]
+}
+```
+
 ##### `dm.thinpooldev`
 
 Specifies a custom block storage device to use for the thin pool.
@@ -328,6 +342,60 @@ not use loopback in production. Ensure your Engine daemon has a
 ```bash
 $ sudo dockerd --storage-opt dm.thinpooldev=/dev/mapper/thin-pool
 ```
+
+##### `dm.directlvm_device`
+
+As an alternative to providing a thin pool as above, Docker can setup a block
+device for you.
+
+###### Example:
+
+```bash
+$ sudo dockerd --storage-opt dm.directlvm_device=/dev/xvdf
+```
+
+##### `dm.thinp_percent`
+
+Sets the percentage of passed in block device to use for storage.
+
+###### Example:
+
+```bash
+$ sudo dockerd --storage-opt dm.thinp_percent=95
+```
+
+##### `dm.thinp_metapercent`
+
+Sets the percentage of the passed in block device to use for metadata storage.
+
+###### Example:
+
+```bash
+$ sudo dockerd --storage-opt dm.thinp_metapercent=1
+```
+
+##### `dm.thinp_autoextend_threshold`
+
+Sets the value of the percentage of space used before `lvm` attempts to
+autoextend the available space [100 = disabled]
+
+###### Example:
+
+```bash
+$ sudo dockerd --storage-opt dm.thinp_autoextend_threshold=80
+```
+
+##### `dm.thinp_autoextend_percent`
+
+Sets the value percentage value to increase the thin pool by when when `lvm`
+attempts to autoextend the available space [100 = disabled]
+
+###### Example:
+
+```bash
+$ sudo dockerd --storage-opt dm.thinp_autoextend_percent=20
+```
+
 
 ##### `dm.basesize`
 
@@ -888,10 +956,10 @@ file. The plugin's implementation determines whether you can specify a name or
 path. Consult with your Docker administrator to get information about the
 plugins available to you.
 
-Once a plugin is installed, requests made to the `daemon` through the command
-line or Docker's Engine API are allowed or denied by the plugin.  If you have
-multiple plugins installed, at least one must allow the request for it to
-complete.
+Once a plugin is installed, requests made to the `daemon` through the
+command line or Docker's Engine API are allowed or denied by the plugin.
+If you have multiple plugins installed, each plugin, in order, must
+allow the request for it to complete.
 
 For information about how to create an authorization plugin, see [authorization
 plugin](../../extend/plugins_authorization.md) section in the Docker extend section of this documentation.
@@ -1139,6 +1207,7 @@ This is a full example of the allowed configuration options on Linux:
 ```json
 {
 	"authorization-plugins": [],
+	"data-root": "",
 	"dns": [],
 	"dns-opts": [],
 	"dns-search": [],
@@ -1153,7 +1222,6 @@ This is a full example of the allowed configuration options on Linux:
 	"log-opts": {},
 	"mtu": 0,
 	"pidfile": "",
-	"graph": "",
 	"cluster-store": "",
 	"cluster-store-opts": {},
 	"cluster-advertise": "",
@@ -1232,6 +1300,7 @@ This is a full example of the allowed configuration options on Windows:
 ```json
 {
     "authorization-plugins": [],
+    "data-root": "",
     "dns": [],
     "dns-opts": [],
     "dns-search": [],
@@ -1243,7 +1312,6 @@ This is a full example of the allowed configuration options on Windows:
     "log-driver": "",
     "mtu": 0,
     "pidfile": "",
-    "graph": "",
     "cluster-store": "",
     "cluster-advertise": "",
     "max-concurrent-downloads": 3,
@@ -1321,7 +1389,7 @@ The following daemon options must be configured for each daemon:
 ```none
 -b, --bridge=                          Attach containers to a network bridge
 --exec-root=/var/run/docker            Root of the Docker execdriver
--g, --graph=/var/lib/docker            Root of the Docker runtime
+--data-root=/var/lib/docker            Root of persisted Docker data
 -p, --pidfile=/var/run/docker.pid      Path to use for daemon PID file
 -H, --host=[]                          Daemon socket(s) to connect to
 --iptables=true                        Enable addition of iptables rules
@@ -1338,8 +1406,9 @@ It is very important to properly understand the meaning of those options and to 
 If you are not using the default, you must create and configure the bridge manually or just set it to 'none': `--bridge=none`
 - `--exec-root` is the path where the container state is stored. The default value is `/var/run/docker`. Specify the path for
 your running daemon here.
-- `--graph` is the path where images are stored. The default value is `/var/lib/docker`. To avoid any conflict with other daemons
-set this parameter separately for each daemon.
+- `--data-root` is the path where persisted data such as images, volumes, and
+cluster state are stored. The default value is `/var/lib/docker`. To avoid any
+conflict with other daemons, set this parameter separately for each daemon.
 - `-p, --pidfile=/var/run/docker.pid` is the path where the process ID of the daemon is stored. Specify the path for your
 pid file here.
 - `--host=[]` specifies where the Docker daemon will listen for client connections. If unspecified, it defaults to `/var/run/docker.sock`.
@@ -1365,6 +1434,6 @@ $ sudo dockerd \
         --iptables=false \
         --ip-masq=false \
         --bridge=none \
-        --graph=/var/lib/docker-bootstrap \
+        --data-root=/var/lib/docker-bootstrap \
         --exec-root=/var/run/docker-bootstrap
 ```

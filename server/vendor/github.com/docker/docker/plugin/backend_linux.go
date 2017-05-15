@@ -262,11 +262,9 @@ func (pm *Manager) Upgrade(ctx context.Context, ref reference.Named, name string
 	defer pm.muGC.RUnlock()
 
 	// revalidate because Pull is public
-	nameref, err := reference.ParseNormalizedNamed(name)
-	if err != nil {
+	if _, err := reference.ParseNormalizedNamed(name); err != nil {
 		return errors.Wrapf(err, "failed to parse %q", name)
 	}
-	name = reference.FamiliarString(reference.TagNameOnly(nameref))
 
 	tmpRootFSDir, err := ioutil.TempDir(pm.tmpDir(), ".rootfs")
 	if err != nil {
@@ -648,7 +646,7 @@ func (pm *Manager) Remove(name string, config *types.PluginRmConfig) error {
 func getMounts(root string) ([]string, error) {
 	infos, err := mount.GetMounts()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read mount table while performing recursive unmount")
+		return nil, errors.Wrap(err, "failed to read mount table")
 	}
 
 	var mounts []string

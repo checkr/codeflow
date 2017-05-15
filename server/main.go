@@ -23,6 +23,7 @@ import (
 	_ "github.com/checkr/codeflow/server/plugins/heartbeat"
 	_ "github.com/checkr/codeflow/server/plugins/kubedeploy"
 	_ "github.com/checkr/codeflow/server/plugins/slack"
+	_ "github.com/checkr/codeflow/server/plugins/route53"
 	_ "github.com/checkr/codeflow/server/plugins/webhooks"
 	_ "github.com/checkr/codeflow/server/plugins/websockets"
 )

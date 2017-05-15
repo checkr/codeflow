@@ -27,3 +27,4 @@ node_modules/
 .DS_Store
 dev.codeflow.yml
 codeflow.dev.yml
+server/secrets/*

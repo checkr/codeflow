@@ -7,6 +7,7 @@ import (
 
 	types "github.com/docker/docker/api/types/swarm"
 	swarmapi "github.com/docker/swarmkit/api"
+	"github.com/docker/swarmkit/ca"
 	gogotypes "github.com/gogo/protobuf/types"
 )
 
@@ -30,11 +31,21 @@ func SwarmFromGRPC(c swarmapi.Cluster) types.Swarm {
 					AutoLockManagers: c.Spec.EncryptionConfig.AutoLockManagers,
 				},
 			},
+			TLSInfo: types.TLSInfo{
+				TrustRoot: string(c.RootCA.CACert),
+			},
+			RootRotationInProgress: c.RootCA.RootRotation != nil,
 		},
 		JoinTokens: types.JoinTokens{
 			Worker:  c.RootCA.JoinTokens.Worker,
 			Manager: c.RootCA.JoinTokens.Manager,
 		},
+	}
+
+	issuerInfo, err := ca.IssuerFromAPIRootCA(&c.RootCA)
+	if err == nil && issuerInfo != nil {
+		swarm.TLSInfo.CertIssuerSubject = issuerInfo.Subject
+		swarm.TLSInfo.CertIssuerPublicKey = issuerInfo.PublicKey
 	}
 
 	heartbeatPeriod, _ := gogotypes.DurationFromProto(c.Spec.Dispatcher.HeartbeatPeriod)
@@ -47,6 +58,7 @@ func SwarmFromGRPC(c swarmapi.Cluster) types.Swarm {
 			Protocol: types.ExternalCAProtocol(strings.ToLower(ca.Protocol.String())),
 			URL:      ca.URL,
 			Options:  ca.Options,
+			CACert:   string(ca.CACert),
 		})
 	}
 
@@ -112,6 +124,7 @@ func MergeSwarmSpecToGRPC(s types.Spec, spec swarmapi.ClusterSpec) (swarmapi.Clu
 			Protocol: swarmapi.ExternalCA_CAProtocol(protocol),
 			URL:      ca.URL,
 			Options:  ca.Options,
+			CACert:   []byte(ca.CACert),
 		})
 	}
 

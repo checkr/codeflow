@@ -94,6 +94,9 @@ func merge(userConf, imageConf *containertypes.Config) error {
 			if userConf.Healthcheck.Timeout == 0 {
 				userConf.Healthcheck.Timeout = imageConf.Healthcheck.Timeout
 			}
+			if userConf.Healthcheck.StartPeriod == 0 {
+				userConf.Healthcheck.StartPeriod = imageConf.Healthcheck.StartPeriod
+			}
 			if userConf.Healthcheck.Retries == 0 {
 				userConf.Healthcheck.Retries = imageConf.Healthcheck.Retries
 			}
@@ -124,6 +127,11 @@ func (daemon *Daemon) Commit(name string, c *backend.ContainerCommitConfig) (str
 	container, err := daemon.GetContainer(name)
 	if err != nil {
 		return "", err
+	}
+
+	containerConfig := c.ContainerConfig
+	if containerConfig == nil {
+		containerConfig = container.Config
 	}
 
 	// It is not possible to commit a running container on Windows and on Solaris.
@@ -182,7 +190,7 @@ func (daemon *Daemon) Commit(name string, c *backend.ContainerCommitConfig) (str
 	h := image.History{
 		Author:     c.Author,
 		Created:    time.Now().UTC(),
-		CreatedBy:  strings.Join(container.Config.Cmd, " "),
+		CreatedBy:  strings.Join(containerConfig.Cmd, " "),
 		Comment:    c.Comment,
 		EmptyLayer: true,
 	}
@@ -201,7 +209,7 @@ func (daemon *Daemon) Commit(name string, c *backend.ContainerCommitConfig) (str
 			Architecture:    runtime.GOARCH,
 			OS:              runtime.GOOS,
 			Container:       container.ID,
-			ContainerConfig: *container.Config,
+			ContainerConfig: *containerConfig,
 			Author:          c.Author,
 			Created:         h.Created,
 		},

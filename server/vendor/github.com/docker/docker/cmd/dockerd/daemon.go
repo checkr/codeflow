@@ -14,19 +14,20 @@ import (
 	"github.com/docker/distribution/uuid"
 	"github.com/docker/docker/api"
 	apiserver "github.com/docker/docker/api/server"
+	buildbackend "github.com/docker/docker/api/server/backend/build"
 	"github.com/docker/docker/api/server/middleware"
 	"github.com/docker/docker/api/server/router"
 	"github.com/docker/docker/api/server/router/build"
 	checkpointrouter "github.com/docker/docker/api/server/router/checkpoint"
 	"github.com/docker/docker/api/server/router/container"
+	distributionrouter "github.com/docker/docker/api/server/router/distribution"
 	"github.com/docker/docker/api/server/router/image"
 	"github.com/docker/docker/api/server/router/network"
 	pluginrouter "github.com/docker/docker/api/server/router/plugin"
 	swarmrouter "github.com/docker/docker/api/server/router/swarm"
 	systemrouter "github.com/docker/docker/api/server/router/system"
 	"github.com/docker/docker/api/server/router/volume"
-	"github.com/docker/docker/builder/dockerfile"
-	cliconfig "github.com/docker/docker/cli/config"
+	"github.com/docker/docker/cli"
 	"github.com/docker/docker/cli/debug"
 	cliflags "github.com/docker/docker/cli/flags"
 	"github.com/docker/docker/daemon"
@@ -48,10 +49,6 @@ import (
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/go-connections/tlsconfig"
 	"github.com/spf13/pflag"
-)
-
-const (
-	flagDaemonConfigFile = "config-file"
 )
 
 // DaemonCli represents the daemon CLI.
@@ -77,7 +74,7 @@ func migrateKey(config *config.Config) (err error) {
 	}
 
 	// Migrate trust key if exists at ~/.docker/key.json and owned by current user
-	oldPath := filepath.Join(cliconfig.Dir(), cliflags.DefaultTrustKeyFile)
+	oldPath := filepath.Join(cli.ConfigurationDir(), cliflags.DefaultTrustKeyFile)
 	newPath := filepath.Join(getDaemonConfDir(config.Root), cliflags.DefaultTrustKeyFile)
 	if _, statErr := os.Stat(newPath); os.IsNotExist(statErr) && currentUserIsOwner(oldPath) {
 		defer func() {
@@ -303,6 +300,11 @@ func (cli *DaemonCli) start(opts daemonOptions) (err error) {
 	if err != nil {
 		logrus.Fatalf("Error creating cluster component: %v", err)
 	}
+	d.SetCluster(c)
+	err = c.Start()
+	if err != nil {
+		logrus.Fatalf("Error starting cluster component: %v", err)
+	}
 
 	// Restart all autostart containers which has a swarm endpoint
 	// and is not yet running now that we have successfully
@@ -319,7 +321,6 @@ func (cli *DaemonCli) start(opts daemonOptions) (err error) {
 
 	cli.d = d
 
-	d.SetCluster(c)
 	initRouter(api, d, c)
 
 	cli.setupConfigReloadTrap()
@@ -423,10 +424,14 @@ func loadDaemonCliConfig(opts daemonOptions) (*config.Config, error) {
 		conf.CommonTLSOptions.KeyFile = opts.common.TLSOptions.KeyFile
 	}
 
+	if flags.Changed("graph") && flags.Changed("data-root") {
+		return nil, fmt.Errorf(`cannot specify both "--graph" and "--data-root" option`)
+	}
+
 	if opts.configFile != "" {
 		c, err := config.MergeDaemonConfigurations(conf, flags, opts.configFile)
 		if err != nil {
-			if flags.Changed(flagDaemonConfigFile) || !os.IsNotExist(err) {
+			if flags.Changed("config-file") || !os.IsNotExist(err) {
 				return nil, fmt.Errorf("unable to configure the Docker daemon with file %s: %v\n", opts.configFile, err)
 			}
 		}
@@ -439,6 +444,10 @@ func loadDaemonCliConfig(opts daemonOptions) (*config.Config, error) {
 
 	if err := config.Validate(conf); err != nil {
 		return nil, err
+	}
+
+	if flags.Changed("graph") {
+		logrus.Warnf(`the "-g / --graph" flag is deprecated. Please use "--data-root" instead`)
 	}
 
 	// Labels of the docker engine used to allow multiple values associated with the same key.
@@ -480,9 +489,10 @@ func initRouter(s *apiserver.Server, d *daemon.Daemon, c *cluster.Cluster) {
 		image.NewRouter(d, decoder),
 		systemrouter.NewRouter(d, c),
 		volume.NewRouter(d),
-		build.NewRouter(dockerfile.NewBuildManager(d)),
+		build.NewRouter(buildbackend.NewBackend(d, d), d),
 		swarmrouter.NewRouter(c),
 		pluginrouter.NewRouter(d.PluginManager()),
+		distributionrouter.NewRouter(d),
 	}
 
 	if d.NetworkControllerEnabled() {
@@ -511,7 +521,7 @@ func (cli *DaemonCli) initMiddlewares(s *apiserver.Server, cfg *apiserver.Config
 	vm := middleware.NewVersionMiddleware(v, api.DefaultVersion, api.MinVersion)
 	s.UseMiddleware(vm)
 
-	if cfg.EnableCors {
+	if cfg.EnableCors || cfg.CorsHeaders != "" {
 		c := middleware.NewCORSMiddleware(cfg.CorsHeaders)
 		s.UseMiddleware(c)
 	}

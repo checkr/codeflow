@@ -11,6 +11,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	types "github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/daemon/cluster/executor/container"
+	lncluster "github.com/docker/libnetwork/cluster"
 	swarmapi "github.com/docker/swarmkit/api"
 	swarmnode "github.com/docker/swarmkit/node"
 	"github.com/pkg/errors"
@@ -46,7 +47,10 @@ type nodeStartConfig struct {
 	ListenAddr string
 	// AdvertiseAddr is the address other nodes should connect to,
 	// including a port.
-	AdvertiseAddr   string
+	AdvertiseAddr string
+	// DataPathAddr is the address that has to be used for the data path
+	DataPathAddr string
+
 	joinAddr        string
 	forceNewCluster bool
 	joinToken       string
@@ -159,7 +163,7 @@ func (n *nodeRunner) handleControlSocketChange(ctx context.Context, node *swarmn
 		}
 		n.grpcConn = conn
 		n.mu.Unlock()
-		n.cluster.configEvent <- struct{}{}
+		n.cluster.SendClusterEvent(lncluster.EventSocketChange)
 	}
 }
 
@@ -172,7 +176,7 @@ func (n *nodeRunner) handleReadyEvent(ctx context.Context, node *swarmnode.Node,
 		close(ready)
 	case <-ctx.Done():
 	}
-	n.cluster.configEvent <- struct{}{}
+	n.cluster.SendClusterEvent(lncluster.EventNodeReady)
 }
 
 func (n *nodeRunner) handleNodeExit(node *swarmnode.Node) {
@@ -210,11 +214,11 @@ func (n *nodeRunner) Stop() error {
 	n.stopping = true
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	n.mu.Unlock()
 	if err := n.swarmNode.Stop(ctx); err != nil && !strings.Contains(err.Error(), "context canceled") {
-		n.mu.Unlock()
 		return err
 	}
-	n.mu.Unlock()
+	n.cluster.SendClusterEvent(lncluster.EventNodeLeave)
 	<-n.done
 	return nil
 }
@@ -269,7 +273,13 @@ func (n *nodeRunner) enableReconnectWatcher() {
 		if n.stopping {
 			return
 		}
-		config.RemoteAddr = n.cluster.getRemoteAddress()
+		remotes := n.cluster.getRemoteAddressList()
+		if len(remotes) > 0 {
+			config.RemoteAddr = remotes[0]
+		} else {
+			config.RemoteAddr = ""
+		}
+
 		config.joinAddr = config.RemoteAddr
 		if err := n.start(config); err != nil {
 			n.err = err

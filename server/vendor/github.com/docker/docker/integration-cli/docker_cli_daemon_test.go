@@ -88,8 +88,8 @@ func (s *DockerDaemonSuite) TestDaemonRestartWithVolumesRefs(c *check.C) {
 
 	s.d.Restart(c)
 
-	if _, err := s.d.Cmd("run", "-d", "--volumes-from", "volrestarttest1", "--name", "volrestarttest2", "busybox", "top"); err != nil {
-		c.Fatal(err)
+	if out, err := s.d.Cmd("run", "-d", "--volumes-from", "volrestarttest1", "--name", "volrestarttest2", "busybox", "top"); err != nil {
+		c.Fatal(err, out)
 	}
 
 	if out, err := s.d.Cmd("rm", "-fv", "volrestarttest2"); err != nil {
@@ -198,7 +198,12 @@ func (s *DockerDaemonSuite) TestDaemonRestartWithInvalidBasesize(c *check.C) {
 
 	if newBasesizeBytes < oldBasesizeBytes {
 		err := s.d.RestartWithError("--storage-opt", fmt.Sprintf("dm.basesize=%d", newBasesizeBytes))
-		c.Assert(err, check.IsNil, check.Commentf("daemon should not have started as new base device size is less than existing base device size: %v", err))
+		c.Assert(err, check.NotNil, check.Commentf("daemon should not have started as new base device size is less than existing base device size: %v", err))
+		// 'err != nil' is expected behaviour, no new daemon started,
+		// so no need to stop daemon.
+		if err != nil {
+			return
+		}
 	}
 	s.d.Stop(c)
 }
@@ -421,6 +426,22 @@ func (s *DockerDaemonSuite) TestDaemonIPv6FixedCIDRAndMac(c *check.C) {
 	out, err = s.d.Cmd("inspect", "--format", "{{.NetworkSettings.Networks.bridge.GlobalIPv6Address}}", "ipv6test")
 	c.Assert(err, checker.IsNil)
 	c.Assert(strings.Trim(out, " \r\n'"), checker.Equals, "2001:db8:1::aabb:ccdd:eeff")
+}
+
+// TestDaemonIPv6HostMode checks that when the running a container with
+// network=host the host ipv6 addresses are not removed
+func (s *DockerDaemonSuite) TestDaemonIPv6HostMode(c *check.C) {
+	testRequires(c, SameHostDaemon)
+	deleteInterface(c, "docker0")
+
+	s.d.StartWithBusybox(c, "--ipv6", "--fixed-cidr-v6=2001:db8:2::/64")
+	out, err := s.d.Cmd("run", "-itd", "--name=hostcnt", "--network=host", "busybox:latest")
+	c.Assert(err, checker.IsNil, check.Commentf("Could not run container: %s, %v", out, err))
+
+	out, err = s.d.Cmd("exec", "hostcnt", "ip", "-6", "addr", "show", "docker0")
+	out = strings.Trim(out, " \r\n'")
+
+	c.Assert(out, checker.Contains, "2001:db8:2::1")
 }
 
 func (s *DockerDaemonSuite) TestDaemonLogLevelWrong(c *check.C) {
@@ -1773,7 +1794,7 @@ func (s *DockerDaemonSuite) TestDaemonNoSpaceLeftOnDeviceError(c *check.C) {
 	dockerCmd(c, "run", "--privileged", "--rm", "-v", testDir+":/test:shared", "busybox", "sh", "-c", fmt.Sprintf("mkdir -p /test/test-mount && mount -t ext4 -no loop,rw %v /test/test-mount", loopname))
 	defer mount.Unmount(filepath.Join(testDir, "test-mount"))
 
-	s.d.Start(c, "--graph", filepath.Join(testDir, "test-mount"))
+	s.d.Start(c, "--data-root", filepath.Join(testDir, "test-mount"))
 	defer s.d.Stop(c)
 
 	// pull a repository large enough to fill the mount point
@@ -2783,10 +2804,14 @@ func (s *DockerDaemonSuite) TestExecWithUserAfterLiveRestore(c *check.C) {
 	testRequires(c, DaemonIsLinux)
 	s.d.StartWithBusybox(c, "--live-restore")
 
-	out, err := s.d.Cmd("run", "-d", "--name=top", "busybox", "sh", "-c", "addgroup -S test && adduser -S -G test test -D -s /bin/sh && top")
+	out, err := s.d.Cmd("run", "-d", "--name=top", "busybox", "sh", "-c", "addgroup -S test && adduser -S -G test test -D -s /bin/sh && touch /adduser_end && top")
 	c.Assert(err, check.IsNil, check.Commentf("Output: %s", out))
 
 	s.d.WaitRun("top")
+
+	// Wait for shell command to be completed
+	_, err = s.d.Cmd("exec", "top", "sh", "-c", `for i in $(seq 1 5); do if [ -e /adduser_end ]; then rm -f /adduser_end && break; else sleep 1 && false; fi; done`)
+	c.Assert(err, check.IsNil, check.Commentf("Timeout waiting for shell command to be completed"))
 
 	out1, err := s.d.Cmd("exec", "-u", "test", "top", "id")
 	// uid=100(test) gid=101(test) groups=101(test)

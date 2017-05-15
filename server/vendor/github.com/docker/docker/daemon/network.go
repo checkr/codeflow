@@ -16,6 +16,7 @@ import (
 	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/libnetwork"
+	lncluster "github.com/docker/libnetwork/cluster"
 	"github.com/docker/libnetwork/driverapi"
 	"github.com/docker/libnetwork/ipamapi"
 	networktypes "github.com/docker/libnetwork/types"
@@ -101,8 +102,9 @@ func (daemon *Daemon) getAllNetworks() []libnetwork.Network {
 }
 
 type ingressJob struct {
-	create *clustertypes.NetworkCreateRequest
-	ip     net.IP
+	create  *clustertypes.NetworkCreateRequest
+	ip      net.IP
+	jobDone chan struct{}
 }
 
 var (
@@ -124,6 +126,7 @@ func (daemon *Daemon) startIngressWorker() {
 					daemon.releaseIngress(ingressID)
 					ingressID = ""
 				}
+				close(r.jobDone)
 			}
 		}
 	}()
@@ -137,19 +140,23 @@ func (daemon *Daemon) enqueueIngressJob(job *ingressJob) {
 }
 
 // SetupIngress setups ingress networking.
-func (daemon *Daemon) SetupIngress(create clustertypes.NetworkCreateRequest, nodeIP string) error {
+// The function returns a channel which will signal the caller when the programming is completed.
+func (daemon *Daemon) SetupIngress(create clustertypes.NetworkCreateRequest, nodeIP string) (<-chan struct{}, error) {
 	ip, _, err := net.ParseCIDR(nodeIP)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	daemon.enqueueIngressJob(&ingressJob{&create, ip})
-	return nil
+	done := make(chan struct{})
+	daemon.enqueueIngressJob(&ingressJob{&create, ip, done})
+	return done, nil
 }
 
 // ReleaseIngress releases the ingress networking.
-func (daemon *Daemon) ReleaseIngress() error {
-	daemon.enqueueIngressJob(&ingressJob{nil, nil})
-	return nil
+// The function returns a channel which will signal the caller when the programming is completed.
+func (daemon *Daemon) ReleaseIngress() (<-chan struct{}, error) {
+	done := make(chan struct{})
+	daemon.enqueueIngressJob(&ingressJob{nil, nil, done})
+	return done, nil
 }
 
 func (daemon *Daemon) setupIngress(create *clustertypes.NetworkCreateRequest, ip net.IP, staleID string) {
@@ -201,7 +208,6 @@ func (daemon *Daemon) setupIngress(create *clustertypes.NetworkCreateRequest, ip
 
 func (daemon *Daemon) releaseIngress(id string) {
 	controller := daemon.netController
-
 	if err := controller.SandboxDestroy("ingress-sbox"); err != nil {
 		logrus.Errorf("Failed to delete ingress sandbox: %v", err)
 	}
@@ -227,13 +233,17 @@ func (daemon *Daemon) releaseIngress(id string) {
 		logrus.Errorf("Failed to delete ingress network %s: %v", n.ID(), err)
 		return
 	}
-
 	return
 }
 
 // SetNetworkBootstrapKeys sets the bootstrap keys.
 func (daemon *Daemon) SetNetworkBootstrapKeys(keys []*networktypes.EncryptionKey) error {
-	return daemon.netController.SetKeys(keys)
+	err := daemon.netController.SetKeys(keys)
+	if err == nil {
+		// Upon successful key setting dispatch the keys available event
+		daemon.cluster.SendClusterEvent(lncluster.EventNetworkKeysAvailable)
+	}
+	return err
 }
 
 // UpdateAttachment notifies the attacher about the attachment config.
@@ -329,6 +339,9 @@ func (daemon *Daemon) createNetwork(create types.NetworkCreateRequest, id string
 
 	n, err := c.NewNetwork(driver, create.Name, id, nwOptions...)
 	if err != nil {
+		if _, ok := err.(libnetwork.ErrDataStoreNotInitialized); ok {
+			return nil, errors.New("This node is not a swarm manager. Use \"docker swarm init\" or \"docker swarm join\" to connect this node to swarm and try again.")
+		}
 		return nil, err
 	}
 

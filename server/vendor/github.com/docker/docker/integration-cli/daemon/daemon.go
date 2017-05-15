@@ -218,7 +218,7 @@ func (d *Daemon) StartWithLogFile(out *os.File, providedArgs ...string) error {
 	}
 	args := append(d.GlobalFlags,
 		"--containerd", "/var/run/docker/libcontainerd/docker-containerd.sock",
-		"--graph", d.Root,
+		"--data-root", d.Root,
 		"--exec-root", d.execRoot,
 		"--pidfile", fmt.Sprintf("%s/docker.pid", d.Folder),
 		fmt.Sprintf("--userland-proxy=%t", d.userlandProxy),
@@ -758,7 +758,7 @@ func (d *Daemon) ReloadConfig() error {
 }
 
 // WaitInspectWithArgs waits for the specified expression to be equals to the specified expected string in the given time.
-// FIXME(vdemeester) Attach this to the Daemon struct
+// Deprecated: use cli.WaitCmd instead
 func WaitInspectWithArgs(dockerBinary, name, expr, expected string, timeout time.Duration, arg ...string) error {
 	after := time.After(timeout)
 

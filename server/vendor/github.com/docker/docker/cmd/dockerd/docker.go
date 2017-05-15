@@ -46,7 +46,7 @@ func newDaemonCommand() *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.BoolVarP(&opts.version, "version", "v", false, "Print version information and quit")
-	flags.StringVar(&opts.configFile, flagDaemonConfigFile, defaultDaemonConfigFile, "Daemon configuration file")
+	flags.StringVar(&opts.configFile, "config-file", defaultDaemonConfigFile, "Daemon configuration file")
 	opts.common.InstallFlags(flags)
 	installConfigFlags(opts.daemonConfig, flags)
 	installServiceFlags(flags)
@@ -104,7 +104,14 @@ func main() {
 
 	// Set terminal emulation based on platform as required.
 	_, stdout, stderr := term.StdStreams()
-	logrus.SetOutput(stderr)
+
+	// @jhowardmsft - maybe there is a historic reason why on non-Windows, stderr is used
+	// here. However, on Windows it makes no sense and there is no need.
+	if runtime.GOOS == "windows" {
+		logrus.SetOutput(stdout)
+	} else {
+		logrus.SetOutput(stderr)
+	}
 
 	cmd := newDaemonCommand()
 	cmd.SetOutput(stdout)

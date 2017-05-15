@@ -12,11 +12,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/versions/v1p20"
 	"github.com/docker/docker/integration-cli/checker"
+	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/daemon"
 	"github.com/docker/docker/pkg/stringid"
 	icmd "github.com/docker/docker/pkg/testutil/cmd"
@@ -332,7 +334,7 @@ func (s *DockerNetworkSuite) TestDockerNetworkCreateHostBind(c *check.C) {
 	dockerCmd(c, "network", "create", "--subnet=192.168.10.0/24", "--gateway=192.168.10.1", "-o", "com.docker.network.bridge.host_binding_ipv4=192.168.10.1", "testbind")
 	assertNwIsAvailable(c, "testbind")
 
-	out, _ := runSleepingContainer(c, "--net=testbind", "-p", "5000:5000")
+	out := runSleepingContainer(c, "--net=testbind", "-p", "5000:5000")
 	id := strings.TrimSpace(out)
 	c.Assert(waitRun(id), checker.IsNil)
 	out, _ = dockerCmd(c, "ps")
@@ -1788,4 +1790,54 @@ func (s *DockerNetworkSuite) TestDockerNetworkDisconnectFromBridge(c *check.C) {
 
 	_, _, err := dockerCmdWithError("network", "disconnect", network, name)
 	c.Assert(err, check.IsNil)
+}
+
+// TestConntrackFlowsLeak covers the failure scenario of ticket: https://github.com/docker/docker/issues/8795
+// Validates that conntrack is correctly cleaned once a container is destroyed
+func (s *DockerNetworkSuite) TestConntrackFlowsLeak(c *check.C) {
+	testRequires(c, IsAmd64, DaemonIsLinux, Network)
+
+	// Create a new network
+	cli.DockerCmd(c, "network", "create", "--subnet=192.168.10.0/24", "--gateway=192.168.10.1", "-o", "com.docker.network.bridge.host_binding_ipv4=192.168.10.1", "testbind")
+	assertNwIsAvailable(c, "testbind")
+
+	// Launch the server, this will remain listening on an exposed port and reply to any request in a ping/pong fashion
+	cmd := "while true; do echo hello | nc -w 1 -lu 8080; done"
+	cli.DockerCmd(c, "run", "-d", "--name", "server", "--net", "testbind", "-p", "8080:8080/udp", "appropriate/nc", "sh", "-c", cmd)
+
+	// Launch a container client, here the objective is to create a flow that is natted in order to expose the bug
+	cmd = "echo world | nc -q 1 -u 192.168.10.1 8080"
+	cli.DockerCmd(c, "run", "-d", "--name", "client", "--net=host", "appropriate/nc", "sh", "-c", cmd)
+
+	// Get all the flows using netlink
+	flows, err := netlink.ConntrackTableList(netlink.ConntrackTable, syscall.AF_INET)
+	c.Assert(err, check.IsNil)
+	var flowMatch int
+	for _, flow := range flows {
+		// count only the flows that we are interested in, skipping others that can be laying around the host
+		if flow.Forward.Protocol == syscall.IPPROTO_UDP &&
+			flow.Forward.DstIP.Equal(net.ParseIP("192.168.10.1")) &&
+			flow.Forward.DstPort == 8080 {
+			flowMatch++
+		}
+	}
+	// The client should have created only 1 flow
+	c.Assert(flowMatch, checker.Equals, 1)
+
+	// Now delete the server, this will trigger the conntrack cleanup
+	cli.DockerCmd(c, "rm", "-fv", "server")
+
+	// Fetch again all the flows and validate that there is no server flow in the conntrack laying around
+	flows, err = netlink.ConntrackTableList(netlink.ConntrackTable, syscall.AF_INET)
+	c.Assert(err, check.IsNil)
+	flowMatch = 0
+	for _, flow := range flows {
+		if flow.Forward.Protocol == syscall.IPPROTO_UDP &&
+			flow.Forward.DstIP.Equal(net.ParseIP("192.168.10.1")) &&
+			flow.Forward.DstPort == 8080 {
+			flowMatch++
+		}
+	}
+	// All the flows have to be gone
+	c.Assert(flowMatch, checker.Equals, 0)
 }

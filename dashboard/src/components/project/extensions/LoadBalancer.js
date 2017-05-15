@@ -1,8 +1,8 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import { Form, FormGroup, Input } from 'reactstrap'
+import { Form, FormGroup, Input, Alert } from 'reactstrap'
 import { Field, FieldArray, reduxForm } from 'redux-form'
-import { isEmpty, find } from 'lodash'
+import { isEmpty, get, find } from 'lodash'
 import ButtonConfirmAction from '../../ButtonConfirmAction'
 import { Tooltip } from 'reactstrap';
 
@@ -137,7 +137,7 @@ class LoadBalancer extends Component {
   }
 
   renderEdit() {
-    const { onSave, onCancel, onDelete, formValues } = this.props
+    const { handleSubmit, onCancel, onDelete, formValues, error } = this.props
     let { services } = this.props
     let service = {}
 
@@ -145,7 +145,10 @@ class LoadBalancer extends Component {
       service = find(services, { _id: formValues.values.serviceId })
     }
     return (
-      <Form>
+      <Form onSubmit={handleSubmit} noValidate>
+        { error &&
+        <Alert color="danger">{error}</Alert>
+        }
         <FormGroup>
           <div className="row">
             <div className="col-xs-12">
@@ -154,6 +157,12 @@ class LoadBalancer extends Component {
                   <div className="form-group">
                     <label>Service</label>
                     <Field className="form-control" name="serviceId" services={services} component={renderSelect}/>
+                  </div>
+                </div>
+                <div className="col-xs-6">
+                  <div className="form-group">
+                    <label>Subdomain (<strong>{get(formValues, 'values.subdomain')}</strong>.checkrhq.net)</label>
+                    <Field name="subdomain" component={renderInput} type="text" placeholder="api"/>
                   </div>
                 </div>
                 <div className="col-xs-8">
@@ -191,7 +200,7 @@ class LoadBalancer extends Component {
               <ButtonConfirmAction btnLabel="Delete" btnIconClass="fa fa-check" onConfirm={onDelete} btnClass="btn btn-danger btn-sm float-xs-right btn-service-action-right">
                 Are you sure?
               </ButtonConfirmAction>
-              <ButtonConfirmAction btnLabel="Save" btnIconClass="fa fa-check" onConfirm={onSave} btnClass="btn btn-success btn-sm float-xs-right btn-service-action-right">
+              <ButtonConfirmAction btnLabel="Save" btnIconClass="fa fa-check" onConfirm={handleSubmit} btnClass="btn btn-success btn-sm float-xs-right btn-service-action-right">
                 Are you sure?
               </ButtonConfirmAction>
             </div>

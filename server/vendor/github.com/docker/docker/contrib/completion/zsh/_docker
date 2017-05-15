@@ -629,6 +629,7 @@ __docker_container_subcommand() {
         "($help)--log-driver=[Default driver for container logs]:logging driver:__docker_complete_log_drivers"
         "($help)*--log-opt=[Log driver specific options]:log driver options:__docker_complete_log_options"
         "($help)--mac-address=[Container MAC address]:MAC address: "
+        "($help)*--mount=[Attach a filesystem mount to the container]:mount: "
         "($help)--name=[Container name]:name: "
         "($help)--network=[Connect a container to a network]:network mode:(bridge none container host)"
         "($help)*--network-alias=[Add network-scoped alias for the container]:alias: "
@@ -1485,8 +1486,10 @@ __docker_node_subcommand() {
                 $opts_help \
                 "($help -a --all)"{-a,--all}"[Display all instances]" \
                 "($help)*"{-f=,--filter=}"[Provide filter values]:filter:__docker_node_complete_ps_filters" \
+                "($help)--format=[Format the output using the given go template]:template: " \
                 "($help)--no-resolve[Do not map IDs to Names]" \
                 "($help)--no-trunc[Do not truncate output]" \
+                "($help -q --quiet)"{-q,--quiet}"[Only display IDs]" \
                 "($help -)*:node:__docker_complete_nodes" && ret=0
             ;;
         (update)
@@ -1924,7 +1927,7 @@ __docker_service_commands() {
     _docker_service_subcommands=(
         "create:Create a new service"
         "inspect:Display detailed information on one or more services"
-        "logs:Fetch the logs of a service"
+        "logs:Fetch the logs of a service or task"
         "ls:List services"
         "rm:Remove one or more services"
         "scale:Scale one or multiple replicated services"
@@ -2052,6 +2055,7 @@ __docker_service_subcommand() {
             _arguments $(__docker_arguments) \
                 $opts_help \
                 "($help)*"{-f=,--filter=}"[Provide filter values]:filter:__docker_service_complete_ps_filters" \
+                "($help)--format=[Format the output using the given go template]:template: " \
                 "($help)--no-resolve[Do not map IDs to Names]" \
                 "($help)--no-trunc[Do not truncate output]" \
                 "($help -q --quiet)"{-q,--quiet}"[Only display task IDs]" \
@@ -2206,8 +2210,10 @@ __docker_stack_subcommand() {
                 $opts_help \
                 "($help -a --all)"{-a,--all}"[Display all tasks]" \
                 "($help)*"{-f=,--filter=}"[Filter output based on conditions provided]:filter:__docker_stack_complete_ps_filters" \
+                "($help)--format=[Format the output using the given go template]:template: " \
                 "($help)--no-resolve[Do not map IDs to Names]" \
                 "($help)--no-trunc[Do not truncate output]" \
+                "($help -q --quiet)"{-q,--quiet}"[Only display task IDs]" \
                 "($help -):stack:__docker_complete_stacks" && ret=0
             ;;
         (rm|remove|down)
@@ -2261,6 +2267,7 @@ __docker_swarm_subcommand() {
             _arguments $(__docker_arguments) \
                 $opts_help \
                 "($help)--advertise-addr=[Advertised address]:ip\:port: " \
+                "($help)--data-path-addr=[Data path IP or interface]:ip " \
                 "($help)--autolock[Enable manager autolocking]" \
                 "($help)--availability=[Availability of the node]:availability:(active drain pause)" \
                 "($help)--cert-expiry=[Validity period for node certificates]:duration: " \
@@ -2276,6 +2283,7 @@ __docker_swarm_subcommand() {
             _arguments $(__docker_arguments) -A '-*' \
                 $opts_help \
                 "($help)--advertise-addr=[Advertised address]:ip\:port: " \
+                "($help)--data-path-addr=[Data path IP or interface]:ip " \
                 "($help)--availability=[Availability of the node]:availability:(active drain pause)" \
                 "($help)--listen-addr=[Listen address]:ip\:port: " \
                 "($help)--token=[Token for entry into the swarm]:secret: " \
@@ -2605,6 +2613,7 @@ __docker_subcommand() {
                 "($help)*--cluster-store-opt=[Cluster store options]:Cluster options:->cluster-store-options" \
                 "($help)--config-file=[Path to daemon configuration file]:Config File:_files" \
                 "($help)--containerd=[Path to containerd socket]:socket:_files -g \"*.sock\"" \
+                "($help)--data-root=[Root directory of persisted Docker data]:path:_directories" \
                 "($help -D --debug)"{-D,--debug}"[Enable debug mode]" \
                 "($help)--default-gateway[Container default gateway IPv4 address]:IPv4 address: " \
                 "($help)--default-gateway-v6[Container default gateway IPv6 address]:IPv6 address: " \
@@ -2620,7 +2629,6 @@ __docker_subcommand() {
                 "($help)--fixed-cidr=[IPv4 subnet for fixed IPs]:IPv4 subnet: " \
                 "($help)--fixed-cidr-v6=[IPv6 subnet for fixed IPs]:IPv6 subnet: " \
                 "($help -G --group)"{-G=,--group=}"[Group for the unix socket]:group:_groups" \
-                "($help -g --graph)"{-g=,--graph=}"[Root of the Docker runtime]:path:_directories" \
                 "($help -H --host)"{-H=,--host=}"[tcp://host:port to bind/connect to]:host: " \
                 "($help)--icc[Enable inter-container communication]" \
                 "($help)--init[Run an init inside containers to forward signals and reap processes]" \
@@ -2729,6 +2737,8 @@ __docker_subcommand() {
                         __docker_complete_nodes && ret=0
                     elif [[ ${words[(r)--type=plugin]} == --type=plugin ]]; then
                         __docker_complete_plugins && ret=0
+                    elif [[ ${words[(r)--type=service]} == --type=secrets ]]; then
+                        __docker_complete_secrets && ret=0
                     elif [[ ${words[(r)--type=service]} == --type=service ]]; then
                         __docker_complete_services && ret=0
                     elif [[ ${words[(r)--type=volume]} == --type=volume ]]; then
@@ -2739,6 +2749,7 @@ __docker_subcommand() {
                         __docker_complete_networks
                         __docker_complete_nodes
                         __docker_complete_plugins
+                        __docker_complete_secrets
                         __docker_complete_services
                         __docker_complete_volumes && ret=0
                     fi

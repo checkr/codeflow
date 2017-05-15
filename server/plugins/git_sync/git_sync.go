@@ -63,7 +63,7 @@ func (x *GitSync) Process(e agent.Event) error {
 		return err
 	}
 
-	for i, _ := range commits {
+	for i := range commits {
 		c := commits[i]
 		x.events <- e.NewEvent(c, nil)
 	}

@@ -42,7 +42,6 @@ func (s *DockerSuite) TestRmContainerRunning(c *check.C) {
 	res, _, err := dockerCmdWithError("rm", "foo")
 	c.Assert(err, checker.NotNil, check.Commentf("Expected error, can't rm a running container"))
 	c.Assert(res, checker.Contains, "cannot remove a running container")
-	c.Assert(res, checker.Contains, "Stop the container before attempting removal or force remove")
 }
 
 func (s *DockerSuite) TestRmContainerForceRemoveRunning(c *check.C) {
@@ -85,32 +84,4 @@ func (s *DockerSuite) TestRmInvalidContainer(c *check.C) {
 
 func createRunningContainer(c *check.C, name string) {
 	runSleepingContainer(c, "-dt", "--name", name)
-}
-
-// #30842
-func (s *DockerSuite) TestRmRestartingContainer(c *check.C) {
-	name := "rst"
-	dockerCmd(c, "run", "--name", name, "--restart=always", "busybox", "date")
-
-	res, _, err := dockerCmdWithError("rm", name)
-	c.Assert(err, checker.NotNil, check.Commentf("Expected error on rm a restarting container, got none"))
-	c.Assert(res, checker.Contains, "cannot remove a restarting container")
-	c.Assert(res, checker.Contains, "Stop the container before attempting removal or force remove")
-	dockerCmd(c, "rm", "-f", name)
-}
-
-// #30842
-func (s *DockerSuite) TestRmPausedContainer(c *check.C) {
-	testRequires(c, IsPausable)
-	name := "psd"
-	dockerCmd(c, "run", "--name", name, "-d", "busybox", "sleep", "1m")
-	dockerCmd(c, "pause", name)
-
-	res, _, err := dockerCmdWithError("rm", name)
-	c.Assert(err, checker.NotNil, check.Commentf("Expected error on rm a paused container, got none"))
-	c.Assert(res, checker.Contains, "cannot remove a paused container")
-	c.Assert(res, checker.Contains, "Unpause and then stop the container before attempting removal or force remove")
-	unpauseContainer(c, name)
-	dockerCmd(c, "stop", name)
-	dockerCmd(c, "rm", name)
 }

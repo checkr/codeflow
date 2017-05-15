@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"reflect"
 	"runtime"
-	"sort"
 	"strings"
 	"sync"
 
@@ -41,6 +40,8 @@ const (
 	DefaultNetworkMtu = 1500
 	// DisableNetworkBridge is the default value of the option to disable network bridge
 	DisableNetworkBridge = "none"
+	// DefaultInitBinary is the name of the default init binary
+	DefaultInitBinary = "docker-init"
 )
 
 // flatOptions contains configuration keys
@@ -98,7 +99,8 @@ type CommonConfig struct {
 	Mtu                  int                       `json:"mtu,omitempty"`
 	Pidfile              string                    `json:"pidfile,omitempty"`
 	RawLogs              bool                      `json:"raw-logs,omitempty"`
-	Root                 string                    `json:"graph,omitempty"`
+	RootDeprecated       string                    `json:"graph,omitempty"`
+	Root                 string                    `json:"data-root,omitempty"`
 	SocketGroup          string                    `json:"group,omitempty"`
 	TrustKeyPath         string                    `json:"-"`
 	CorsHeaders          string                    `json:"api-cors-header,omitempty"`
@@ -353,8 +355,21 @@ func getConflictFreeConfiguration(configFile string, flags *pflag.FlagSet) (*Con
 	}
 
 	reader = bytes.NewReader(b)
-	err = json.NewDecoder(reader).Decode(&config)
-	return &config, err
+	if err := json.NewDecoder(reader).Decode(&config); err != nil {
+		return nil, err
+	}
+
+	if config.RootDeprecated != "" {
+		logrus.Warn(`The "graph" config file option is deprecated. Please use "data-root" instead.`)
+
+		if config.Root != "" {
+			return nil, fmt.Errorf(`cannot specify both "graph" and "data-root" config file options`)
+		}
+
+		config.Root = config.RootDeprecated
+	}
+
+	return &config, nil
 }
 
 // configValuesSet returns the configuration values explicitly set in the file.
@@ -485,19 +500,6 @@ func Validate(config *Config) error {
 	}
 
 	return nil
-}
-
-// GetAuthorizationPlugins returns daemon's sorted authorization plugins
-func (conf *Config) GetAuthorizationPlugins() []string {
-	conf.Lock()
-	defer conf.Unlock()
-
-	authPlugins := make([]string, 0, len(conf.AuthorizationPlugins))
-	for _, p := range conf.AuthorizationPlugins {
-		authPlugins = append(authPlugins, p)
-	}
-	sort.Strings(authPlugins)
-	return authPlugins
 }
 
 // ModifiedDiscoverySettings returns whether the discovery configuration has been modified or not.

@@ -7,7 +7,6 @@ import (
 	"github.com/docker/swarmkit/api"
 	"github.com/docker/swarmkit/log"
 	"github.com/docker/swarmkit/manager/orchestrator"
-	"github.com/docker/swarmkit/manager/state"
 	"github.com/docker/swarmkit/manager/state/store"
 	"golang.org/x/net/context"
 )
@@ -47,19 +46,19 @@ func (r *Orchestrator) initServices(readTx store.ReadTx) error {
 
 func (r *Orchestrator) handleServiceEvent(ctx context.Context, event events.Event) {
 	switch v := event.(type) {
-	case state.EventDeleteService:
+	case api.EventDeleteService:
 		if !orchestrator.IsReplicatedService(v.Service) {
 			return
 		}
 		orchestrator.DeleteServiceTasks(ctx, r.store, v.Service)
 		r.restarts.ClearServiceHistory(v.Service.ID)
 		delete(r.reconcileServices, v.Service.ID)
-	case state.EventCreateService:
+	case api.EventCreateService:
 		if !orchestrator.IsReplicatedService(v.Service) {
 			return
 		}
 		r.reconcileServices[v.Service.ID] = v.Service
-	case state.EventUpdateService:
+	case api.EventUpdateService:
 		if !orchestrator.IsReplicatedService(v.Service) {
 			return
 		}
@@ -109,7 +108,7 @@ func (r *Orchestrator) reconcile(ctx context.Context, service *api.Service) {
 		log.G(ctx).Debugf("Service %s was scaled up from %d to %d instances", service.ID, numSlots, specifiedSlots)
 		// Update all current tasks then add missing tasks
 		r.updater.Update(ctx, r.cluster, service, slotsSlice)
-		_, err = r.store.Batch(func(batch *store.Batch) error {
+		err = r.store.Batch(func(batch *store.Batch) error {
 			r.addTasks(ctx, batch, service, runningSlots, deadSlots, specifiedSlots-uint64(numSlots))
 			r.deleteTasksMap(ctx, batch, deadSlots)
 			return nil
@@ -156,7 +155,7 @@ func (r *Orchestrator) reconcile(ctx context.Context, service *api.Service) {
 		}
 
 		r.updater.Update(ctx, r.cluster, service, sortedSlots[:specifiedSlots])
-		_, err = r.store.Batch(func(batch *store.Batch) error {
+		err = r.store.Batch(func(batch *store.Batch) error {
 			r.deleteTasksMap(ctx, batch, deadSlots)
 			r.deleteTasks(ctx, batch, sortedSlots[specifiedSlots:])
 			return nil
@@ -166,7 +165,7 @@ func (r *Orchestrator) reconcile(ctx context.Context, service *api.Service) {
 		}
 
 	case specifiedSlots == uint64(numSlots):
-		_, err = r.store.Batch(func(batch *store.Batch) error {
+		err = r.store.Batch(func(batch *store.Batch) error {
 			r.deleteTasksMap(ctx, batch, deadSlots)
 			return nil
 		})

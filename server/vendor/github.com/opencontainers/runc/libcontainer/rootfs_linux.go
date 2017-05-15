@@ -19,9 +19,9 @@ import (
 	"github.com/mrunalp/fileutils"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
-	"github.com/opencontainers/runc/libcontainer/label"
 	"github.com/opencontainers/runc/libcontainer/system"
 	libcontainerUtils "github.com/opencontainers/runc/libcontainer/utils"
+	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 const defaultMountFlags = syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
@@ -37,9 +37,8 @@ func needsSetupDev(config *configs.Config) bool {
 }
 
 // prepareRootfs sets up the devices, mount points, and filesystems for use
-// inside a new mount namespace. It doesn't set anything as ro or pivot_root,
-// because console setup happens inside the caller. You must call
-// finalizeRootfs in order to finish the rootfs setup.
+// inside a new mount namespace. It doesn't set anything as ro. You must call
+// finalizeRootfs after this function to finish setting up the rootfs.
 func prepareRootfs(pipe io.ReadWriter, config *configs.Config) (err error) {
 	if err := prepareRoot(config); err != nil {
 		return newSystemErrorWithCause(err, "preparing rootfs")
@@ -114,8 +113,8 @@ func prepareRootfs(pipe io.ReadWriter, config *configs.Config) (err error) {
 	return nil
 }
 
-// finalizeRootfs actually switches the root of the process and sets anything
-// to ro if necessary. You must call prepareRootfs first.
+// finalizeRootfs sets anything to ro if necessary. You must call
+// prepareRootfs first.
 func finalizeRootfs(config *configs.Config) (err error) {
 	// remount dev as ro if specified
 	for _, m := range config.Mounts {

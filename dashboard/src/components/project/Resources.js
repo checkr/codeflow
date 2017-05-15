@@ -191,7 +191,7 @@ class ProjectResources extends Component {
       <li className="list-group-item" key={extension._id + ''}>
         <div className="feed-element">
           <div className="media-body ">
-            <Extension key={extension._id} services={services} edit initialValues={extension} onSave={() => this.onSaveExtension()} onCancel={() => this.onCancelEditExtension()} onDelete={() => this.onDeleteExtension()}/>
+            <Extension key={extension._id} services={services} edit initialValues={extension} onSubmit={() => this.onSaveExtension()} onCancel={() => this.onCancelEditExtension()} onDelete={() => this.onDeleteExtension()}/>
           </div>
         </div>
       </li>
@@ -248,11 +248,26 @@ class ProjectResources extends Component {
   onSaveExtension() {
     const { project } = this.props
     if(this.props.projectExtension.values._id) {
-      this.props.updateProjectExtension(project.slug, this.props.projectExtension.values)
+      return this.props.updateProjectExtension(project.slug, this.props.projectExtension.values)
+        .then(action => {
+          if (action.error) {
+            const errorMessage = action.payload.response.Error
+            throw new SubmissionError({  _error: errorMessage })
+          } else {
+            this.setState({ editExtension: null })
+          }
+        })
     } else {
       this.props.createProjectExtension(project.slug, this.props.projectExtension.values)
+        .then(action => {
+          if (action.error) {
+            const errorMessage = action.payload.response.Error
+            throw new SubmissionError({  _error: errorMessage })
+          } else {
+            this.setState({ editExtension: null })
+          }
+        })
     }
-    this.setState({ editExtension: null })
   }
 
   onDeleteExtension() {

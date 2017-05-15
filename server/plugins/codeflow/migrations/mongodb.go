@@ -3,13 +3,20 @@ package codeflow_migrations
 import (
 	"log"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/route53"
+	"github.com/checkr/codeflow/server/plugins"
 	"github.com/checkr/codeflow/server/plugins/codeflow"
 	"github.com/checkr/codeflow/server/plugins/codeflow/migrations/driver"
 	"github.com/mattes/migrate/driver/mongodb/gomethods"
 	"github.com/maxwellhealth/bongo"
 	"github.com/spf13/viper"
+	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -174,10 +181,10 @@ func (r *MongoDbMigrator) V001_init_extensions_up(c *bongo.Connection) error {
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		ServiceId: bson.ObjectIdHex("58dbecefdf8ab3002a71dc0e"),
 		Extension: "LoadBalancer",
-		DNSName:   "",
+		DNS:       "internal-a2c4ab322bbde11e6a3a10ee522e8eb7-373946443.us-east-1.elb.amazonaws.com",
 		Type:      "office",
 		ListenerPairs: []codeflow.ListenerPair{
-			codeflow.ListenerPair{
+			{
 				Source: codeflow.Listener{
 					Port:     443,
 					Protocol: "",
@@ -199,10 +206,10 @@ func (r *MongoDbMigrator) V001_init_extensions_up(c *bongo.Connection) error {
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		ServiceId: bson.ObjectIdHex("58dbed10df8ab3002a71dc0f"),
 		Extension: "LoadBalancer",
-		DNSName:   "",
+		DNS:       "",
 		Type:      "office",
 		ListenerPairs: []codeflow.ListenerPair{
-			codeflow.ListenerPair{
+			{
 				Source: codeflow.Listener{
 					Port:     443,
 					Protocol: "",
@@ -224,10 +231,10 @@ func (r *MongoDbMigrator) V001_init_extensions_up(c *bongo.Connection) error {
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		ServiceId: bson.ObjectIdHex("58dbecefdf8ab3002a71dc0e"),
 		Extension: "LoadBalancer",
-		DNSName:   "",
+		DNS:       "",
 		Type:      "office",
 		ListenerPairs: []codeflow.ListenerPair{
-			codeflow.ListenerPair{
+			{
 				Source: codeflow.Listener{
 					Port:     443,
 					Protocol: "",
@@ -249,10 +256,10 @@ func (r *MongoDbMigrator) V001_init_extensions_up(c *bongo.Connection) error {
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		ServiceId: bson.ObjectIdHex("58dbee64df8ab3002a71dc12"),
 		Extension: "LoadBalancer",
-		DNSName:   "",
+		DNS:       "",
 		Type:      "office",
 		ListenerPairs: []codeflow.ListenerPair{
-			codeflow.ListenerPair{
+			{
 				Source: codeflow.Listener{
 					Port:     443,
 					Protocol: "",
@@ -274,10 +281,10 @@ func (r *MongoDbMigrator) V001_init_extensions_up(c *bongo.Connection) error {
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		ServiceId: bson.ObjectIdHex("58dbeeaadf8ab3002a71dc14"),
 		Extension: "LoadBalancer",
-		DNSName:   "",
+		DNS:       "",
 		Type:      "office",
 		ListenerPairs: []codeflow.ListenerPair{
-			codeflow.ListenerPair{
+			{
 				Source: codeflow.Listener{
 					Port:     80,
 					Protocol: "",
@@ -287,7 +294,7 @@ func (r *MongoDbMigrator) V001_init_extensions_up(c *bongo.Connection) error {
 					Protocol: "HTTP",
 				},
 			},
-			codeflow.ListenerPair{
+			{
 				Source: codeflow.Listener{
 					Port:     443,
 					Protocol: "",
@@ -750,11 +757,11 @@ func (r *MongoDbMigrator) V001_init_services_up(c *bongo.Connection) error {
 		Count:        0,
 		Command:      "/go/bin/codeflow --config /etc/codeflow.yml server --run=codeflow,webhooks",
 		Listeners: []codeflow.Listener{
-			codeflow.Listener{
+			{
 				Port:     3001,
 				Protocol: "TCP",
 			},
-			codeflow.Listener{
+			{
 				Port:     3002,
 				Protocol: "TCP",
 			},
@@ -772,7 +779,7 @@ func (r *MongoDbMigrator) V001_init_services_up(c *bongo.Connection) error {
 		Count:        0,
 		Command:      "node dashboard/server.js",
 		Listeners: []codeflow.Listener{
-			codeflow.Listener{
+			{
 				Port:     9000,
 				Protocol: "TCP",
 			},
@@ -816,7 +823,7 @@ func (r *MongoDbMigrator) V001_init_services_up(c *bongo.Connection) error {
 		Count:        0,
 		Command:      "/go/bin/codeflow --config /etc/codeflow.yml server --run=websockets",
 		Listeners: []codeflow.Listener{
-			codeflow.Listener{
+			{
 				Port:     3003,
 				Protocol: "TCP",
 			},
@@ -847,7 +854,7 @@ func (r *MongoDbMigrator) V001_init_services_up(c *bongo.Connection) error {
 		Count:        1,
 		Command:      "npm start --prefix docs/",
 		Listeners: []codeflow.Listener{
-			codeflow.Listener{
+			{
 				Port:     3000,
 				Protocol: "TCP",
 			},
@@ -914,4 +921,79 @@ func (r *MongoDbMigrator) V002_projects_deleted_up(c *bongo.Connection) error {
 
 func (r *MongoDbMigrator) V002_projects_deleted_down(c *bongo.Connection) error {
 	return c.Session.DB(r.DbName()).C("projects").Update(bson.M{}, bson.M{"$unset": bson.M{"deleted": ""}})
+}
+
+func (r *MongoDbMigrator) V003_r53_up(c *bongo.Connection) error {
+	if err := c.Session.DB(r.DbName()).C("extenisons").Update(bson.M{}, bson.M{"$rename": bson.M{"dnsName": "dns"}}); err != nil {
+		if err != mgo.ErrNotFound {
+			return err
+		}
+	}
+
+	// sync existing dns records
+	records := make(map[string]string)
+
+	// Create the client
+	sess := session.Must(session.NewSessionWithOptions(
+		session.Options{
+			Config: aws.Config{
+				Credentials: credentials.NewStaticCredentials(viper.GetString("plugins.route53.aws_access_key_id"), viper.GetString("plugins.route53.aws_secret_key"), ""),
+			},
+		},
+	))
+	client := route53.New(sess)
+
+	// Look for this dns name
+	params := &route53.ListResourceRecordSetsInput{
+		HostedZoneId: aws.String(viper.GetString("plugins.route53.hosted_zone_id")), // Required
+	}
+	pageNum := 0
+
+	errList := client.ListResourceRecordSetsPages(params,
+		func(page *route53.ListResourceRecordSetsOutput, lastPage bool) bool {
+			pageNum++
+			for _, p := range page.ResourceRecordSets {
+				if *p.Type == "CNAME" {
+					records[*p.ResourceRecords[0].Value] = strings.Split(*p.Name, ".")[0]
+				}
+			}
+			return false
+		})
+
+	if errList != nil {
+		log.Printf("Error listing ResourceRecordSets for Route53: %s", errList)
+		return errList
+	}
+
+	var loadBalancers []codeflow.LoadBalancer
+	if err := c.Session.DB(r.DbName()).C("extensions").Find(bson.M{"extension": "LoadBalancer"}).All(&loadBalancers); err != nil {
+		if err != mgo.ErrNotFound {
+			return err
+		}
+	}
+
+	for _, lb := range loadBalancers {
+		if lb.Type == plugins.Internal {
+			continue
+		}
+
+		if lb.DNS == "" {
+			continue
+		}
+
+		for key, value := range records {
+			if lb.DNS == key && lb.Subdomain == "" {
+				if err := c.Session.DB(r.DbName()).C("extensions").Update(bson.M{"_id": lb.Id}, bson.M{"$set": bson.M{"subdomain": value}}); err != nil {
+					return err
+				}
+				log.Printf("Updating %s: %s linked to %s", lb.Id, key, value)
+			}
+		}
+	}
+	return nil
+}
+
+func (r *MongoDbMigrator) V003_r53_down(c *bongo.Connection) error {
+	return c.Session.DB(r.DbName()).C("extensions").Update(bson.M{}, bson.M{"$rename": bson.M{"dns": "dnsName"}})
+	return c.Session.DB(r.DbName()).C("extensions").Update(bson.M{}, bson.M{"$unset": bson.M{"subdomain": ""}})
 }

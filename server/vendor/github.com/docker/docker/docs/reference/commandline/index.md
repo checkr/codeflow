@@ -143,7 +143,7 @@ read the [`dockerd`](dockerd.md) reference page.
 |:--------|:-------------------------------------------------------------------|
 | [service create](service_create.md) | Create a new service                   |
 | [service inspect](service_inspect.md) | Inspect a service                    |
-| [service logs](service_logs.md)  | Fetch the logs of a service               |
+| [service logs](service_logs.md)  | Fetch the logs of a service or task       |
 | [service ls](service_ls.md) | List services in the swarm                     |
 | [service ps](service_ps.md) | List the tasks of a service              |
 | [service rm](service_rm.md) | Remove a service from the swarm                |
@@ -175,7 +175,7 @@ read the [`dockerd`](dockerd.md) reference page.
 |:--------|:-------------------------------------------------------------------|
 | [plugin create](plugin_create.md) | Create a plugin from a rootfs and configuration |
 | [plugin disable](plugin_disable.md) | Disable a plugin                       |
-| [plugin enbale](plugin_enable.md)  | Enable a plugin                         |
+| [plugin enable](plugin_enable.md)  | Enable a plugin                         |
 | [plugin inspect](plugin_inspect.md) | Display detailed information on a plugin |
 | [plugin install](plugin_install.md) | Install a plugin                       |
 | [plugin ls](plugin_ls.md) | List plugins                                     |

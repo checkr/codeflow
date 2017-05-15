@@ -263,9 +263,6 @@ func (c *linuxContainer) start(process *Process, isInit bool) error {
 	}
 	// generate a timestamp indicating when the container was started
 	c.created = time.Now().UTC()
-	c.state = &runningState{
-		c: c,
-	}
 	if isInit {
 		c.state = &createdState{
 			c: c,
@@ -291,6 +288,10 @@ func (c *linuxContainer) start(process *Process, isInit bool) error {
 					return newSystemErrorWithCausef(err, "running poststart hook %d", i)
 				}
 			}
+		}
+	} else {
+		c.state = &runningState{
+			c: c,
 		}
 	}
 	return nil
@@ -535,6 +536,56 @@ func (c *linuxContainer) NotifyMemoryPressure(level PressureLevel) (<-chan struc
 	return notifyMemoryPressure(c.cgroupManager.GetPaths(), level)
 }
 
+var criuFeatures *criurpc.CriuFeatures
+
+func (c *linuxContainer) checkCriuFeatures(criuOpts *CriuOpts, rpcOpts *criurpc.CriuOpts, criuFeat *criurpc.CriuFeatures) error {
+
+	var t criurpc.CriuReqType
+	t = criurpc.CriuReqType_FEATURE_CHECK
+
+	if err := c.checkCriuVersion("1.8"); err != nil {
+		// Feature checking was introduced with CRIU 1.8.
+		// Ignore the feature check if an older CRIU version is used
+		// and just act as before.
+		// As all automated PR testing is done using CRIU 1.7 this
+		// code will not be tested by automated PR testing.
+		return nil
+	}
+
+	// make sure the features we are looking for are really not from
+	// some previous check
+	criuFeatures = nil
+
+	req := &criurpc.CriuReq{
+		Type: &t,
+		// Theoretically this should not be necessary but CRIU
+		// segfaults if Opts is empty.
+		// Fixed in CRIU  2.12
+		Opts:     rpcOpts,
+		Features: criuFeat,
+	}
+
+	err := c.criuSwrk(nil, req, criuOpts, false)
+	if err != nil {
+		logrus.Debugf("%s", err)
+		return fmt.Errorf("CRIU feature check failed")
+	}
+
+	logrus.Debugf("Feature check says: %s", criuFeatures)
+	missingFeatures := false
+
+	if *criuFeat.MemTrack && !*criuFeatures.MemTrack {
+		missingFeatures = true
+		logrus.Debugf("CRIU does not support MemTrack")
+	}
+
+	if missingFeatures {
+		return fmt.Errorf("CRIU is missing features")
+	}
+
+	return nil
+}
+
 // checkCriuVersion checks Criu version greater than or equal to minVersion
 func (c *linuxContainer) checkCriuVersion(minVersion string) error {
 	var x, y, z, versionReq int
@@ -717,6 +768,14 @@ func (c *linuxContainer) Checkpoint(criuOpts *CriuOpts) error {
 
 	var t criurpc.CriuReqType
 	if criuOpts.PreDump {
+		feat := criurpc.CriuFeatures{
+			MemTrack: proto.Bool(true),
+		}
+
+		if err := c.checkCriuFeatures(criuOpts, &rpcOpts, &feat); err != nil {
+			return err
+		}
+
 		t = criurpc.CriuReqType_PRE_DUMP
 	} else {
 		t = criurpc.CriuReqType_DUMP
@@ -949,6 +1008,10 @@ func (c *linuxContainer) criuApplyCgroups(pid int, req *criurpc.CriuReq) error {
 		return err
 	}
 
+	if err := c.cgroupManager.Set(c.config); err != nil {
+		return newSystemError(err)
+	}
+
 	path := fmt.Sprintf("/proc/%d/cgroup", pid)
 	cgroupsPaths, err := cgroups.ParseCgroupFile(path)
 	if err != nil {
@@ -1018,16 +1081,21 @@ func (c *linuxContainer) criuSwrk(process *Process, req *criurpc.CriuReq, opts *
 	}
 
 	logrus.Debugf("Using CRIU in %s mode", req.GetType().String())
-	val := reflect.ValueOf(req.GetOpts())
-	v := reflect.Indirect(val)
-	for i := 0; i < v.NumField(); i++ {
-		st := v.Type()
-		name := st.Field(i).Name
-		if strings.HasPrefix(name, "XXX_") {
-			continue
+	// In the case of criurpc.CriuReqType_FEATURE_CHECK req.GetOpts()
+	// should be empty. For older CRIU versions it still will be
+	// available but empty.
+	if req.GetType() != criurpc.CriuReqType_FEATURE_CHECK {
+		val := reflect.ValueOf(req.GetOpts())
+		v := reflect.Indirect(val)
+		for i := 0; i < v.NumField(); i++ {
+			st := v.Type()
+			name := st.Field(i).Name
+			if strings.HasPrefix(name, "XXX_") {
+				continue
+			}
+			value := val.MethodByName("Get" + name).Call([]reflect.Value{})
+			logrus.Debugf("CRIU option %s with value %v", name, value[0])
 		}
-		value := val.MethodByName("Get" + name).Call([]reflect.Value{})
-		logrus.Debugf("CRIU option %s with value %v", name, value[0])
 	}
 	data, err := proto.Marshal(req)
 	if err != nil {
@@ -1063,6 +1131,10 @@ func (c *linuxContainer) criuSwrk(process *Process, req *criurpc.CriuReq, opts *
 
 		t := resp.GetType()
 		switch {
+		case t == criurpc.CriuReqType_FEATURE_CHECK:
+			logrus.Debugf("Feature check says: %s", resp)
+			criuFeatures = resp.GetFeatures()
+			break
 		case t == criurpc.CriuReqType_NOTIFY:
 			if err := c.criuNotifications(resp, process, opts, extFds); err != nil {
 				return err
@@ -1311,7 +1383,12 @@ func (c *linuxContainer) runType() (Status, error) {
 }
 
 func (c *linuxContainer) isPaused() (bool, error) {
-	data, err := ioutil.ReadFile(filepath.Join(c.cgroupManager.GetPaths()["freezer"], "freezer.state"))
+	fcg := c.cgroupManager.GetPaths()["freezer"]
+	if fcg == "" {
+		// A container doesn't have a freezer cgroup
+		return false, nil
+	}
+	data, err := ioutil.ReadFile(filepath.Join(fcg, "freezer.state"))
 	if err != nil {
 		// If freezer cgroup is not mounted, the container would just be not paused.
 		if os.IsNotExist(err) {
@@ -1367,28 +1444,18 @@ func (c *linuxContainer) currentState() (*State, error) {
 // can setns in order.
 func (c *linuxContainer) orderNamespacePaths(namespaces map[configs.NamespaceType]string) ([]string, error) {
 	paths := []string{}
-	order := []configs.NamespaceType{
-		// The user namespace *must* be done first.
-		configs.NEWUSER,
-		configs.NEWIPC,
-		configs.NEWUTS,
-		configs.NEWNET,
-		configs.NEWPID,
-		configs.NEWNS,
-	}
 
-	// Remove namespaces that we don't need to join.
-	var nsTypes []configs.NamespaceType
-	for _, ns := range order {
-		if c.config.Namespaces.Contains(ns) {
-			nsTypes = append(nsTypes, ns)
+	for _, ns := range configs.NamespaceTypes() {
+
+		// Remove namespaces that we don't need to join.
+		if !c.config.Namespaces.Contains(ns) {
+			continue
 		}
-	}
-	for _, nsType := range nsTypes {
-		if p, ok := namespaces[nsType]; ok && p != "" {
+
+		if p, ok := namespaces[ns]; ok && p != "" {
 			// check if the requested namespace is supported
-			if !configs.IsNamespaceSupported(nsType) {
-				return nil, newSystemError(fmt.Errorf("namespace %s is not supported", nsType))
+			if !configs.IsNamespaceSupported(ns) {
+				return nil, newSystemError(fmt.Errorf("namespace %s is not supported", ns))
 			}
 			// only set to join this namespace if it exists
 			if _, err := os.Lstat(p); err != nil {
@@ -1399,9 +1466,11 @@ func (c *linuxContainer) orderNamespacePaths(namespaces map[configs.NamespaceTyp
 			if strings.ContainsRune(p, ',') {
 				return nil, newSystemError(fmt.Errorf("invalid path %s", p))
 			}
-			paths = append(paths, fmt.Sprintf("%s:%s", configs.NsName(nsType), p))
+			paths = append(paths, fmt.Sprintf("%s:%s", configs.NsName(ns), p))
 		}
+
 	}
+
 	return paths, nil
 }
 

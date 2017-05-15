@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/integration-cli/checker"
+	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/cli/build"
 	"github.com/docker/docker/integration-cli/request"
 	icmd "github.com/docker/docker/pkg/testutil/cmd"
@@ -70,7 +71,7 @@ func (s *DockerSuite) TestExecInteractive(c *check.C) {
 }
 
 func (s *DockerSuite) TestExecAfterContainerRestart(c *check.C) {
-	out, _ := runSleepingContainer(c)
+	out := runSleepingContainer(c)
 	cleanedContainerID := strings.TrimSpace(out)
 	c.Assert(waitRun(cleanedContainerID), check.IsNil)
 	dockerCmd(c, "restart", cleanedContainerID)
@@ -137,13 +138,12 @@ func (s *DockerSuite) TestExecExitStatus(c *check.C) {
 
 func (s *DockerSuite) TestExecPausedContainer(c *check.C) {
 	testRequires(c, IsPausable)
-	defer unpauseAllContainers(c)
 
-	out, _ := runSleepingContainer(c, "-d", "--name", "testing")
+	out := runSleepingContainer(c, "-d", "--name", "testing")
 	ContainerID := strings.TrimSpace(out)
 
 	dockerCmd(c, "pause", "testing")
-	out, _, err := dockerCmdWithError("exec", "-i", "-t", ContainerID, "echo", "hello")
+	out, _, err := dockerCmdWithError("exec", ContainerID, "echo", "hello")
 	c.Assert(err, checker.NotNil, check.Commentf("container should fail to exec new command if it is paused"))
 
 	expected := ContainerID + " is paused, unpause the container before exec"
@@ -305,7 +305,7 @@ func (s *DockerSuite) TestExecCgroup(c *check.C) {
 }
 
 func (s *DockerSuite) TestExecInspectID(c *check.C) {
-	out, _ := runSleepingContainer(c, "-d")
+	out := runSleepingContainer(c, "-d")
 	id := strings.TrimSuffix(out, "\n")
 
 	out = inspectField(c, id, "ExecIDs")
@@ -389,7 +389,10 @@ func (s *DockerSuite) TestRunMutableNetworkFiles(c *check.C) {
 	// Not applicable on Windows to Windows CI.
 	testRequires(c, SameHostDaemon, DaemonIsLinux)
 	for _, fn := range []string{"resolv.conf", "hosts"} {
-		deleteAllContainers(c)
+		containers := cli.DockerCmd(c, "ps", "-q", "-a").Combined()
+		if containers != "" {
+			cli.DockerCmd(c, append([]string{"rm", "-fv"}, strings.Split(strings.TrimSpace(containers), "\n")...)...)
+		}
 
 		content := runCommandAndReadContainerFile(c, fn, dockerBinary, "run", "-d", "--name", "c1", "busybox", "sh", "-c", fmt.Sprintf("echo success >/etc/%s && top", fn))
 
@@ -491,12 +494,12 @@ func (s *DockerSuite) TestExecOnReadonlyContainer(c *check.C) {
 func (s *DockerSuite) TestExecUlimits(c *check.C) {
 	testRequires(c, DaemonIsLinux)
 	name := "testexeculimits"
-	runSleepingContainer(c, "-d", "--ulimit", "nproc=21", "--name", name)
+	runSleepingContainer(c, "-d", "--ulimit", "nofile=511:511", "--name", name)
 	c.Assert(waitRun(name), checker.IsNil)
 
-	out, _, err := dockerCmdWithError("exec", name, "sh", "-c", "ulimit -p")
+	out, _, err := dockerCmdWithError("exec", name, "sh", "-c", "ulimit -n")
 	c.Assert(err, checker.IsNil)
-	c.Assert(strings.TrimSpace(out), checker.Equals, "21")
+	c.Assert(strings.TrimSpace(out), checker.Equals, "511")
 }
 
 // #15750

@@ -130,6 +130,7 @@ application, you can also create an instance of the `logrus` Logger:
 package main
 
 import (
+  "os"
   "github.com/Sirupsen/logrus"
 )
 
@@ -189,7 +190,7 @@ application or parts of one. For example, you may want to always log the
 every line, you can create a `logrus.Entry` to pass around instead:
 
 ```go
-requestLogger := log.WithFields(log.Fields{"request_id": request_id, user_ip: user_ip})
+requestLogger := log.WithFields(log.Fields{"request_id": request_id, "user_ip": user_ip})
 requestLogger.Info("something happened on that request") # will log request_id and user_ip
 requestLogger.Warn("something not great happened")
 ```
@@ -235,14 +236,16 @@ Note: Syslog hook also support connecting to local syslog (Ex. "/dev/log" or "/v
 | [Amqp-Hook](https://github.com/vladoatanasov/logrus_amqp) | Hook for logging to Amqp broker (Like RabbitMQ) |
 | [Bugsnag](https://github.com/Shopify/logrus-bugsnag/blob/master/bugsnag.go) | Send errors to the Bugsnag exception tracking service. |
 | [DeferPanic](https://github.com/deferpanic/dp-logrus) | Hook for logging to DeferPanic |
+| [Discordrus](https://github.com/kz/discordrus) | Hook for logging to [Discord](https://discordapp.com/) |
 | [ElasticSearch](https://github.com/sohlich/elogrus) | Hook for logging to ElasticSearch|
+| [Firehose](https://github.com/beaubrewer/logrus_firehose) | Hook for logging to [Amazon Firehose](https://aws.amazon.com/kinesis/firehose/)
 | [Fluentd](https://github.com/evalphobia/logrus_fluent) | Hook for logging to fluentd |
 | [Go-Slack](https://github.com/multiplay/go-slack) | Hook for logging to [Slack](https://slack.com) |
 | [Graylog](https://github.com/gemnasium/logrus-graylog-hook) | Hook for logging to [Graylog](http://graylog2.org/) |
 | [Hiprus](https://github.com/nubo/hiprus) | Send errors to a channel in hipchat. |
 | [Honeybadger](https://github.com/agonzalezro/logrus_honeybadger) | Hook for sending exceptions to Honeybadger |
 | [InfluxDB](https://github.com/Abramovic/logrus_influxdb) | Hook for logging to influxdb |
-| [Influxus] (http://github.com/vlad-doru/influxus) | Hook for concurrently logging to [InfluxDB] (http://influxdata.com/) |
+| [Influxus](http://github.com/vlad-doru/influxus) | Hook for concurrently logging to [InfluxDB](http://influxdata.com/) |
 | [Journalhook](https://github.com/wercker/journalhook) | Hook for logging to `systemd-journald` |
 | [KafkaLogrus](https://github.com/goibibo/KafkaLogrus) | Hook for logging to kafka |
 | [LFShook](https://github.com/rifflock/lfshook) | Hook for logging to the local filesystem |
@@ -421,7 +424,7 @@ entries. It should not be a feature of the application-level logger.
 | Tool | Description |
 | ---- | ----------- |
 |[Logrus Mate](https://github.com/gogap/logrus_mate)|Logrus mate is a tool for Logrus to manage loggers, you can initial logger's level, hook and formatter by config file, the logger will generated with different config at different environment.|
-|[Logrus Viper Helper](https://github.com/heirko/go-contrib/tree/master/logrusHelper)|An Helper arround Logrus to wrap with spf13/Viper to load configuration with fangs! And to simplify Logrus configuration use some behavior of [Logrus Mate](https://github.com/gogap/logrus_mate). [sample](https://github.com/heirko/iris-contrib/blob/master/middleware/logrus-logger/example) |
+|[Logrus Viper Helper](https://github.com/heirko/go-contrib/tree/master/logrusHelper)|An Helper around Logrus to wrap with spf13/Viper to load configuration with fangs! And to simplify Logrus configuration use some behavior of [Logrus Mate](https://github.com/gogap/logrus_mate). [sample](https://github.com/heirko/iris-contrib/blob/master/middleware/logrus-logger/example) |
 
 #### Testing
 

@@ -35,6 +35,7 @@ Options:
   -f, --file string             Name of the Dockerfile (Default is 'PATH/Dockerfile')
       --force-rm                Always remove intermediate containers
       --help                    Print usage
+      --iidfile string          Write the image ID to the file
       --isolation string        Container isolation technology
       --label value             Set metadata for an image (default [])
   -m, --memory string           Memory limit
@@ -79,6 +80,10 @@ command. This command runs in a temporary directory on your local host. After
 the command succeeds, the directory is sent to the Docker daemon as the
 context. Local clones give you the ability to access private repositories using
 local user credentials, VPN's, and so forth.
+
+> **Note:**
+> If the `URL` parameter contains a fragment the system will recursively clone
+> the repository and its submodules using a `git clone --recursive` command.
 
 Git URLs accept context configuration in their fragment section, separated by a
 colon `:`.  The first part represents the reference that Git will check out,
@@ -343,6 +348,13 @@ $ docker build -f Dockerfile.debug .
 
 This will use a file called `Dockerfile.debug` for the build instructions
 instead of `Dockerfile`.
+
+```bash
+$ curl example.com/remote/Dockerfile | docker build -f - .
+```
+
+The above command will use the current directory as the build context and read
+a Dockerfile from stdin.
 
 ```bash
 $ docker build -f dockerfiles/Dockerfile.debug -t myapp_debug .

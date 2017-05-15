@@ -8,6 +8,10 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"fmt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // CopyFile with invalid src
@@ -208,7 +212,7 @@ func TestReadSymlinkedDirectoryToFile(t *testing.T) {
 
 func TestWildcardMatches(t *testing.T) {
 	match, _ := Matches("fileutils.go", []string{"*"})
-	if match != true {
+	if !match {
 		t.Errorf("failed to get a wildcard match, got %v", match)
 	}
 }
@@ -216,7 +220,7 @@ func TestWildcardMatches(t *testing.T) {
 // A simple pattern match should return true.
 func TestPatternMatches(t *testing.T) {
 	match, _ := Matches("fileutils.go", []string{"*.go"})
-	if match != true {
+	if !match {
 		t.Errorf("failed to get a match, got %v", match)
 	}
 }
@@ -224,7 +228,7 @@ func TestPatternMatches(t *testing.T) {
 // An exclusion followed by an inclusion should return true.
 func TestExclusionPatternMatchesPatternBefore(t *testing.T) {
 	match, _ := Matches("fileutils.go", []string{"!fileutils.go", "*.go"})
-	if match != true {
+	if !match {
 		t.Errorf("failed to get true match on exclusion pattern, got %v", match)
 	}
 }
@@ -232,7 +236,7 @@ func TestExclusionPatternMatchesPatternBefore(t *testing.T) {
 // A folder pattern followed by an exception should return false.
 func TestPatternMatchesFolderExclusions(t *testing.T) {
 	match, _ := Matches("docs/README.md", []string{"docs", "!docs/README.md"})
-	if match != false {
+	if match {
 		t.Errorf("failed to get a false match on exclusion pattern, got %v", match)
 	}
 }
@@ -240,7 +244,7 @@ func TestPatternMatchesFolderExclusions(t *testing.T) {
 // A folder pattern followed by an exception should return false.
 func TestPatternMatchesFolderWithSlashExclusions(t *testing.T) {
 	match, _ := Matches("docs/README.md", []string{"docs/", "!docs/README.md"})
-	if match != false {
+	if match {
 		t.Errorf("failed to get a false match on exclusion pattern, got %v", match)
 	}
 }
@@ -248,7 +252,7 @@ func TestPatternMatchesFolderWithSlashExclusions(t *testing.T) {
 // A folder pattern followed by an exception should return false.
 func TestPatternMatchesFolderWildcardExclusions(t *testing.T) {
 	match, _ := Matches("docs/README.md", []string{"docs/*", "!docs/README.md"})
-	if match != false {
+	if match {
 		t.Errorf("failed to get a false match on exclusion pattern, got %v", match)
 	}
 }
@@ -256,7 +260,7 @@ func TestPatternMatchesFolderWildcardExclusions(t *testing.T) {
 // A pattern followed by an exclusion should return false.
 func TestExclusionPatternMatchesPatternAfter(t *testing.T) {
 	match, _ := Matches("fileutils.go", []string{"*.go", "!fileutils.go"})
-	if match != false {
+	if match {
 		t.Errorf("failed to get false match on exclusion pattern, got %v", match)
 	}
 }
@@ -264,7 +268,7 @@ func TestExclusionPatternMatchesPatternAfter(t *testing.T) {
 // A filename evaluating to . should return false.
 func TestExclusionPatternMatchesWholeDirectory(t *testing.T) {
 	match, _ := Matches(".", []string{"*.go"})
-	if match != false {
+	if match {
 		t.Errorf("failed to get false match on ., got %v", match)
 	}
 }
@@ -299,17 +303,14 @@ func TestMatchesWithMalformedPatterns(t *testing.T) {
 	}
 }
 
-// Test lots of variants of patterns & strings
+type matchesTestCase struct {
+	pattern string
+	text    string
+	pass    bool
+}
+
 func TestMatches(t *testing.T) {
-	// TODO Windows: Port this test
-	if runtime.GOOS == "windows" {
-		t.Skip("Needs porting to Windows")
-	}
-	tests := []struct {
-		pattern string
-		text    string
-		pass    bool
-	}{
+	tests := []matchesTestCase{
 		{"**", "file", true},
 		{"**", "file/", true},
 		{"**/", "file", true}, // weird one
@@ -361,9 +362,6 @@ func TestMatches(t *testing.T) {
 		{"abc.def", "abcZdef", false},
 		{"abc?def", "abcZdef", true},
 		{"abc?def", "abcdef", false},
-		{"a\\*b", "a*b", true},
-		{"a\\", "a", false},
-		{"a\\", "a\\", false},
 		{"a\\\\", "a\\", true},
 		{"**/foo/bar", "foo/bar", true},
 		{"**/foo/bar", "dir/foo/bar", true},
@@ -375,15 +373,20 @@ func TestMatches(t *testing.T) {
 		{"**/.foo", "bar.foo", false},
 	}
 
+	if runtime.GOOS != "windows" {
+		tests = append(tests, []matchesTestCase{
+			{"a\\*b", "a*b", true},
+			{"a\\", "a", false},
+			{"a\\", "a\\", false},
+		}...)
+	}
+
 	for _, test := range tests {
+		desc := fmt.Sprintf("pattern=%q text=%q", test.pattern, test.text)
 		pm, err := NewPatternMatcher([]string{test.pattern})
-		if err != nil {
-			t.Fatalf("invalid pattern %s", test.pattern)
-		}
+		require.NoError(t, err, desc)
 		res, _ := pm.Matches(test.text)
-		if res != test.pass {
-			t.Fatalf("Failed: %v - res:%v", test, res)
-		}
+		assert.Equal(t, test.pass, res, desc)
 	}
 }
 
@@ -573,7 +576,7 @@ func TestMatch(t *testing.T) {
 		pattern := tt.pattern
 		s := tt.s
 		if runtime.GOOS == "windows" {
-			if strings.Index(pattern, "\\") >= 0 {
+			if strings.Contains(pattern, "\\") {
 				// no escape allowed on windows.
 				continue
 			}

@@ -20,6 +20,28 @@ The following list of features are deprecated in Engine.
 To learn more about Docker Engine's deprecation policy,
 see [Feature Deprecation Policy](https://docs.docker.com/engine/#feature-deprecation-policy).
 
+### Asynchronous `service create` and `service update`
+
+**Deprecated In Release: v17.05.0**
+
+**Disabled by default in release: v17.09**
+
+Docker 17.05.0 added an optional `--detach=false` option to make the
+`docker service create` and `docker service update` work synchronously. This
+option will be enable by default in Docker 17.09, at which point the `--detach`
+flag can be used to use the previous (asynchronous) behavior.
+
+### `-g` and `--graph` flags on `dockerd`
+
+**Deprecated In Release: v17.05.0**
+
+The `-g` or `--graph` flag for the `dockerd` or `docker daemon` command was
+used to indicate the directory in which to store persistent data and resource
+configuration and has been replaced with the more descriptive `--data-root`
+flag.
+
+These flags were added before Docker 1.0, so will not be _removed_, only
+_hidden_, to discourage their use.
 
 ### Top-level network properties in NetworkSettings
 
@@ -266,9 +288,9 @@ of the `--changes` flag that allows to pass `Dockerfile` commands.
 
 ### Interacting with V1 registries
 
-**Disabled By Default In Release: v17.04**
+**Disabled By Default In Release: v17.06**
 
-**Target For Removal In Release: v17.10**
+**Target For Removal In Release: v17.12**
 
 Version 1.9 adds a flag (`--disable-legacy-registry=false`) which prevents the
 docker daemon from `pull`, `push`, and `login` operations against v1
@@ -288,3 +310,12 @@ Since 1.9, Docker Content Trust Offline key has been renamed to Root key and the
 
 - DOCKER_CONTENT_TRUST_OFFLINE_PASSPHRASE is now named DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE
 - DOCKER_CONTENT_TRUST_TAGGING_PASSPHRASE is now named DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE
+
+### `--api-enable-cors` flag on dockerd
+
+**Deprecated In Release: [v1.6.0](https://github.com/docker/docker/releases/tag/v1.6.0)**
+
+**Target For Removal In Release: v17.09**
+
+The flag `--api-enable-cors` is deprecated since v1.6.0. Use the flag
+`--api-cors-header` instead.

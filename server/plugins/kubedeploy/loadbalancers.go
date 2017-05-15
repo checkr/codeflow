@@ -19,12 +19,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-func (x *KubeDeploy) sendLBResponse(e agent.Event, service plugins.Service, state plugins.State, failureMessage string, dnsName string) {
+func (x *KubeDeploy) sendLBResponse(e agent.Event, state plugins.State, failureMessage string, dns string, lbpayload plugins.LoadBalancer) {
 	payload := e.Payload.(plugins.LoadBalancer)
 	payload.Action = plugins.Status
-	payload.Service = service
+	payload.Service = lbpayload.Service
 	payload.StateMessage = failureMessage
-	payload.DNSName = dnsName
+	payload.DNS = dns
+	payload.Subdomain = lbpayload.Subdomain
 	payload.State = state
 	event := e.NewEvent(payload, nil)
 	x.events <- event
@@ -55,34 +56,40 @@ func (x *KubeDeploy) doDeleteLoadBalancer(e agent.Event) error {
 		if svcDeleteErr != nil {
 			failMessage := fmt.Sprintf("Error '%s' deleting service %s", svcDeleteErr, payload.Name)
 			log.Printf("ERROR managing loadbalancer %s: %s", payload.Service.Name, failMessage)
-			x.sendLBResponse(e, payload.Service, plugins.Failed, failMessage, "")
+			x.sendLBResponse(e, plugins.Failed, failMessage, "", payload)
 			return nil
 		}
-		x.sendLBResponse(e, payload.Service, plugins.Deleted, "", "")
+		x.sendLBResponse(e, plugins.Deleted, "", "", payload)
 	} else {
 		// Send failure message that we couldn't find the service to delete
 		failMessage := fmt.Sprintf("Error finding %s service: '%s'", payload.Name, svcGetErr)
 		log.Printf("ERROR managing loadbalancer %s: %s", payload.Service.Name, failMessage)
-		x.sendLBResponse(e, payload.Service, plugins.Failed, failMessage, "")
+		x.sendLBResponse(e, plugins.Failed, failMessage, "", payload)
 	}
 	return nil
 }
 
 // Make changes to kubernetes services (aka load balancers)
 func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
+	payload := e.Payload.(plugins.LoadBalancer)
 	// Codeflow will load the kube config from a file, specified by CF_PLUGINS_KUBEDEPLOY_KUBECONFIG environment variable
 	config, err := clientcmd.BuildConfigFromFlags("", viper.GetString("plugins.kubedeploy.kubeconfig"))
 
 	if err != nil {
-		panic(err.Error())
+		failMessage := fmt.Sprintf("ERROR: %s; you must set the environment variable CF_PLUGINS_KUBEDEPLOY_KUBECONFIG=/path/to/kubeconfig", err.Error())
+		log.Println(failMessage)
+		x.sendLBResponse(e, plugins.Failed, failMessage, "", payload)
+		return nil
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Println("Error getting cluster config.")
+		failMessage := fmt.Sprintf("ERROR: %s; setting NewForConfig in doLoadBalancer", err.Error())
+		log.Println(failMessage)
+		x.sendLBResponse(e, plugins.Failed, failMessage, "", payload)
+		return nil
 	}
 
-	payload := e.Payload.(plugins.LoadBalancer)
 	coreInterface := clientset.Core()
 	deploymentName := genDeploymentName(payload.Project.Slug, payload.Service.Name)
 
@@ -93,7 +100,7 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 	namespace := genNamespaceName(payload.Environment, payload.Project.Slug)
 	createNamespaceErr := x.createNamespaceIfNotExists(namespace, coreInterface)
 	if createNamespaceErr != nil {
-		x.sendLBResponse(e, payload.Service, plugins.Failed, createNamespaceErr.Error(), "")
+		x.sendLBResponse(e, plugins.Failed, createNamespaceErr.Error(), "", payload)
 		return nil
 	}
 
@@ -191,24 +198,24 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 		serviceParams.Spec.ClusterIP = svc.Spec.ClusterIP
 		_, err = service.Update(&serviceParams)
 		if err != nil {
-			x.sendLBResponse(e, payload.Service, plugins.Failed, fmt.Sprintf("Error: failed to update service: %s", err.Error()), "")
+			x.sendLBResponse(e, plugins.Failed, fmt.Sprintf("Error: failed to update service: %s", err.Error()), "", payload)
 			return nil
 		}
 		log.Printf("Service updated: %s", payload.Name)
 	case errors.IsNotFound(err):
 		_, err = service.Create(&serviceParams)
 		if err != nil {
-			x.sendLBResponse(e, payload.Service, plugins.Failed, fmt.Sprintf("Error: failed to create service: %s", err.Error()), "")
+			x.sendLBResponse(e, plugins.Failed, fmt.Sprintf("Error: failed to create service: %s", err.Error()), "", payload)
 			return nil
 		}
 		log.Printf("Service created: %s", payload.Name)
 	default:
-		x.sendLBResponse(e, payload.Service, plugins.Failed, fmt.Sprintf("Unexpected error: %s", err.Error()), "")
+		x.sendLBResponse(e, plugins.Failed, fmt.Sprintf("Unexpected error: %s", err.Error()), "", payload)
 		return nil
 	}
 
 	// If ELB grab the DNS name for the response
-	var ELBDNSName string
+	var ELBDNS string
 	if payload.Type == plugins.External || payload.Type == plugins.Office {
 		log.Printf("Waiting for ELB address for %s", payload.Name)
 		// Timeout waiting for ELB DNS name after 600 seconds
@@ -220,12 +227,12 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 			} else {
 				ingressList := elbResult.Status.LoadBalancer.Ingress
 				if len(ingressList) > 0 {
-					ELBDNSName = ingressList[0].Hostname
+					ELBDNS = ingressList[0].Hostname
 					break
 				}
 				if timeout <= 0 {
 					failMessage := fmt.Sprintf("Error: timeout waiting for ELB DNS name for: %s", payload.Name)
-					x.sendLBResponse(e, payload.Service, plugins.Failed, failMessage, "")
+					x.sendLBResponse(e, plugins.Failed, failMessage, "", payload)
 					return nil
 				}
 			}
@@ -233,9 +240,9 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 			timeout -= 5
 		}
 	} else {
-		ELBDNSName = fmt.Sprintf("%s.%s", payload.Name, genNamespaceName(payload.Environment, payload.Project.Slug))
+		ELBDNS = fmt.Sprintf("%s.%s", payload.Name, genNamespaceName(payload.Environment, payload.Project.Slug))
 	}
-	x.sendLBResponse(e, payload.Service, plugins.Complete, "", ELBDNSName)
+	x.sendLBResponse(e, plugins.Complete, "", ELBDNS, payload)
 
 	return nil
 }

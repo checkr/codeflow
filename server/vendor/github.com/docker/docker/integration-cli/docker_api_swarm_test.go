@@ -32,6 +32,7 @@ func (s *DockerSwarmSuite) TestAPISwarmInit(c *check.C) {
 	c.Assert(err, checker.IsNil)
 	c.Assert(info.ControlAvailable, checker.True)
 	c.Assert(info.LocalNodeState, checker.Equals, swarm.LocalNodeStateActive)
+	c.Assert(info.Cluster.RootRotationInProgress, checker.False)
 
 	d2 := s.AddDaemon(c, true, false)
 	info, err = d2.SwarmInfo()
@@ -143,6 +144,29 @@ func (s *DockerSwarmSuite) TestAPISwarmJoinToken(c *check.C) {
 	info, err = d2.SwarmInfo()
 	c.Assert(err, checker.IsNil)
 	c.Assert(info.LocalNodeState, checker.Equals, swarm.LocalNodeStateInactive)
+}
+
+func (s *DockerSwarmSuite) TestUpdateSwarmAddExternalCA(c *check.C) {
+	d1 := s.AddDaemon(c, false, false)
+	c.Assert(d1.Init(swarm.InitRequest{}), checker.IsNil)
+	d1.UpdateSwarm(c, func(s *swarm.Spec) {
+		s.CAConfig.ExternalCAs = []*swarm.ExternalCA{
+			{
+				Protocol: swarm.ExternalCAProtocolCFSSL,
+				URL:      "https://thishasnoca.org",
+			},
+			{
+				Protocol: swarm.ExternalCAProtocolCFSSL,
+				URL:      "https://thishasacacert.org",
+				CACert:   "cacert",
+			},
+		}
+	})
+	info, err := d1.SwarmInfo()
+	c.Assert(err, checker.IsNil)
+	c.Assert(info.Cluster.Spec.CAConfig.ExternalCAs, checker.HasLen, 2)
+	c.Assert(info.Cluster.Spec.CAConfig.ExternalCAs[0].CACert, checker.Equals, "")
+	c.Assert(info.Cluster.Spec.CAConfig.ExternalCAs[1].CACert, checker.Equals, "cacert")
 }
 
 func (s *DockerSwarmSuite) TestAPISwarmCAHash(c *check.C) {
@@ -330,9 +354,6 @@ func (s *DockerSwarmSuite) TestAPISwarmRaftQuorum(c *check.C) {
 	})
 
 	d3.Stop(c)
-
-	// make sure there is a leader
-	waitAndAssert(c, defaultReconciliationTimeout, d1.CheckLeader, checker.IsNil)
 
 	var service swarm.Service
 	simpleTestService(&service)
@@ -593,6 +614,24 @@ func setInstances(replicas int) daemon.ServiceConstructor {
 				Replicas: &ureplicas,
 			},
 		}
+	}
+}
+
+func setUpdateOrder(order string) daemon.ServiceConstructor {
+	return func(s *swarm.Service) {
+		if s.Spec.UpdateConfig == nil {
+			s.Spec.UpdateConfig = &swarm.UpdateConfig{}
+		}
+		s.Spec.UpdateConfig.Order = order
+	}
+}
+
+func setRollbackOrder(order string) daemon.ServiceConstructor {
+	return func(s *swarm.Service) {
+		if s.Spec.RollbackConfig == nil {
+			s.Spec.RollbackConfig = &swarm.UpdateConfig{}
+		}
+		s.Spec.RollbackConfig.Order = order
 	}
 }
 
