@@ -924,7 +924,7 @@ func (r *MongoDbMigrator) V002_projects_deleted_down(c *bongo.Connection) error 
 }
 
 func (r *MongoDbMigrator) V003_r53_up(c *bongo.Connection) error {
-	if err := c.Session.DB(r.DbName()).C("extensions").Update(bson.M{}, bson.M{"$rename": bson.M{"dnsName": "dns"}}); err != nil {
+	if _, err := c.Session.DB(r.DbName()).C("extensions").UpdateAll(bson.M{}, bson.M{"$rename": bson.M{"dnsName": "dns"}}); err != nil {
 		if err != mgo.ErrNotFound {
 			return err
 		}
@@ -994,6 +994,17 @@ func (r *MongoDbMigrator) V003_r53_up(c *bongo.Connection) error {
 }
 
 func (r *MongoDbMigrator) V003_r53_down(c *bongo.Connection) error {
-	return c.Session.DB(r.DbName()).C("extensions").Update(bson.M{}, bson.M{"$rename": bson.M{"dns": "dnsName"}})
-	return c.Session.DB(r.DbName()).C("extensions").Update(bson.M{}, bson.M{"$unset": bson.M{"subdomain": ""}})
+	if _, err := c.Session.DB(r.DbName()).C("extensions").UpdateAll(bson.M{}, bson.M{"$rename": bson.M{"dnsName": "dns"}}); err != nil {
+		if err != mgo.ErrNotFound {
+			return err
+		}
+	}
+
+	if _, err := c.Session.DB(r.DbName()).C("extensions").UpdateAll(bson.M{}, bson.M{"$unset": bson.M{"subdomain": ""}}); err != nil {
+		if err != mgo.ErrNotFound {
+			return err
+		}
+	}
+
+	return nil
 }
