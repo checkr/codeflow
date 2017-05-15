@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -65,13 +64,12 @@ func NewTestAgent(config []byte) (*Agent, error) {
 func (a *Agent) LoadPlugins() error {
 	var err error
 
-	ep := viper.GetString("run")
-	runPlugins := strings.Split(strings.Trim(ep, "[]"), ",")
+	runPlugins := viper.GetStringSlice("run")
 	for name := range viper.GetStringMap("plugins") {
 		if err = a.addPlugin(name); err != nil {
 			return fmt.Errorf("Error parsing %s, %s", name, err)
 		}
-		if ep == "" || SliceContains(name, runPlugins) {
+		if len(runPlugins) == 0 || SliceContains(name, runPlugins) {
 			if err = a.enablePlugin(name); err != nil {
 				return fmt.Errorf("Error parsing %s, %s", name, err)
 			}
