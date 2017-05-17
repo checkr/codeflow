@@ -22,8 +22,8 @@ import (
 	_ "github.com/checkr/codeflow/server/plugins/git_sync"
 	_ "github.com/checkr/codeflow/server/plugins/heartbeat"
 	_ "github.com/checkr/codeflow/server/plugins/kubedeploy"
-	_ "github.com/checkr/codeflow/server/plugins/slack"
 	_ "github.com/checkr/codeflow/server/plugins/route53"
+	_ "github.com/checkr/codeflow/server/plugins/slack"
 	_ "github.com/checkr/codeflow/server/plugins/webhooks"
 	_ "github.com/checkr/codeflow/server/plugins/websockets"
 )
@@ -56,6 +56,9 @@ func init() {
 	RootCmd.AddCommand(cmdMigrate)
 	cmdMigrate.AddCommand(cmdMigrateUp)
 	cmdMigrate.AddCommand(cmdMigrateDown)
+	RootCmd.AddCommand(cmdDeployAll)
+	cmdDeployAll.AddCommand(cmdDeployAllProjects)
+	cmdDeployAll.AddCommand(cmdDeployAllServices)
 
 	cmdServer.Flags().StringSliceP("run", "r", []string{}, "run plugins a,b,c")
 	viper.BindPFlags(cmdServer.Flags())
@@ -143,6 +146,30 @@ var cmdMigrateDown = &cobra.Command{
 		if !ok {
 			os.Exit(1)
 		}
+	},
+}
+
+var cmdDeployAll = &cobra.Command{
+	Use:  "deploy-all [command]",
+	Long: `...`,
+	Run: func(cmd *cobra.Command, args []string) {
+
+	},
+}
+
+var cmdDeployAllProjects = &cobra.Command{
+	Use:  "projects [command]",
+	Long: `...`,
+	Run: func(cmd *cobra.Command, args []string) {
+
+	},
+}
+
+var cmdDeployAllServices = &cobra.Command{
+	Use:  "services [command]",
+	Long: `...`,
+	Run: func(cmd *cobra.Command, args []string) {
+
 	},
 }
 

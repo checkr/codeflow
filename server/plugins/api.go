@@ -229,6 +229,7 @@ type Route53 struct {
 	Project      Project `json:"project"`
 	Service      Service `json:"service"`
 	DNS          string  `json:"dns"`
+	FQDN         string  `json:"fqdn"`
 	Environment  string  `json:"environment"`
 	Subdomain    string  `json:"subdomain"`
 }

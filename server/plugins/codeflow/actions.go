@@ -275,7 +275,7 @@ func CheckWorkflows(r *Release) error {
 		return err
 	}
 
-	if workflowStatus == plugins.Complete {
+	if workflowStatus == plugins.Complete && r.State != plugins.Failed {
 		if err := CreateDeploy(r); err != nil {
 			log.Printf("CreateDeploy::Error: %v", err.Error())
 			return err
@@ -720,6 +720,28 @@ func LoadBalancerStatus(lb *plugins.LoadBalancer) error {
 	extension.DNS = lb.DNS
 	extension.State = lb.State
 	extension.StateMessage = lb.StateMessage
+
+	if err := db.Collection("extensions").Save(&extension); err != nil {
+		log.Printf("Extension::Save::Error: %v", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func LoadBalancerUpdateFQDN(dns string, fqdn string) error {
+	extension := LoadBalancer{}
+
+	if err := db.Collection("extensions").FindOne(bson.M{"dns": dns}, &extension); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Extensions::FindOne::DocumentNotFoundError: dns: `%v`", dns)
+		} else {
+			log.Printf("Extensions::FindOne::Error: %s", err.Error())
+		}
+		return err
+	}
+
+	extension.FQDN = fqdn
 
 	if err := db.Collection("extensions").Save(&extension); err != nil {
 		log.Printf("Extension::Save::Error: %v", err.Error())

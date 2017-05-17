@@ -379,7 +379,7 @@ a {
   margin-top: 15px;
 }
 .btn-edit-resource {
-  margin-top: 10px;
+  margin-top: 0px;
   margin-left: 5px;
 }
 .service-command {
@@ -387,10 +387,9 @@ a {
  vertical-align: middle;
 }
 .service h5 {
-  margin-top: 10px;
+  margin-top: 0px;
 }
 .lb-title {
-  text-transform:capitalize;
 }
 
 .lb-exp {
@@ -468,4 +467,9 @@ input[type=checkbox], input[type=radio] {
 
 .buttons button {
 
+}
+
+.extension-lb > pre {
+  margin-top: 7px;
+  margin-bottom: 0;
 }

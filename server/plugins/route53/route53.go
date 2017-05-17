@@ -67,6 +67,7 @@ func (x *Route53) sendRoute53Response(e agent.Event, state plugins.State, failur
 		Service:      lbPayload.Service,
 		DNS:          lbPayload.DNS,
 		Subdomain:    lbPayload.Subdomain,
+		FQDN:         viper.GetString("plugins.route53.hosted_zone_name"),
 		Environment:  lbPayload.Environment,
 		Project:      lbPayload.Project,
 	}, nil)

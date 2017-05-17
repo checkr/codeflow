@@ -212,6 +212,7 @@ type LoadBalancer struct {
 	Extension          string         `bson:"extension" json:"extension"`
 	DNS                string         `bson:"dns" json:"dns"`
 	Subdomain          string         `bson:"subdomain" json:"subdomain"`
+	FQDN               string         `bson:"fqdn" json:"fqdn"`
 	Type               string         `bson:"type" json:"type"`
 	ListenerPairs      []ListenerPair `bson:"listenerPairs" json:"listenerPairs"`
 	State              plugins.State  `bson:"state" json:"state"`

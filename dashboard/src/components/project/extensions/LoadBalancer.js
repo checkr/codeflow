@@ -117,20 +117,19 @@ class LoadBalancer extends Component {
     if (!isEmpty(extension) && extension.serviceId) {
       service = find(services, { _id: extension.serviceId })
     }
+    let { dns } = ""
 
-    let dns = <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-globe" aria-hidden="true" /></div><input type="text" className="form-control" value={extension.type} readOnly/></div>
-    if (!isEmpty(extension.dnsName)) {
-      dns = <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-globe" aria-hidden="true" /></div><input type="text" className="form-control" value={extension.dnsName} readOnly/></div>
+    if (!isEmpty(extension.dns)) {
+      dns = <pre><i className="fa fa-globe" aria-hidden="true" /> {extension.dns}</pre>
+    }
+
+    if (!isEmpty(extension.subdomain) && !isEmpty(extension.fqdn)) {
+      dns = <pre><i className="fa fa-globe" aria-hidden="true" /> {extension.subdomain}.{extension.fqdn}</pre>
     }
 
     return (
-      <div>
-        <h5 className="lb-title">
-          Load Balancer
-        </h5>
-        { !isEmpty(service) && <div className="input-group lb-exp"><div className="input-group-addon"><i className="fa fa-tasks" aria-hidden="true" /></div><input type="text" className="form-control" value={service.name} readOnly/></div>
- }
-
+      <div className="extension-lb">
+        { !isEmpty(service) && <div><strong>{extension.type}</strong> load balancer <i className="fa fa-angle-double-right" aria-hidden="true"></i> <strong>{service.name}</strong></div> }
         {dns}
       </div>
     )
@@ -161,7 +160,7 @@ class LoadBalancer extends Component {
                 </div>
                 <div className="col-xs-6">
                   <div className="form-group">
-                    <label>Subdomain (<strong>{get(formValues, 'values.subdomain')}</strong>.checkrhq.net)</label>
+                    <label>Subdomain (<strong>{get(formValues, 'values.subdomain')}</strong>.example.net)</label>
                     <Field name="subdomain" component={renderInput} type="text" placeholder="api"/>
                   </div>
                 </div>

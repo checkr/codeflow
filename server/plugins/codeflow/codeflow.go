@@ -189,6 +189,7 @@ func (x *Codeflow) Subscribe() []string {
 		"plugins.LoadBalancer:status",
 		"plugins.DockerDeploy:status",
 		"plugins.HeartBeat",
+		"plugins.Route53",
 	}
 }
 
@@ -358,6 +359,16 @@ func (x *Codeflow) Process(e agent.Event) error {
 	if e.Name == "plugins.DockerBuild:status" {
 		payload := e.Payload.(plugins.DockerBuild)
 		DockerBuildStatus(&payload)
+	}
+
+	if e.Name == "plugins.Route53" {
+		r53 := e.Payload.(plugins.Route53)
+
+		if r53.State == plugins.Complete {
+			LoadBalancerUpdateFQDN(r53.DNS, r53.FQDN)
+		}
+
+		return nil
 	}
 
 	return nil
