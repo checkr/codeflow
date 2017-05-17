@@ -18,6 +18,7 @@ func init() {
 	agent.RegisterApi(LoadBalancer{})
 	agent.RegisterApi(WebsocketMsg{})
 	agent.RegisterApi(HeartBeat{})
+	agent.RegisterApi(Route53{})
 }
 
 type State string
