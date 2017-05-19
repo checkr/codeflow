@@ -930,6 +930,10 @@ func (r *MongoDbMigrator) V003_r53_up(c *bongo.Connection) error {
 		}
 	}
 
+	if viper.GetInt("plugins.route53.workers") <= 0 {
+		return nil
+	}
+
 	// sync existing dns records
 	records := make(map[string]string)
 
