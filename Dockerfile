@@ -9,6 +9,7 @@ ENV PATH ${PATH}:/go/bin
 RUN mkdir -p $APP_PATH
 WORKDIR $APP_PATH
 
+RUN pacman -Sy --noconfirm archlinux-keyring
 RUN pacman -Sy --noconfirm libgit2 git gcc nodejs go go-tools npm base-devel
 
 RUN go get github.com/cespare/reflex
