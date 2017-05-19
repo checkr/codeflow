@@ -1,4 +1,4 @@
-FROM finalduty/archlinux:latest
+FROM finalduty/archlinux:monthly
 
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
@@ -9,7 +9,7 @@ ENV PATH ${PATH}:/go/bin
 RUN mkdir -p $APP_PATH
 WORKDIR $APP_PATH
 
-RUN pacman -Sy --noconfirm archlinux-keyring
+RUN pacman -Syu --noconfirm
 RUN pacman -Sy --noconfirm libgit2 git gcc nodejs go go-tools npm base-devel
 
 RUN go get github.com/cespare/reflex
