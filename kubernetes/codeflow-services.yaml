@@ -1,71 +1,40 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: codeflow-api
+  namespace: development-checkr-codeflow
+  name: codeflow
   labels:
-    app: codeflow-api
+    app: codeflow
+  annotations:
+    # Common AWS Load Balancer Options
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+    service.beta.kubernetes.io/aws-load-balancer-connection-draining-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-connection-draining-timeout: "300"
+    ## Cross Zone Load balancing (uncomment to enable)
+    #service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    #
+    ## Internal (Private) Load Balancer (uncomment to enable)
+    # service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
+    #
+    ## Enable SSL, set your SSL certificate ARN here
+    ## Note, if you enable this you will want to setup a DNS CNAME pointing at ELB.
+    # service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-east-1:....
+    #
 spec:
-  type: NodePort
-  # To use different types of service, modify for your needs. 
-  # type: LoadBalancer
+  # To use a different type of service, modify for your needs.
+  type: LoadBalancer
   ports:
   - name: api-port
     port: 3001
     protocol: TCP
-    nodePort: 31001
-  selector:
-    app: codeflow
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: codeflow-dashboard
-  labels:
-    app: codeflow
-spec:
-  # To use different types of service, modify for your needs. 
-  # type: LoadBalancer
-  type: NodePort
-  ports:
   - name: dashboard-port
-    port: 4000
+    port: 9000
     protocol: TCP
-    nodePort: 31004
-  selector:
-    app: codeflow
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: codeflow-webhooks
-  labels:
-    app: codeflow-webhooks
-spec:
-  # To use different types of service, modify for your needs. 
-  # type: LoadBalancer
-  type: NodePort
-  ports:
   - name: webhooks-port
     port: 3002
     protocol: TCP
-    nodePort: 31002
-  selector:
-    app: codeflow
----
-apiVersion: v1
-kind: Service
-metadata:
-  # To use different types of service, modify for your needs. 
-  # type: LoadBalancer
-  name: codeflow-websockets
-  labels:
-    app: codeflow-websockets
-spec:
-  type: NodePort
-  ports:
-  - name: webhooks-port
+  - name: websockets-port
     port: 3003
     protocol: TCP
-    nodePort: 31003
   selector:
     app: codeflow

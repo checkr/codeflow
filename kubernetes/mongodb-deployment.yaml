@@ -1,16 +1,17 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: mongodb
+  name: mongo
+  namespace: development-checkr-codeflow
   labels:
-    name: mongodb 
+    name: mongo 
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: mongodb
-        name: mongodb
+        app: mongo
+        name: mongo
     spec:
       volumes:
       - name: mongodb-data01

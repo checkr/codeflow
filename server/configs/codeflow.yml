@@ -15,7 +15,7 @@ plugins:
       path: "/github"
   codeflow:
     workers: 1
-    dashboard_url: "https://example.com"
+    dashboard_url: "https://codeflow.example.com"
     logs_url: "https://example.com/##PROJECT-NAMESPACE##"
     feature_external_link: "https://github.com/##PROJECT_REPOSITORY##/commit/##FEATURE-HASH##"
     jwt_secret_key: "change-me"
@@ -68,7 +68,7 @@ plugins:
     workdir: "/tmp/docker_build"   
   kubedeploy:
     workers: 1
-    kubeconfig: "/etc/secrets/kubeconfig"
+    kubeconfig:
     environment: 
     ssl_cert_arn:
     node_selector: 
@@ -80,10 +80,10 @@ plugins:
     workers: 1
     webhook_url: ""
   git_sync:
-    workers: 0
+    workers: 1
     workdir: "/tmp/git_sync" 
   heartbeat:
-    workers: 0
+    workers: 1
   route53:
     workers: 0
     initial_wait_seconds: 300

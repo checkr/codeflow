@@ -2,6 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: redis
+  namespace: development-checkr-codeflow
 spec:
   replicas: 1
   template:

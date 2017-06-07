@@ -4,6 +4,7 @@ metadata:
   labels:
     app: codeflow
   name: codeflow
+  namespace: development-checkr-codeflow
 spec:
   replicas: 1
   revisionHistoryLimit: 10
@@ -17,343 +18,51 @@ spec:
       imagePullSecrets:
       - name: docker-io
       volumes:
-      - name: codeflow-kubernetes-secrets
-        secret:
-          defaultMode: 256
-          items:
-          - key: ca.pem
-            mode: 256
-            path: ca.pem
-          - key: admin.pem
-            mode: 256
-            path: admin.pem
-          - key: admin-key.pem
-            mode: 256
-            path: admin-key.pem
-          - key: kubeconfig
-            mode: 256
-            path: kubeconfig
-          secretName: codeflow-kubernetes-secrets
+      - name: codeflow-config
+        configMap:
+          name: codeflow-config
       - hostPath:
           path: /var/run/docker.sock
         name: dockersocket
       containers:
+      - name: migrate
+        args:
+        - /bin/sh
+        - -c
+        - 'cd server/ && go run main.go --config /etc/codeflow/codeflow.yml migrate up && while /bin/true; do sleep 5; done'
+        #- 'cd server/ && go run main.go --config /etc/codeflow/codeflow.yml migrate up'
+        volumeMounts:
+        - mountPath: /etc/codeflow
+          name: codeflow-config
+        image: docker.io/checkr/checkr-codeflow:latest
       - name: dashboard
         args:
         - node 
         - dashboard/server.js
-        env:
-        - name: REACT_APP_API_ROOT
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: REACT_APP_API_ROOT
-        - name: REACT_APP_ROOT
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: REACT_APP_ROOT
-        - name: REACT_APP_WEBHOOKS_ROOT
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: REACT_APP_WEBHOOKS_ROOT
-        - name: REACT_APP_WS_ROOT
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: REACT_APP_WS_ROOT
-        - name: REACT_APP_PORT
-          value: "4000"
-        image: docker.io/checkr/codeflow:latest
+        image: docker.io/checkr/checkr-codeflow:latest
         ports:
         - containerPort: 4000
           protocol: TCP
           name: dashboard-port
+        envFrom:
+        - configMapRef:
+            name: react-config
+        volumeMounts:
+        - mountPath: /etc/codeflow
+          name: codeflow-config
       - name: api
         args:
         - /go/bin/codeflow
         - --config
-        - /etc/codeflow.yml
+        - /etc/codeflow/codeflow.yml
         - server
-        - --run=codeflow,webhooks,kubedeploy,websockets,docker_build
-        env:
-        - name: REACT_APP_API_ROOT
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: REACT_APP_API_ROOT
-        - name: REACT_APP_ROOT
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: REACT_APP_ROOT
-        - name: REACT_APP_WEBHOOKS_ROOT
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: REACT_APP_WEBHOOKS_ROOT
-        - name: REACT_APP_WS_ROOT
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: REACT_APP_WS_ROOT
-        - name: CF_ENVIRONMENT
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_ENVIRONMENT
-        - name: CF_REDIS_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_REDIS_USERNAM
-        - name: CF_REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_REDIS_PASSWORD
-        - name: CF_REDIS_SERVER
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_REDIS_SERVER
-        - name: CF_REDIS_DATABASE
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_REDIS_DATABASE
-        - name: CF_REDIS_POOL
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_REDIS_POOL
-        - name: CF_REDIS_PROCESS
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_REDIS_PROCESS
-        - name: CF_PLUGINS_WEBHOOKS_WORKERS
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_WEBHOOKS_WORKERS
-        - name: CF_PLUGINS_WEBHOOKS_SERVICE_ADDRESS
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_WEBHOOKS_SERVICE_ADDRESS
-        - name: CF_PLUGINS_WEBHOOKS_GITHUB_PATH
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_WEBHOOKS_GITHUB_PATH
-        - name: CF_PLUGINS_CODEFLOW_WORKERS
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_WORKERS
-        - name: CF_PLUGINS_CODEFLOW_DASHBOARD_URL
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_DASHBOARD_URL
-        - name: CF_PLUGINS_CODEFLOW_LOGS_URL
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_LOGS_URL
-        - name: CF_PLUGINS_CODEFLOW_JWT_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_JWT_SECRET_KEY
-        - name: CF_PLUGINS_CODEFLOW_ALLOWED_ORIGINS
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_ALLOWED_ORIGINS
-        - name: CF_PLUGINS_CODEFLOW_DEFAULT_SERVICE_SPEC_CPU
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_DEFAULT_SERVICE_SPEC_CPU
-        - name: CF_PLUGINS_CODEFLOW_DEFAULT_SERVICE_SPEC_CPU_BURST
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_DEFAULT_SERVICE_SPEC_CPU_BURST
-        - name: CF_PLUGINS_CODEFLOW_DEFAULT_SERVICE_SPEC_MEMORY
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_DEFAULT_SERVICE_SPEC_MEMORY
-        - name: CF_PLUGINS_CODEFLOW_DEFAULT_SERVICE_SPEC_MEMORY_BURST
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_DEFAULT_SERVICE_SPEC_MEMORY_BURST
-        - name: CF_PLUGINS_CODEFLOW_DEFAULT_SERVICE_SPEC_TERMINATION_GRACE_PERIOD_SECONDS
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_DEFAULT_SERVICE_SPEC_TERMINATION_GRACE_PERIOD_SECONDS
-        - name: CF_PLUGINS_CODEFLOW_MONGODB_DATABASE
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_MONGODB_DATABASE
-        - name: CF_PLUGINS_CODEFLOW_MONGODB_URI
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_MONGODB_URI
-        - name: CF_PLUGINS_CODEFLOW_MONGODB_SSL
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_MONGODB_SSL
-        - name: CF_PLUGINS_CODEFLOW_SERVICE_ADDRESS
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_SERVICE_ADDRESS
-        - name: CF_PLUGINS_CODEFLOW_BUILDS_PATH
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_BUILDS_PATH
-        - name: CF_PLUGINS_CODEFLOW_PROJECTS_PATH
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_PROJECTS_PATH
-        - name: CF_PLUGINS_CODEFLOW_AUTH_PATH
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_AUTH_PATH
-        - name: CF_PLUGINS_CODEFLOW_AUTH_HANDLER
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_AUTH_PATH
-        - name: CF_PLUGINS_CODEFLOW_AUTH_OKTA_ORG
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_AUTH_OKTA_ORG
-        - name: CF_PLUGINS_CODEFLOW_USERS_PATH
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_USERS_PATH
-        - name: CF_PLUGINS_CODEFLOW_FEATURES_PATH
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_FEATURES_PATH
-        - name: CF_PLUGINS_CODEFLOW_WEBSOCKETS_PATH
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_WEBSOCKETS_PATH
-        - name: CF_PLUGINS_CODEFLOW_BOOKMARKS_PATH
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_BOOKMARKS_PATH
-        - name: CF_PLUGINS_CODEFLOW_STATS_PATH
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_CODEFLOW_STATS_PATH
-        - name: CF_PLUGINS_DOCKER_BUILD_WORKERS
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_DOCKER_BUILD_WORKERS
-        - name: CF_PLUGINS_DOCKER_BUILD_REGISTRY_HOST
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_DOCKER_BUILD_REGISTRY_HOST
-        - name: CF_PLUGINS_DOCKER_BUILD_REGISTRY_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_DOCKER_BUILD_REGISTRY_USERNAME
-        - name: CF_PLUGINS_DOCKER_BUILD_REGISTRY_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_DOCKER_BUILD_REGISTRY_PASSWORD
-        - name: CF_PLUGINS_DOCKER_BUILD_REGISTRY_USER_EMAIL
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_DOCKER_BUILD_REGISTRY_USER_EMAIL
-        - name: CF_PLUGINS_DOCKER_BUILD_BUILD_PATH
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_DOCKER_BUILD_BUILD_PATH
-        - name: CF_PLUGINS_DOCKER_BUILD_DOCKER_HOST
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_DOCKER_BUILD_DOCKER_HOST
-        - name: CF_PLUGINS_KUBEDEPLOY_WORKERS
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_KUBEDEPLOY_WORKERS
-        - name: CF_PLUGINS_KUBEDEPLOY_KUBECONFIG
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_KUBEDEPLOY_KUBECONFIG
-        - name: CF_PLUGINS_KUBEDEPLOY_ENVIRONMENT
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_KUBEDEPLOY_ENVIRONMENT
-        - name: CF_PLUGINS_KUBEDEPLOY_SSL_CERT_ARN
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_KUBEDEPLOY_SSL_CERT_ARN
-        - name: CF_PLUGINS_KUBEDEPLOY_NODE_SELECTOR
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_KUBEDEPLOY_NODE_SELECTOR
-        - name: CF_PLUGINS_KUBEDEPLOY_ACCESS_LOG_S3_BUCKET
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_KUBEDEPLOY_ACCESS_LOG_S3_BUCKET
-        - name: CF_PLUGINS_WEBSOCKETS_WORKERS
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_WEBSOCKETS_WORKERS
-        - name: CF_PLUGINS_WEBSOCKETS_SERVICE_ADDRESS
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_WEBSOCKETS_SERVICE_ADDRESS
-        - name: CF_PLUGINS_SLACK_WORKERS
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_SLACK_WORKERS
-        - name: CF_PLUGINS_SLACK_WEBHOOK_URL
-          valueFrom:
-            secretKeyRef:
-              name: codeflow-config
-              key: CF_PLUGINS_SLACK_WEBHOOK_URL
-        image: docker.io/checkr/codeflow:latest
+        - --run=git_sync,kubedeploy,heartbeat,docker_build,slack,route53,webhooks,codeflow,websockets
+        image: docker.io/checkr/checkr-codeflow:latest
+        volumeMounts:
+        - mountPath: /etc/codeflow
+          name: codeflow-config
+        - mountPath: /var/run/docker.sock
+          name: dockersocket
         ports:
         - containerPort: 3001
           protocol: TCP
@@ -364,10 +73,4 @@ spec:
         - containerPort: 3003
           protocol: TCP
           name: websocket-port
-        volumeMounts:
-        - mountPath: /etc/secrets
-          name: codeflow-kubernetes-secrets
-          readOnly: true
-        - mountPath: /var/run/docker.sock
-          name: dockersocket
-  
+        
