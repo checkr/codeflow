@@ -138,14 +138,12 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 		switch p.Destination.Protocol {
 		case "HTTPS":
 			serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-backend-protocol"] = "http"
-			serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-proxy-protocol"] = "*"
 			realProto = "TCP"
 		case "SSL":
 			serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-backend-protocol"] = "tcp"
 			realProto = "TCP"
 		case "HTTP":
 			serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-backend-protocol"] = "http"
-			serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-proxy-protocol"] = "*"
 			realProto = "TCP"
 		case "TCP":
 			serviceAnnotations["service.beta.kubernetes.io/aws-load-balancer-backend-protocol"] = "tcp"
