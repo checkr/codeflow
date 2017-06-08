@@ -17,4 +17,5 @@ kubectl delete -f codeflow-services.yaml
 kubectl delete configmap codeflow-config --namespace=development-checkr-codeflow
 kubectl delete configmap react-config --namespace=development-checkr-codeflow
 kubectl delete -f codeflow-deployment.yaml
+kubectl delete -f codeflow-migration-job.yaml
 kubectl delete namespace development-checkr-codeflow

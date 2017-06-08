@@ -2,8 +2,8 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   labels:
-    app: codeflow
-  name: codeflow
+    app: checkr-codeflow-api
+  name: checkr-codeflow-api
   namespace: development-checkr-codeflow
 spec:
   replicas: 1
@@ -12,8 +12,8 @@ spec:
     metadata:
       creationTimestamp: null
       labels:
-        app: codeflow
-        name: codeflow
+        app: checkr-codeflow-api
+        name: checkr-codeflow-api
     spec:
       imagePullSecrets:
       - name: docker-io
@@ -25,31 +25,6 @@ spec:
           path: /var/run/docker.sock
         name: dockersocket
       containers:
-      - name: migrate
-        args:
-        - /bin/sh
-        - -c
-        - 'cd server/ && go run main.go --config /etc/codeflow/codeflow.yml migrate up && while /bin/true; do sleep 5; done'
-        #- 'cd server/ && go run main.go --config /etc/codeflow/codeflow.yml migrate up'
-        volumeMounts:
-        - mountPath: /etc/codeflow
-          name: codeflow-config
-        image: docker.io/checkr/checkr-codeflow:latest
-      - name: dashboard
-        args:
-        - node 
-        - dashboard/server.js
-        image: docker.io/checkr/checkr-codeflow:latest
-        ports:
-        - containerPort: 4000
-          protocol: TCP
-          name: dashboard-port
-        envFrom:
-        - configMapRef:
-            name: react-config
-        volumeMounts:
-        - mountPath: /etc/codeflow
-          name: codeflow-config
       - name: api
         args:
         - /go/bin/codeflow
@@ -73,4 +48,42 @@ spec:
         - containerPort: 3003
           protocol: TCP
           name: websocket-port
-        
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: checkr-codeflow-www
+  name: checkr-codeflow-www
+  namespace: development-checkr-codeflow
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app: checkr-codeflow-www
+        name: checkr-codeflow-www
+    spec:
+      imagePullSecrets:
+      - name: docker-io
+      volumes:
+      - name: codeflow-config
+        configMap:
+          name: codeflow-config
+      containers:
+      - name: www
+        args:
+        - node 
+        - dashboard/server.js
+        image: docker.io/checkr/checkr-codeflow:latest
+        ports:
+        - containerPort: 9000
+          protocol: TCP
+          name: dashboard-port
+        envFrom:
+        - configMapRef:
+            name: react-config
+        volumeMounts:
+        - mountPath: /etc/codeflow
+          name: codeflow-config

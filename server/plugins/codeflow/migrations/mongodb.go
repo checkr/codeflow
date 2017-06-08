@@ -177,21 +177,41 @@ func (r *MongoDbMigrator) V001_init_extensions_up(c *bongo.Connection) error {
 	var obj codeflow.LoadBalancer
 
 	obj = codeflow.LoadBalancer{
-		Name:      "office-58dbef04df8ab3002a71dc15",
+		Name:      "codeflow-api",
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		ServiceId: bson.ObjectIdHex("58dbecefdf8ab3002a71dc0e"),
 		Extension: "LoadBalancer",
-		DNS:       "internal-a2c4ab322bbde11e6a3a10ee522e8eb7-373946443.us-east-1.elb.amazonaws.com",
+		DNS:       "unknown",
 		Type:      "office",
 		ListenerPairs: []codeflow.ListenerPair{
 			{
 				Source: codeflow.Listener{
-					Port:     443,
+					Port:     3001,
 					Protocol: "",
 				},
 				Destination: codeflow.Listener{
 					Port:     3001,
-					Protocol: "HTTPS",
+					Protocol: "TCP",
+				},
+			},
+			{
+				Source: codeflow.Listener{
+					Port:     3002,
+					Protocol: "",
+				},
+				Destination: codeflow.Listener{
+					Port:     3002,
+					Protocol: "TCP",
+				},
+			},
+			{
+				Source: codeflow.Listener{
+					Port:     3003,
+					Protocol: "",
+				},
+				Destination: codeflow.Listener{
+					Port:     3003,
+					Protocol: "TCP",
 				},
 			},
 		},
@@ -202,13 +222,23 @@ func (r *MongoDbMigrator) V001_init_extensions_up(c *bongo.Connection) error {
 	collection = append(collection, obj)
 
 	obj = codeflow.LoadBalancer{
-		Name:      "office-58dbef1edf8ab3002a71dc16",
+		Name:      "codeflow-dashboard",
 		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
 		ServiceId: bson.ObjectIdHex("58dbed10df8ab3002a71dc0f"),
 		Extension: "LoadBalancer",
-		DNS:       "",
+		DNS:       "unknown",
 		Type:      "office",
 		ListenerPairs: []codeflow.ListenerPair{
+			{
+				Source: codeflow.Listener{
+					Port:     80,
+					Protocol: "",
+				},
+				Destination: codeflow.Listener{
+					Port:     9000,
+					Protocol: "HTTP",
+				},
+			},
 			{
 				Source: codeflow.Listener{
 					Port:     443,
@@ -224,91 +254,6 @@ func (r *MongoDbMigrator) V001_init_extensions_up(c *bongo.Connection) error {
 		StateMessage: "",
 	}
 	obj.SetId(bson.ObjectIdHex("58dbef1edf8ab3002a71dc16"))
-	collection = append(collection, obj)
-
-	obj = codeflow.LoadBalancer{
-		Name:      "office-58dbef39df8ab3002a71dc17",
-		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
-		ServiceId: bson.ObjectIdHex("58dbecefdf8ab3002a71dc0e"),
-		Extension: "LoadBalancer",
-		DNS:       "",
-		Type:      "office",
-		ListenerPairs: []codeflow.ListenerPair{
-			{
-				Source: codeflow.Listener{
-					Port:     443,
-					Protocol: "",
-				},
-				Destination: codeflow.Listener{
-					Port:     3002,
-					Protocol: "HTTPS",
-				},
-			},
-		},
-		State:        "complete",
-		StateMessage: "",
-	}
-	obj.SetId(bson.ObjectIdHex("58dbef39df8ab3002a71dc17"))
-	collection = append(collection, obj)
-
-	obj = codeflow.LoadBalancer{
-		Name:      "office-58dbef52df8ab3002a71dc18",
-		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
-		ServiceId: bson.ObjectIdHex("58dbee64df8ab3002a71dc12"),
-		Extension: "LoadBalancer",
-		DNS:       "",
-		Type:      "office",
-		ListenerPairs: []codeflow.ListenerPair{
-			{
-				Source: codeflow.Listener{
-					Port:     443,
-					Protocol: "",
-				},
-				Destination: codeflow.Listener{
-					Port:     3003,
-					Protocol: "SSL",
-				},
-			},
-		},
-		State:        "complete",
-		StateMessage: "",
-	}
-	obj.SetId(bson.ObjectIdHex("58dbef52df8ab3002a71dc18"))
-	collection = append(collection, obj)
-
-	obj = codeflow.LoadBalancer{
-		Name:      "office-58dbef87df8ab3002a71dc19",
-		ProjectId: bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
-		ServiceId: bson.ObjectIdHex("58dbeeaadf8ab3002a71dc14"),
-		Extension: "LoadBalancer",
-		DNS:       "",
-		Type:      "office",
-		ListenerPairs: []codeflow.ListenerPair{
-			{
-				Source: codeflow.Listener{
-					Port:     80,
-					Protocol: "",
-				},
-				Destination: codeflow.Listener{
-					Port:     3000,
-					Protocol: "HTTP",
-				},
-			},
-			{
-				Source: codeflow.Listener{
-					Port:     443,
-					Protocol: "",
-				},
-				Destination: codeflow.Listener{
-					Port:     3000,
-					Protocol: "HTTPS",
-				},
-			},
-		},
-		State:        "complete",
-		StateMessage: "",
-	}
-	obj.SetId(bson.ObjectIdHex("58dbef87df8ab3002a71dc19"))
 	collection = append(collection, obj)
 
 	for _, o := range collection {
@@ -329,25 +274,11 @@ func (r *MongoDbMigrator) V001_init_features_up(c *bongo.Connection) error {
 	var collection []codeflow.Feature
 	var obj codeflow.Feature
 
-	created, _ := time.Parse(time.RFC3339, "2017-03-29T17:14:23.075Z")
+	created, _ := time.Parse(time.RFC3339, "2017-03-29T17:15:27.172Z")
 	obj = codeflow.Feature{
 		ProjectId:    bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
-		Message:      "Demo Commit 1",
-		User:         "sasso",
-		Hash:         "41fa95f534d8f57433ed4a48de1620cba35f2c2d",
-		ParentHash:   "45a4bed3acaaa472b7536e2f903179479c75f07f",
-		ExternalLink: "",
-		Ref:          "refs/heads/master",
-		Created:      created,
-	}
-	obj.SetId(bson.ObjectIdHex("58dbeb6cdf8ab3002a71dc0a"))
-	collection = append(collection, obj)
-
-	created, _ = time.Parse(time.RFC3339, "2017-03-29T17:15:27.172Z")
-	obj = codeflow.Feature{
-		ProjectId:    bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
-		Message:      "Demo Commit 2",
-		User:         "sasso",
+		Message:      "docker.io/checkr/codeflow:latest",
+		User:         "checkr",
 		Hash:         "df600016edb26c48e1c999b28bb874257f65d037",
 		ParentHash:   "41fa95f534d8f57433ed4a48de1620cba35f2c2d",
 		ExternalLink: "",
@@ -374,19 +305,6 @@ func (r *MongoDbMigrator) V001_init_features_down(c *bongo.Connection) error {
 func (r *MongoDbMigrator) V001_init_releases_up(c *bongo.Connection) error {
 	var collection []codeflow.Release
 	var obj codeflow.Release
-
-	obj = codeflow.Release{
-		ProjectId:     bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
-		HeadFeatureId: bson.ObjectIdHex("58dbeb6cdf8ab3002a71dc0a"),
-		TailFeatureId: bson.ObjectIdHex("58dbeb6cdf8ab3002a71dc0a"),
-		UserId:        bson.ObjectIdHex("58dbe954df8ab3002a71dc07"),
-		State:         "failed",
-		StateMessage:  "",
-		Secrets:       []codeflow.Secret{},
-		Services:      []codeflow.Service{},
-	}
-	obj.SetId(bson.ObjectIdHex("58dbf938df8ab300cb0e4af4"))
-	collection = append(collection, obj)
 
 	obj = codeflow.Release{
 		ProjectId:     bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
@@ -426,6 +344,7 @@ func (r *MongoDbMigrator) V001_init_secrets_up(c *bongo.Connection) error {
 		if vKey == "run" {
 			continue
 		}
+		// Todo: handle arrays: eg. allowed_origins
 		upcaseKey := strings.Replace(strings.ToUpper(vKey), ".", "_", -1)
 		upcaseCfKey := strings.Join([]string{"CF_", upcaseKey}, "")
 		obj = codeflow.Secret{
@@ -576,8 +495,8 @@ func (r *MongoDbMigrator) V001_init_services_up(c *bongo.Connection) error {
 		State:        "running",
 		StateMessage: "",
 		Name:         "api",
-		Count:        0,
-		Command:      "/go/bin/codeflow --config /etc/codeflow.yml server --run=codeflow,webhooks",
+		Count:        1,
+		Command:      "WORKDIR=./server /go/bin/codeflow --config ./configs/codeflow.yml server --run=git_sync,kubedeploy,heartbeat,docker_build,slack,route53,webhooks,codeflow,websockets",
 		Listeners: []codeflow.Listener{
 			{
 				Port:     3001,
@@ -585,6 +504,10 @@ func (r *MongoDbMigrator) V001_init_services_up(c *bongo.Connection) error {
 			},
 			{
 				Port:     3002,
+				Protocol: "TCP",
+			},
+			{
+				Port:     3003,
 				Protocol: "TCP",
 			},
 		},
@@ -598,8 +521,8 @@ func (r *MongoDbMigrator) V001_init_services_up(c *bongo.Connection) error {
 		State:        "running",
 		StateMessage: "",
 		Name:         "www",
-		Count:        0,
-		Command:      "node dashboard/server.js",
+		Count:        1,
+		Command:      "WORKDIR=./dashboard node server.js",
 		Listeners: []codeflow.Listener{
 			{
 				Port:     9000,
@@ -615,66 +538,9 @@ func (r *MongoDbMigrator) V001_init_services_up(c *bongo.Connection) error {
 		SpecId:       bson.ObjectIdHex("589bb6d6b158cdb147ef5dd0"),
 		State:        "running",
 		StateMessage: "",
-		Name:         "kubedeploy",
-		Count:        0,
-		Command:      "/go/bin/codeflow --config /etc/codeflow.yml server --run=kubedeploy",
-		Listeners:    []codeflow.Listener{},
-	}
-	obj.SetId(bson.ObjectIdHex("58dbed3bdf8ab3002a71dc10"))
-	collection = append(collection, obj)
-
-	obj = codeflow.Service{
-		ProjectId:    bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
-		SpecId:       bson.ObjectIdHex("589bb6d6b158cdb147ef5dd0"),
-		State:        "running",
-		StateMessage: "",
-		Name:         "dockerbuild",
-		Count:        0,
-		Command:      "/go/bin/codeflow --config /etc/codeflow.yml server --run=docker_build",
-		Listeners:    []codeflow.Listener{},
-	}
-	obj.SetId(bson.ObjectIdHex("58dbed57df8ab3002a71dc11"))
-	collection = append(collection, obj)
-
-	obj = codeflow.Service{
-		ProjectId:    bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
-		SpecId:       bson.ObjectIdHex("589bb6d6b158cdb147ef5dd0"),
-		State:        "running",
-		StateMessage: "",
-		Name:         "websockets",
-		Count:        0,
-		Command:      "/go/bin/codeflow --config /etc/codeflow.yml server --run=websockets",
-		Listeners: []codeflow.Listener{
-			{
-				Port:     3003,
-				Protocol: "TCP",
-			},
-		},
-	}
-	obj.SetId(bson.ObjectIdHex("58dbee64df8ab3002a71dc12"))
-	collection = append(collection, obj)
-
-	obj = codeflow.Service{
-		ProjectId:    bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
-		SpecId:       bson.ObjectIdHex("589bb6d6b158cdb147ef5dd0"),
-		State:        "running",
-		StateMessage: "",
-		Name:         "slack",
-		Count:        0,
-		Command:      "/go/bin/codeflow --config /etc/codeflow.yml server --run=slack",
-		Listeners:    []codeflow.Listener{},
-	}
-	obj.SetId(bson.ObjectIdHex("58dbee76df8ab3002a71dc13"))
-	collection = append(collection, obj)
-
-	obj = codeflow.Service{
-		ProjectId:    bson.ObjectIdHex("58dbe995df8ab3002a71dc08"),
-		SpecId:       bson.ObjectIdHex("589bb6d6b158cdb147ef5dd0"),
-		State:        "running",
-		StateMessage: "",
 		Name:         "docs",
-		Count:        1,
-		Command:      "npm start --prefix docs/",
+		Count:        0,
+		Command:      "WORKDIR=./docs node server.js",
 		Listeners: []codeflow.Listener{
 			{
 				Port:     3000,
@@ -701,6 +567,7 @@ func (r *MongoDbMigrator) V001_init_services_down(c *bongo.Connection) error {
 
 func (r *MongoDbMigrator) V001_init_workflows_up(c *bongo.Connection) error {
 	var collection []codeflow.Flow
+
 	var obj codeflow.Flow
 
 	obj = codeflow.Flow{
@@ -708,7 +575,7 @@ func (r *MongoDbMigrator) V001_init_workflows_up(c *bongo.Connection) error {
 		Type:      "Build",
 		Name:      "DockerImage",
 		Message:   "",
-		State:     "failed",
+		State:     "complete",
 	}
 	obj.SetId(bson.ObjectIdHex("58dbf939df8ab300cb0e4af5"))
 	collection = append(collection, obj)
@@ -718,7 +585,7 @@ func (r *MongoDbMigrator) V001_init_workflows_up(c *bongo.Connection) error {
 		Type:      "Build",
 		Name:      "DockerImage",
 		Message:   "",
-		State:     "failed",
+		State:     "complete",
 	}
 	obj.SetId(bson.ObjectIdHex("58dbf989df8ab300cb0e4af7"))
 	collection = append(collection, obj)
