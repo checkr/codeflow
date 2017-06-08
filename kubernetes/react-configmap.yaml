@@ -1,0 +1,12 @@
+# This ConfigMap is used to configure codeflow react service (dashboard).
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: react-config
+  namespace: development-checkr-codeflow
+data:
+  REACT_APP_API_ROOT: http://example-elb-api.us-east-1.elb.amazonaws.com:3001
+  REACT_APP_WEBHOOKS_ROOT: http://example-elb-webhooks.us-east-1.elb.amazonaws.com:3002
+  REACT_APP_WS_ROOT: ws://example-elb-websockets.us-east-1.elb.amazonaws.com:3003
+  REACT_APP_ROOT: http://example-elb-dashboard.us-east-1.elb.amazonaws.com:80
+  REACT_APP_PORT: "9000"

@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: codeflow-migration
+  name: codeflow-migration
+  namespace: development-checkr-codeflow
+spec:
+  template:
+    metadata:
+      labels:
+        app: codeflow-migration
+        name: codeflow-migration
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+      - name: docker-io
+      volumes:
+      - name: codeflow-config
+        configMap:
+          name: codeflow-config
+      - hostPath:
+          path: /var/run/docker.sock
+        name: dockersocket
+      containers:
+      - name: migrate
+        args:
+        - /bin/sh
+        - -c
+        - 'cd server/ && go run main.go --config /etc/codeflow/codeflow.yml migrate up'
+        volumeMounts:
+        - mountPath: /etc/codeflow
+          name: codeflow-config
+        image: docker.io/checkr/checkr-codeflow:latest
