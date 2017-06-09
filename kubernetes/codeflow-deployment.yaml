@@ -29,7 +29,7 @@ spec:
         args:
         - /go/bin/codeflow
         - --config
-        - /etc/codeflow/codeflow.yml
+        - /etc/codeflow/codeflow.dev.yml
         - server
         - --run=git_sync,kubedeploy,heartbeat,docker_build,slack,route53,webhooks,codeflow,websockets
         image: docker.io/checkr/checkr-codeflow:latest
