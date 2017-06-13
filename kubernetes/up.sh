@@ -29,17 +29,23 @@ if [ ! -e ../server/configs/codeflow.dev.yml ]; then
 	exit 1
 fi
 
+get_ingress_hostname () {
+	ingress_hostname=$(kubectl get services --namespace=development-checkr-codeflow -ojson |jq -r ".items[] | select(.metadata.name==\"${1}\") | .status.loadBalancer.ingress[0].hostname")
+}
+
 wait_for_ingress_hostname () {
-	local hostname=$(kubectl get services --namespace=development-checkr-codeflow -ojson |jq -r ".items[] | select(.metadata.name==\"codeflow-api\") | .status.loadBalancer.ingress[0].hostname")
-	until [ -n "$hostname" ]; do
-		echo waiting for hostname...
+	get_ingress_hostname codeflow-api
+	echo waiting for hostname for codeflow-api ...
+	until [ -n "$ingress_hostname" ] && [ "$ingress_hostname" != "null" ]; do
 		sleep 5
+		get_ingress_hostname codeflow-api
 	done
 
-	local hostname_dashboard=$(kubectl get services --namespace=development-checkr-codeflow -ojson |jq -r ".items[] | select(.metadata.name==\"codeflow-dashboard\") | .status.loadBalancer.ingress[0].hostname")
-	until [ -n "$hostname_dashboard" ]; do
-		echo waiting for hostname...
+	get_ingress_hostname codeflow-dashboard
+	echo waiting for hostname for codeflow-dashboard ...
+	until [ -n "$ingress_hostname" ] && [ "$ingress_hostname" != "null" ]; do
 		sleep 5
+		get_ingress_hostname codeflow-dashboard
 	done
 
 }

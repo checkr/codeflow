@@ -19,15 +19,12 @@ spec:
       - name: codeflow-config
         configMap:
           name: codeflow-config
-      - hostPath:
-          path: /var/run/docker.sock
-        name: dockersocket
       containers:
       - name: migrate
         args:
         - /bin/sh
         - -c
-        - 'cd server/ && go run main.go --config /etc/codeflow/codeflow.yml migrate up'
+        - 'cd server/ && go run main.go --config /etc/codeflow/codeflow.dev.yml migrate up'
         volumeMounts:
         - mountPath: /etc/codeflow
           name: codeflow-config
