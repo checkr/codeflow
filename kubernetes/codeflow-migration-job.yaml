@@ -29,3 +29,6 @@ spec:
         - mountPath: /etc/codeflow
           name: codeflow-config
         image: docker.io/checkr/checkr-codeflow:latest
+        envFrom:
+        - configMapRef:
+            name: react-config
