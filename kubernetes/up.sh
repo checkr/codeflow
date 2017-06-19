@@ -68,7 +68,7 @@ detect_ssl () {
 }
 
 set +e
-echo creating namespace development-checkr-codeflow
+echo creating namespaces 
 kubectl create namespace development-checkr-codeflow
 
 echo creating mongodb and redis

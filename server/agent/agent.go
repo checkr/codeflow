@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -49,6 +50,10 @@ func NewTestAgent(config []byte) (*Agent, error) {
 	var agent *Agent
 
 	viper.SetConfigType("yaml")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.SetEnvPrefix("CF")
+	viper.AutomaticEnv() // read in environment variables that match
+
 	viper.ReadConfig(bytes.NewBuffer(config))
 
 	if agent, err = NewAgent(); err != nil {

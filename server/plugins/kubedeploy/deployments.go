@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -555,6 +556,10 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				}
 				// Delete the deployments
 				for _, deleteThis := range orphans {
+					matched, _ := regexp.MatchString("^keep", deleteThis.Name)
+					if matched {
+						continue
+					}
 					log.Printf("Deleting deployment orphan: %s", deleteThis.Name)
 					deleteError := depInterface.Deployments(namespace).Delete(deleteThis.Name, &v1.DeleteOptions{})
 					if deleteError != nil {

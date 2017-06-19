@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: mongo
+  name: keep-mongo
   namespace: development-checkr-codeflow
   labels:
     name: mongo 
