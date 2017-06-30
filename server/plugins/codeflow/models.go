@@ -200,7 +200,7 @@ type ServiceSpec struct {
 	CpuLimit                      string `bson:"cpuLimit" json:"cpuLimit"`
 	MemoryRequest                 string `bson:"memoryRequest" json:"memoryRequest"`
 	MemoryLimit                   string `bson:"memoryLimit" json:"memoryLimit"`
-	TerminationGracePeriodSeconds int64  `bson:"terminationGracePeriodSeconds" json:"terminationGracePeriodSeconds"`
+	TerminationGracePeriodSeconds int64  `bson:"terminationGracePeriodSeconds" json:"terminationGracePeriodSeconds,string"`
 	Default                       bool   `bson:"default" json:"default"`
 }
 

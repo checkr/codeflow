@@ -8,11 +8,13 @@ import Browse from './components/browse'
 import Add from './components/add'
 import Project from './components/project'
 import Login from './components/login'
+import Admin from './components/admin'
 import { RequireAuthentication } from './components/AuthenticatedComponent'
 
 export default <Router history={hashHistory}>
   <Route path="/" component={App}>
     <Route component={RequireAuthentication(DefaultLayout)}>
+      <Route path="admin" component={Admin} />
       <IndexRoute component={Dashboard} />
       <Route path="browse" component={Browse} />
       <Route path="add" component={Add} />

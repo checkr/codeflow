@@ -16,7 +16,6 @@ import (
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/checkr/codeflow/server/agent"
 	"github.com/checkr/codeflow/server/plugins"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/extemporalgenome/slug"
 	"github.com/maxwellhealth/bongo"
 	"golang.org/x/crypto/ssh"
@@ -76,6 +75,10 @@ func (x *Projects) projects(w rest.ResponseWriter, r *rest.Request) {
 	search := query.Get("q")
 	currentPage, _ := strconv.Atoi(query.Get("projects_page"))
 	perPage := 20
+	perPageSetting, err := strconv.Atoi(query.Get("max_items_per_page"))
+	if err == nil && perPageSetting > 0 {
+		perPage = perPageSetting
+	}
 	m := bson.M{"deleted": false}
 
 	if search != "" {
@@ -162,7 +165,7 @@ func (x *Projects) createProjects(w rest.ResponseWriter, r *rest.Request) {
 	if err := db.Collection("projects").Save(&project); err != nil {
 		if vErr, ok := err.(*bongo.ValidationError); ok {
 			rest.Error(w, "Validation error", http.StatusBadRequest)
-			spew.Dump(vErr)
+			log.Printf("vErr: %s", vErr)
 			return
 		} else {
 			log.Printf("Projects::Save::Error: %v", err.Error())

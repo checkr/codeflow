@@ -57,13 +57,13 @@ class Navigation extends Component {
   }
 
   renderAdmin() {
-    return null // not implemented
-    //let admin_jsx = []
-    //admin_jsx.push(<li className="nav-header">Admin</li>)
+    //return null // not implemented
+    let admin_jsx = []
+    admin_jsx.push(<li className="nav-header" key="liadminsettings">Admin</li>)
+    admin_jsx.push(<NavItem to="/admin" key="adminsettings">Settings</NavItem>)
     //admin_jsx.push(<NavItem to="/admin/users">Users</NavItem>)
     //admin_jsx.push(<NavItem to="/admin/teams">Teams</NavItem>)
-    //admin_jsx.push(<NavItem to="/admin/settings">Settings</NavItem>)
-    //return admin_jsx
+    return admin_jsx
   }
 
   render() {
@@ -72,6 +72,7 @@ class Navigation extends Component {
         <div className="collapse nav-toggleable-sm" id="nav-toggleable-sm">
           <ul className="nav nav-pills nav-stacked">
             <NavItem to="/" onlyActiveOnIndex>Dashboard</NavItem>
+            {this.renderAdmin()}
 
             <li className="nav-header">Projects</li>
             <NavItem to="/add">Add new</NavItem>
@@ -81,7 +82,6 @@ class Navigation extends Component {
 
             {this.renderUser()}
 
-            {this.renderAdmin()}
           </ul>
         </div>
       </nav>

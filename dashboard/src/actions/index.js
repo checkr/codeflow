@@ -139,6 +139,30 @@ export const deleteProject = (slug) => {
   }
 }
 
+export const PROJECTS_ALL_REQUEST = 'PROJECTS_ALL_REQUEST'
+export const PROJECTS_ALL_SUCCESS = 'PROJECTS_ALL_SUCCESS'
+export const PROJECTS_ALL_FAILURE = 'PROJECTS_ALL_FAILURE'
+
+export const fetchProjectsAll = () => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/projects?max_items_per_page=9999`,
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [
+        {
+          type: 'PROJECTS_ALL_REQUEST',
+        },
+        PROJECTS_ALL_SUCCESS, PROJECTS_ALL_FAILURE
+      ]
+    }
+  }
+}
+
 export const PROJECTS_REQUEST = 'PROJECTS_REQUEST'
 export const PROJECTS_SUCCESS = 'PROJECTS_SUCCESS'
 export const PROJECTS_FAILURE = 'PROJECTS_FAILURE'
@@ -720,6 +744,83 @@ export const fetchServiceSpecs = (project_slug) => {
         'Authorization': `Bearer ${authToken()}`
       },
       types: [ SERVICE_SPECS_FETCH_REQUEST, SERVICE_SPECS_FETCH_SUCCESS, SERVICE_SPECS_FETCH_FAILURE ]
+    }
+  }
+}
+
+export const SERVICE_SPECS_SETTINGS_FETCH_REQUEST = 'SERVICE_SPECS_SETTINGS_FETCH_REQUEST'
+export const SERVICE_SPECS_SETTINGS_FETCH_SUCCESS = 'SERVICE_SPECS_SETTINGS_FETCH_SUCCESS'
+export const SERVICE_SPECS_SETTINGS_FETCH_FAILURE = 'SERVICE_SPECS_SETTINGS_FETCH_FAILURE'
+
+export const fetchServiceSpecSettings = () => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/admin/serviceSpecs`,
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [ SERVICE_SPECS_SETTINGS_FETCH_REQUEST, SERVICE_SPECS_SETTINGS_FETCH_SUCCESS, SERVICE_SPECS_SETTINGS_FETCH_FAILURE ]
+    }
+  }
+}
+
+export const SERVICE_SPECS_SETTINGS_UPDATE_REQUEST = 'SERVICE_SPECS_SETTINGS_UPDATE_REQUEST'
+export const SERVICE_SPECS_SETTINGS_UPDATE_SUCCESS = 'SERVICE_SPECS_SETTINGS_UPDATE_SUCCESS'
+export const SERVICE_SPECS_SETTINGS_UPDATE_FAILURE = 'SERVICE_SPECS_SETTINGS_UPDATE_FAILURE'
+
+export const updateServiceSpec = (serviceSpec) => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/admin/serviceSpecs`,
+      method: 'PUT',
+      body: postBody(serviceSpec),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [ SERVICE_SPECS_SETTINGS_UPDATE_REQUEST, SERVICE_SPECS_SETTINGS_UPDATE_SUCCESS, SERVICE_SPECS_SETTINGS_UPDATE_FAILURE ]
+    }
+  }
+}
+
+export const SERVICE_SPECS_SETTINGS_DELETE_REQUEST = 'SERVICE_SPECS_SETTINGS_DELETE_REQUEST'
+export const SERVICE_SPECS_SETTINGS_DELETE_SUCCESS = 'SERVICE_SPECS_SETTINGS_DELETE_SUCCESS'
+export const SERVICE_SPECS_SETTINGS_DELETE_FAILURE = 'SERVICE_SPECS_SETTINGS_DELETE_FAILURE'
+
+export const deleteServiceSpec = (slug) => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/admin/serviceSpecs/${slug}`,
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [ SERVICE_SPECS_SETTINGS_DELETE_REQUEST, SERVICE_SPECS_SETTINGS_DELETE_SUCCESS, SERVICE_SPECS_SETTINGS_DELETE_FAILURE ]
+    }
+  }
+}
+
+export const SERVICE_SPEC_SERVICES_FETCH_REQUEST = 'SERVICE_SPEC_SERVICES_FETCH_REQUEST'
+export const SERVICE_SPEC_SERVICES_FETCH_SUCCESS = 'SERVICE_SPEC_SERVICES_FETCH_SUCCESS'
+export const SERVICE_SPEC_SERVICES_FETCH_FAILURE = 'SERVICE_SPEC_SERVICES_FETCH_FAILURE'
+
+export const fetchServiceSpecServices = (slug) => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/admin/serviceSpecs/${slug}/services`,
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [ SERVICE_SPEC_SERVICES_FETCH_REQUEST, SERVICE_SPEC_SERVICES_FETCH_SUCCESS, SERVICE_SPEC_SERVICES_FETCH_FAILURE ]
     }
   }
 }
