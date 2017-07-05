@@ -65,14 +65,14 @@ plugins:
     registry_password: ""
     registry_user_email: ""
     docker_host: "unix:///var/run/docker.sock"
-    workdir: "/tmp/docker_build"   
+    workdir: "/tmp/docker_build"
   kubedeploy:
     workers: 1
     kubeconfig:
-    environment: 
+    environment:
     ssl_cert_arn:
-    node_selector: 
-    access_log_s3_bucket: 
+    node_selector:
+    access_log_s3_bucket:
   websockets:
     workers: 1
     service_address: ":3003"
@@ -81,7 +81,7 @@ plugins:
     webhook_url: ""
   git_sync:
     workers: 1
-    workdir: "/tmp/git_sync" 
+    workdir: "/tmp/git_sync"
   heartbeat:
     workers: 1
   route53:
