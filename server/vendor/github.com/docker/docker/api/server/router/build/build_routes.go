@@ -77,7 +77,7 @@ func newImageBuildOptions(ctx context.Context, r *http.Request) (*types.ImageBui
 	}
 
 	if runtime.GOOS != "windows" && options.SecurityOpt != nil {
-		return nil, fmt.Errorf("the daemon on this platform does not support --security-opt to build")
+		return nil, fmt.Errorf("The daemon on this platform does not support setting security options on build")
 	}
 
 	var buildUlimits = []*units.Ulimit{}
@@ -127,8 +127,17 @@ func newImageBuildOptions(ctx context.Context, r *http.Request) (*types.ImageBui
 		}
 		options.CacheFrom = cacheFrom
 	}
+	options.SessionID = r.FormValue("session")
 
 	return options, nil
+}
+
+func (br *buildRouter) postPrune(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	report, err := br.backend.PruneCache(ctx)
+	if err != nil {
+		return err
+	}
+	return httputils.WriteJSON(w, http.StatusOK, report)
 }
 
 func (br *buildRouter) postBuild(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {

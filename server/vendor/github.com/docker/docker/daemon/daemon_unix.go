@@ -282,10 +282,6 @@ func (daemon *Daemon) adaptContainerSettings(hostConfig *containertypes.HostConf
 		return err
 	}
 	hostConfig.SecurityOpt = append(hostConfig.SecurityOpt, opts...)
-	if hostConfig.MemorySwappiness == nil {
-		defaultSwappiness := int64(-1)
-		hostConfig.MemorySwappiness = &defaultSwappiness
-	}
 	if hostConfig.OomKillDisable == nil {
 		defaultOomKillDisable := false
 		hostConfig.OomKillDisable = &defaultOomKillDisable
@@ -296,6 +292,7 @@ func (daemon *Daemon) adaptContainerSettings(hostConfig *containertypes.HostConf
 
 func verifyContainerResources(resources *containertypes.Resources, sysInfo *sysinfo.SysInfo, update bool) ([]string, error) {
 	warnings := []string{}
+	fixMemorySwappiness(resources)
 
 	// memory subsystem checks and adjustments
 	if resources.Memory != 0 && resources.Memory < linuxMinMemory {
@@ -318,14 +315,14 @@ func verifyContainerResources(resources *containertypes.Resources, sysInfo *sysi
 	if resources.Memory == 0 && resources.MemorySwap > 0 && !update {
 		return warnings, fmt.Errorf("You should always set the Memory limit when using Memoryswap limit, see usage")
 	}
-	if resources.MemorySwappiness != nil && *resources.MemorySwappiness != -1 && !sysInfo.MemorySwappiness {
+	if resources.MemorySwappiness != nil && !sysInfo.MemorySwappiness {
 		warnings = append(warnings, "Your kernel does not support memory swappiness capabilities or the cgroup is not mounted. Memory swappiness discarded.")
 		logrus.Warn("Your kernel does not support memory swappiness capabilities, or the cgroup is not mounted. Memory swappiness discarded.")
 		resources.MemorySwappiness = nil
 	}
 	if resources.MemorySwappiness != nil {
 		swappiness := *resources.MemorySwappiness
-		if swappiness < -1 || swappiness > 100 {
+		if swappiness < 0 || swappiness > 100 {
 			return warnings, fmt.Errorf("Invalid value: %v, valid memory swappiness range is 0-100", swappiness)
 		}
 	}
@@ -702,14 +699,22 @@ func overlaySupportsSelinux() (bool, error) {
 }
 
 // configureKernelSecuritySupport configures and validates security support for the kernel
-func configureKernelSecuritySupport(config *config.Config, driverName string) error {
+func configureKernelSecuritySupport(config *config.Config, driverNames []string) error {
 	if config.EnableSelinuxSupport {
 		if !selinuxEnabled() {
 			logrus.Warn("Docker could not enable SELinux on the host system")
 			return nil
 		}
 
-		if driverName == "overlay" || driverName == "overlay2" {
+		overlayFound := false
+		for _, d := range driverNames {
+			if d == "overlay" || d == "overlay2" {
+				overlayFound = true
+				break
+			}
+		}
+
+		if overlayFound {
 			// If driver is overlay or overlay2, make sure kernel
 			// supports selinux with overlay.
 			supported, err := overlaySupportsSelinux()
@@ -718,7 +723,7 @@ func configureKernelSecuritySupport(config *config.Config, driverName string) er
 			}
 
 			if !supported {
-				logrus.Warnf("SELinux is not supported with the %s graph driver on this kernel", driverName)
+				logrus.Warnf("SELinux is not supported with the %v graph driver on this kernel", driverNames)
 			}
 		}
 	} else {
@@ -1026,40 +1031,38 @@ func parseRemappedRoot(usergrp string) (string, string, error) {
 	return username, groupname, nil
 }
 
-func setupRemappedRoot(config *config.Config) ([]idtools.IDMap, []idtools.IDMap, error) {
+func setupRemappedRoot(config *config.Config) (*idtools.IDMappings, error) {
 	if runtime.GOOS != "linux" && config.RemappedRoot != "" {
-		return nil, nil, fmt.Errorf("User namespaces are only supported on Linux")
+		return nil, fmt.Errorf("User namespaces are only supported on Linux")
 	}
 
 	// if the daemon was started with remapped root option, parse
 	// the config option to the int uid,gid values
-	var (
-		uidMaps, gidMaps []idtools.IDMap
-	)
 	if config.RemappedRoot != "" {
 		username, groupname, err := parseRemappedRoot(config.RemappedRoot)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		if username == "root" {
 			// Cannot setup user namespaces with a 1-to-1 mapping; "--root=0:0" is a no-op
 			// effectively
 			logrus.Warn("User namespaces: root cannot be remapped with itself; user namespaces are OFF")
-			return uidMaps, gidMaps, nil
+			return &idtools.IDMappings{}, nil
 		}
 		logrus.Infof("User namespaces: ID ranges will be mapped to subuid/subgid ranges of: %s:%s", username, groupname)
 		// update remapped root setting now that we have resolved them to actual names
 		config.RemappedRoot = fmt.Sprintf("%s:%s", username, groupname)
 
-		uidMaps, gidMaps, err = idtools.CreateIDMappings(username, groupname)
+		mappings, err := idtools.NewIDMappings(username, groupname)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Can't create ID mappings: %v", err)
+			return nil, errors.Wrapf(err, "Can't create ID mappings: %v")
 		}
+		return mappings, nil
 	}
-	return uidMaps, gidMaps, nil
+	return &idtools.IDMappings{}, nil
 }
 
-func setupDaemonRoot(config *config.Config, rootDir string, rootUID, rootGID int) error {
+func setupDaemonRoot(config *config.Config, rootDir string, rootIDs idtools.IDPair) error {
 	config.Root = rootDir
 	// the docker root metadata directory needs to have execute permissions for all users (g+x,o+x)
 	// so that syscalls executing as non-root, operating on subdirectories of the graph root
@@ -1084,10 +1087,10 @@ func setupDaemonRoot(config *config.Config, rootDir string, rootUID, rootGID int
 	// a new subdirectory with ownership set to the remapped uid/gid (so as to allow
 	// `chdir()` to work for containers namespaced to that uid/gid)
 	if config.RemappedRoot != "" {
-		config.Root = filepath.Join(rootDir, fmt.Sprintf("%d.%d", rootUID, rootGID))
+		config.Root = filepath.Join(rootDir, fmt.Sprintf("%d.%d", rootIDs.UID, rootIDs.GID))
 		logrus.Debugf("Creating user namespaced daemon root: %s", config.Root)
 		// Create the root directory if it doesn't exist
-		if err := idtools.MkdirAllAs(config.Root, 0700, rootUID, rootGID); err != nil {
+		if err := idtools.MkdirAllAndChown(config.Root, 0700, rootIDs); err != nil {
 			return fmt.Errorf("Cannot create daemon root: %s: %v", config.Root, err)
 		}
 		// we also need to verify that any pre-existing directories in the path to
@@ -1100,7 +1103,7 @@ func setupDaemonRoot(config *config.Config, rootDir string, rootUID, rootGID int
 			if dirPath == "/" {
 				break
 			}
-			if !idtools.CanAccess(dirPath, rootUID, rootGID) {
+			if !idtools.CanAccess(dirPath, rootIDs) {
 				return fmt.Errorf("A subdirectory in your graphroot path (%s) restricts access to the remapped root uid/gid; please fix by allowing 'o+x' permissions on existing directories.", config.Root)
 			}
 		}
@@ -1140,7 +1143,8 @@ func (daemon *Daemon) registerLinks(container *container.Container, hostConfig *
 
 	// After we load all the links into the daemon
 	// set them to nil on the hostconfig
-	return container.WriteHostConfig()
+	_, err := container.WriteHostConfig()
+	return err
 }
 
 // conditionalMountOnStart is a platform specific helper function during the

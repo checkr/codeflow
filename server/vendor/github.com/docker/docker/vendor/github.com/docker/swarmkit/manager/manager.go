@@ -23,11 +23,13 @@ import (
 	"github.com/docker/swarmkit/identity"
 	"github.com/docker/swarmkit/log"
 	"github.com/docker/swarmkit/manager/allocator"
+	"github.com/docker/swarmkit/manager/allocator/networkallocator"
 	"github.com/docker/swarmkit/manager/controlapi"
 	"github.com/docker/swarmkit/manager/dispatcher"
 	"github.com/docker/swarmkit/manager/health"
 	"github.com/docker/swarmkit/manager/keymanager"
 	"github.com/docker/swarmkit/manager/logbroker"
+	"github.com/docker/swarmkit/manager/metrics"
 	"github.com/docker/swarmkit/manager/orchestrator/constraintenforcer"
 	"github.com/docker/swarmkit/manager/orchestrator/global"
 	"github.com/docker/swarmkit/manager/orchestrator/replicated"
@@ -123,6 +125,7 @@ type Config struct {
 type Manager struct {
 	config Config
 
+	collector              *metrics.Collector
 	caserver               *ca.Server
 	dispatcher             *dispatcher.Dispatcher
 	logbroker              *logbroker.LogBroker
@@ -498,10 +501,21 @@ func (m *Manager) Run(parent context.Context) error {
 	healthServer.SetServingStatus("Raft", api.HealthCheckResponse_SERVING)
 
 	if err := m.raftNode.JoinAndStart(ctx); err != nil {
+		// Don't block future calls to Stop.
+		close(m.started)
 		return errors.Wrap(err, "can't initialize raft node")
 	}
 
 	localHealthServer.SetServingStatus("ControlAPI", api.HealthCheckResponse_SERVING)
+
+	// Start metrics collection.
+
+	m.collector = metrics.NewCollector(m.raftNode.MemoryStore())
+	go func(collector *metrics.Collector) {
+		if err := collector.Run(ctx); err != nil {
+			log.G(ctx).WithError(err).Error("collector failed with an error")
+		}
+	}(m.collector)
 
 	close(m.started)
 
@@ -578,6 +592,10 @@ func (m *Manager) Stop(ctx context.Context, clearData bool) {
 	}()
 
 	m.raftNode.Cancel()
+
+	if m.collector != nil {
+		m.collector.Stop()
+	}
 
 	m.dispatcher.Stop()
 	m.logbroker.Stop()
@@ -680,7 +698,7 @@ func (m *Manager) updateKEK(ctx context.Context, cluster *api.Cluster) error {
 
 			connBroker := connectionbroker.New(remotes.NewRemotes())
 			connBroker.SetLocalConn(conn)
-			if err := ca.RenewTLSConfigNow(ctx, securityConfig, connBroker); err != nil {
+			if err := ca.RenewTLSConfigNow(ctx, securityConfig, connBroker, m.config.RootCAPaths); err != nil {
 				logger.WithError(err).Error("failed to download new TLS certificate after locking the cluster")
 			}
 		}()
@@ -928,7 +946,18 @@ func (m *Manager) becomeLeader(ctx context.Context) {
 				log.G(ctx).WithError(err).Error("failed to create default ingress network")
 			}
 		}
-
+		// Create now the static predefined if the store does not contain predefined
+		//networks like bridge/host node-local networks which
+		// are known to be present in each cluster node. This is needed
+		// in order to allow running services on the predefined docker
+		// networks like `bridge` and `host`.
+		for _, p := range allocator.PredefinedNetworks() {
+			if store.GetNetwork(tx, p.Name) == nil {
+				if err := store.CreateNetwork(tx, newPredefinedNetwork(p.Name, p.Driver)); err != nil {
+					log.G(ctx).WithError(err).Error("failed to create predefined network " + p.Name)
+				}
+			}
+		}
 		return nil
 	})
 
@@ -1005,7 +1034,7 @@ func (m *Manager) becomeLeader(ctx context.Context) {
 	}(m.constraintEnforcer)
 
 	go func(taskReaper *taskreaper.TaskReaper) {
-		taskReaper.Run()
+		taskReaper.Run(ctx)
 	}(m.taskReaper)
 
 	go func(orchestrator *replicated.Orchestrator) {
@@ -1142,6 +1171,27 @@ func newIngressNetwork() *api.Network {
 					},
 				},
 			},
+		},
+	}
+}
+
+// Creates a network object representing one of the predefined networks
+// known to be statically created on the cluster nodes. These objects
+// are populated in the store at cluster creation solely in order to
+// support running services on the nodes' predefined networks.
+// External clients can filter these predefined networks by looking
+// at the predefined label.
+func newPredefinedNetwork(name, driver string) *api.Network {
+	return &api.Network{
+		ID: identity.NewID(),
+		Spec: api.NetworkSpec{
+			Annotations: api.Annotations{
+				Name: name,
+				Labels: map[string]string{
+					networkallocator.PredefinedLabel: "true",
+				},
+			},
+			DriverConfig: &api.Driver{Name: driver},
 		},
 	}
 }

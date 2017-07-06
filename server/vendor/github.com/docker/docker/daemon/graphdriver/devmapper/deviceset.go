@@ -1689,19 +1689,9 @@ func (devices *DeviceSet) enableDeferredRemovalDeletion() error {
 	return nil
 }
 
-func (devices *DeviceSet) initDevmapper(doInit bool) error {
+func (devices *DeviceSet) initDevmapper(doInit bool) (retErr error) {
 	// give ourselves to libdm as a log handler
 	devicemapper.LogInit(devices)
-
-	version, err := devicemapper.GetDriverVersion()
-	if err != nil {
-		// Can't even get driver version, assume not supported
-		return graphdriver.ErrNotSupported
-	}
-
-	if err := determineDriverCapabilities(version); err != nil {
-		return graphdriver.ErrNotSupported
-	}
 
 	if err := devices.enableDeferredRemovalDeletion(); err != nil {
 		return err
@@ -1871,6 +1861,14 @@ func (devices *DeviceSet) initDevmapper(doInit bool) error {
 		if err := devicemapper.CreatePool(devices.getPoolName(), dataFile, metadataFile, devices.thinpBlockSize); err != nil {
 			return err
 		}
+		defer func() {
+			if retErr != nil {
+				err = devices.deactivatePool()
+				if err != nil {
+					logrus.Warnf("devmapper: Failed to deactivatePool: %v", err)
+				}
+			}
+		}()
 	}
 
 	// Pool already exists and caller did not pass us a pool. That means
@@ -2633,6 +2631,22 @@ func NewDeviceSet(root string, doInit bool, options []string, uidMaps, gidMaps [
 		uidMaps:               uidMaps,
 		gidMaps:               gidMaps,
 		minFreeSpacePercent:   defaultMinFreeSpacePercent,
+	}
+
+	version, err := devicemapper.GetDriverVersion()
+	if err != nil {
+		// Can't even get driver version, assume not supported
+		return nil, graphdriver.ErrNotSupported
+	}
+
+	if err := determineDriverCapabilities(version); err != nil {
+		return nil, graphdriver.ErrNotSupported
+	}
+
+	if driverDeferredRemovalSupport && devicemapper.LibraryDeferredRemovalSupport {
+		// enable deferred stuff by default
+		enableDeferredDeletion = true
+		enableDeferredRemoval = true
 	}
 
 	foundBlkDiscard := false

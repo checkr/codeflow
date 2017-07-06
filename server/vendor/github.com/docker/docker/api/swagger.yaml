@@ -19,10 +19,10 @@ produces:
 consumes:
   - "application/json"
   - "text/plain"
-basePath: "/v1.30"
+basePath: "/v1.31"
 info:
   title: "Docker Engine API"
-  version: "1.30"
+  version: "1.31"
   x-logo:
     url: "https://docs.docker.com/images/logo-docker-main.png"
   description: |
@@ -52,10 +52,11 @@ info:
 
     The API uses an open schema model, which means server may add extra properties to responses. Likewise, the server will ignore any extra query parameters and request body properties. When you write clients, you need to ignore additional properties in responses to ensure they do not break when talking to newer Docker daemons.
 
-    This documentation is for version 1.30 of the API, which was introduced with Docker 17.06. Use this table to find documentation for previous versions of the API:
+    This documentation is for version 1.31 of the API. Use this table to find documentation for previous versions of the API:
 
     Docker version  | API version | Changes
     ----------------|-------------|---------
+    17.06.x | [1.30](https://docs.docker.com/engine/api/v1.30/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-30-api-changes)
     17.05.x | [1.29](https://docs.docker.com/engine/api/v1.29/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-29-api-changes)
     17.04.x | [1.28](https://docs.docker.com/engine/api/v1.28/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-28-api-changes)
     17.03.1 | [1.27](https://docs.docker.com/engine/api/v1.27/) | [API changes](https://docs.docker.com/engine/api/version-history/#v1-27-api-changes)
@@ -948,6 +949,12 @@ definitions:
               type: "string"
           BaseLayer:
             type: "string"
+      Metadata:
+        type: "object"
+        properties:
+          LastTagTime:
+            type: "string"
+            format: "dateTime"
 
   ImageSummary:
     type: "object"
@@ -1048,6 +1055,10 @@ definitions:
         type: "string"
         description: "Mount path of the volume on the host."
         x-nullable: false
+      CreatedAt:
+        type: "string"
+        format: "dateTime"
+        description: "Time volume was created."
       Status:
         type: "object"
         description: |
@@ -1101,6 +1112,7 @@ definitions:
         com.example.some-label: "some-value"
         com.example.some-other-label: "some-other-value"
       Scope: "local"
+      CreatedAt: "2016-06-07T20:31:11.853781916Z"
 
   Network:
     type: "object"
@@ -1625,7 +1637,7 @@ definitions:
       may not be applied if the version number has changed from the last read. In other words,
       if two update requests specify the same base version, only one of the requests can succeed.
       As a result, two separate update requests that happen at the same time will not
-      unintentially overwrite each other.
+      unintentionally overwrite each other.
     type: "object"
     properties:
       Index:
@@ -1886,6 +1898,14 @@ definitions:
                 CACert:
                   description: "The root CA certificate (in PEM format) this external CA uses to issue TLS certificates (assumed to be to the current swarm root CA certificate if not provided)."
                   type: "string"
+          SigningCACert:
+            description: "The desired signing CA certificate for all swarm node TLS leaf certificates, in PEM format."
+            type: "string"
+          SigningCAKey:
+            description: "The desired signing CA key for all swarm node TLS leaf certificates, in PEM format."
+            type: "string"
+          ForceRotate:
+            description: "An integer whose purpose is to force swarm to generate a new signing CA certificate and key, if none have been specified in `SigningCACert` and `SigningCAKey`"
       EncryptionConfig:
         description: "Parameters related to encryption-at-rest."
         type: "object"
@@ -2150,15 +2170,22 @@ definitions:
                     SpreadDescriptor:
                       description: "label descriptor, such as engine.labels.az"
                       type: "string"
+          Platforms:
+            description: "An array of supported platforms."
+            type: "array"
+            items:
+              type: "object"
+              properties:
+                Architecture:
+                  type: "string"
+                OS:
+                  type: "string"
       ForceUpdate:
         description: "A counter that triggers an update even if no relevant parameters have been changed."
         type: "integer"
       Runtime:
         description: "Runtime is the type of runtime specified for the task executor."
         type: "string"
-      RuntimeData:
-        description: "RuntimeData is the payload sent to be used with the runtime for the executor."
-        type: "array"
       Networks:
         type: "array"
         items:
@@ -2678,6 +2705,11 @@ paths:
   /containers/json:
     get:
       summary: "List containers"
+      description: |
+        Returns a list of containers. For details on the format, see [the inspect endpoint](#operation/ContainerInspect).
+
+        Note that it uses a different, smaller representation of a container than inspecting a single container. For example,
+        the list of linked containers is not propagated .
       operationId: "ContainerList"
       produces:
         - "application/json"
@@ -3089,10 +3121,22 @@ paths:
                 type: "object"
                 properties:
                   Status:
-                    description: "The status of the container. For example, `running` or `exited`."
+                    description: |
+                      The status of the container. For example, `"running"` or `"exited"`.
                     type: "string"
+                    enum: ["created", "running", "paused", "restarting", "removing", "exited", "dead"]
                   Running:
-                    description: "Whether this container is running."
+                    description: |
+                      Whether this container is running.
+
+                      Note that a running container can be _paused_. The `Running` and `Paused`
+                      booleans are not mutually exclusive:
+
+                      When pausing a container (on Linux), the cgroups freezer is used to suspend
+                      all processes in the container. Freezing the process requires the process to
+                      be running. As a result, paused containers are both `Running` _and_ `Paused`.
+
+                      Use the `Status` field instead to determine if a container's state is "running".
                     type: "boolean"
                   Paused:
                     description: "Whether this container is paused."
@@ -4252,6 +4296,11 @@ paths:
           required: true
           description: "ID or name of the container"
           type: "string"
+        - name: "condition"
+          in: "query"
+          description: "Wait until a container state reaches the given condition, either 'not-running' (default), 'next-exit', or 'removed'."
+          type: "string"
+          default: "not-running"
       tags: ["Container"]
   /containers/{id}:
     delete:
@@ -4699,6 +4748,27 @@ paths:
             $ref: "#/definitions/ErrorResponse"
         500:
           description: "server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      tags: ["Image"]
+  /build/prune:
+    post:
+      summary: "Delete builder cache"
+      produces:
+        - "application/json"
+      operationId: "BuildPrune"
+      responses:
+        200:
+          description: "No error"
+          schema:
+            type: "object"
+            properties:
+              SpaceReclaimed:
+                description: "Disk space reclaimed in bytes"
+                type: "integer"
+                format: "int64"
+        500:
+          description: "Server error"
           schema:
             $ref: "#/definitions/ErrorResponse"
       tags: ["Image"]
@@ -6394,6 +6464,10 @@ paths:
           description: "Detailed inspect output for troubleshooting"
           type: "boolean"
           default: false
+        - name: "scope"
+          in: "query"
+          description: "Filter the network by scope (swarm, global, or local)"
+          type: "string"
       tags: ["Network"]
 
     delete:
@@ -7320,6 +7394,16 @@ paths:
               AdvertiseAddr:
                 description: "Externally reachable address advertised to other nodes. This can either be an address/port combination in the form `192.168.1.1:4567`, or an interface followed by a port number, like `eth0:4567`. If the port number is omitted, the port number from the listen address is used. If `AdvertiseAddr` is not specified, it will be automatically detected when possible."
                 type: "string"
+              DataPathAddr:
+                description: |
+                  Address or interface to use for data path traffic (format: `<ip|interface>`), for example,  `192.168.1.1`,
+                  or an interface, like `eth0`. If `DataPathAddr` is unspecified, the same address as `AdvertiseAddr`
+                  is used.
+
+                  The `DataPathAddr` specifies the address that global scope network drivers will publish towards other
+                  nodes in order to reach the containers running on this node. Using this parameter it is possible to
+                  separate the container data traffic from the management traffic of the cluster.
+                type: "string"
               ForceNewCluster:
                 description: "Force creation of a new swarm."
                 type: "boolean"
@@ -7368,6 +7452,17 @@ paths:
                 type: "string"
               AdvertiseAddr:
                 description: "Externally reachable address advertised to other nodes. This can either be an address/port combination in the form `192.168.1.1:4567`, or an interface followed by a port number, like `eth0:4567`. If the port number is omitted, the port number from the listen address is used. If `AdvertiseAddr` is not specified, it will be automatically detected when possible."
+                type: "string"
+              DataPathAddr:
+                description: |
+                  Address or interface to use for data path traffic (format: `<ip|interface>`), for example,  `192.168.1.1`,
+                  or an interface, like `eth0`. If `DataPathAddr` is unspecified, the same address as `AdvertiseAddr`
+                  is used.
+
+                  The `DataPathAddr` specifies the address that global scope network drivers will publish towards other
+                  nodes in order to reach the containers running on this node. Using this parameter it is possible to
+                  separate the container data traffic from the management traffic of the cluster.
+
                 type: "string"
               RemoteAddrs:
                 description: "Addresses of manager nodes already participating in the swarm."
@@ -7612,6 +7707,15 @@ paths:
                         Nameservers: ["8.8.8.8"]
                         Search: ["example.org"]
                         Options: ["timeout:3"]
+                      Secrets:
+                        -
+                          File:
+                            Name: "www.example.org.key"
+                            UID: "33"
+                            GID: "33"
+                            Mode: 384
+                          SecretID: "fpjqlhnwb19zds35k8wn80lq9"
+                          SecretName: "example_org_domain_key"
                     LogDriver:
                       Name: "json-file"
                       Options:
@@ -8242,7 +8346,8 @@ paths:
           description: "no error"
           schema:
             $ref: "#/definitions/Secret"
-            example:
+          examples:
+            application/json:
               ID: "ktnbjxoalbkvbvedmg1urrz8h"
               Version:
                 Index: 11
@@ -8424,3 +8529,46 @@ paths:
           type: "string"
           required: true
       tags: ["Distribution"]
+  /session:
+    post:
+      summary: "Initialize interactive session"
+      description: |
+        Start a new interactive session with a server. Session allows server to call back to the client for advanced capabilities.
+
+        > **Note**: This endpoint is *experimental* and only available if the daemon is started with experimental
+        > features enabled. The specifications for this endpoint may still change in a future version of the API.
+
+        ### Hijacking
+
+        This endpoint hijacks the HTTP connection to HTTP2 transport that allows the client to expose gPRC services on that connection.
+
+        For example, the client sends this request to upgrade the connection:
+
+        ```
+        POST /session HTTP/1.1
+        Upgrade: h2c
+        Connection: Upgrade
+        ```
+
+        The Docker daemon will respond with a `101 UPGRADED` response follow with the raw stream:
+
+        ```
+        HTTP/1.1 101 UPGRADED
+        Connection: Upgrade
+        Upgrade: h2c
+        ```
+      operationId: "Session"
+      produces:
+        - "application/vnd.docker.raw-stream"
+      responses:
+        101:
+          description: "no error, hijacking successful"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      tags: ["Session (experimental)"]

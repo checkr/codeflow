@@ -1,15 +1,15 @@
 package dockerfile
 
 import (
+	"encoding/json"
 	"io"
-	"time"
 
-	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/backend"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/builder"
-	"github.com/docker/docker/image"
+	containerpkg "github.com/docker/docker/container"
+	"github.com/docker/docker/layer"
 	"golang.org/x/net/context"
 )
 
@@ -18,10 +18,7 @@ type MockBackend struct {
 	containerCreateFunc func(config types.ContainerCreateConfig) (container.ContainerCreateCreatedBody, error)
 	commitFunc          func(string, *backend.ContainerCommitConfig) (string, error)
 	getImageFunc        func(string) (builder.Image, builder.ReleaseableLayer, error)
-}
-
-func (m *MockBackend) TagImageWithReference(image.ID, reference.Named) error {
-	return nil
+	makeImageCacheFunc  func(cacheFrom []string, platform string) builder.ImageCache
 }
 
 func (m *MockBackend) ContainerAttachRaw(cID string, stdin io.ReadCloser, stdout, stderr io.Writer, stream bool, attached chan struct{}) error {
@@ -54,8 +51,8 @@ func (m *MockBackend) ContainerStart(containerID string, hostConfig *container.H
 	return nil
 }
 
-func (m *MockBackend) ContainerWait(containerID string, timeout time.Duration) (int, error) {
-	return 0, nil
+func (m *MockBackend) ContainerWait(ctx context.Context, containerID string, condition containerpkg.WaitCondition) (<-chan containerpkg.StateStatus, error) {
+	return nil, nil
 }
 
 func (m *MockBackend) ContainerCreateWorkdir(containerID string) error {
@@ -74,6 +71,17 @@ func (m *MockBackend) GetImageAndReleasableLayer(ctx context.Context, refOrID st
 	return &mockImage{id: "theid"}, &mockLayer{}, nil
 }
 
+func (m *MockBackend) MakeImageCache(cacheFrom []string, platform string) builder.ImageCache {
+	if m.makeImageCacheFunc != nil {
+		return m.makeImageCacheFunc(cacheFrom, platform)
+	}
+	return nil
+}
+
+func (m *MockBackend) CreateImage(config []byte, parent string, platform string) (builder.Image, error) {
+	return nil, nil
+}
+
 type mockImage struct {
 	id     string
 	config *container.Config
@@ -85,6 +93,11 @@ func (i *mockImage) ImageID() string {
 
 func (i *mockImage) RunConfig() *container.Config {
 	return i.config
+}
+
+func (i *mockImage) MarshalJSON() ([]byte, error) {
+	type rawImage mockImage
+	return json.Marshal(rawImage(*i))
 }
 
 type mockImageCache struct {
@@ -106,4 +119,12 @@ func (l *mockLayer) Release() error {
 
 func (l *mockLayer) Mount() (string, error) {
 	return "mountPath", nil
+}
+
+func (l *mockLayer) Commit(string) (builder.ReleaseableLayer, error) {
+	return nil, nil
+}
+
+func (l *mockLayer) DiffID() layer.DiffID {
+	return layer.DiffID("abcdef")
 }

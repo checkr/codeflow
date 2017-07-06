@@ -8,14 +8,17 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
-	"syscall"
+	"syscall" // only for SysProcAttr and Signal
 	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/golang/protobuf/proto"
@@ -37,7 +40,7 @@ type linuxContainer struct {
 	cgroupManager        cgroups.Manager
 	initArgs             []string
 	initProcess          parentProcess
-	initProcessStartTime string
+	initProcessStartTime uint64
 	criuPath             string
 	m                    sync.Mutex
 	criuVersion          int
@@ -321,12 +324,12 @@ func (c *linuxContainer) createExecFifo() error {
 	if _, err := os.Stat(fifoName); err == nil {
 		return fmt.Errorf("exec fifo %s already exists", fifoName)
 	}
-	oldMask := syscall.Umask(0000)
-	if err := syscall.Mkfifo(fifoName, 0622); err != nil {
-		syscall.Umask(oldMask)
+	oldMask := unix.Umask(0000)
+	if err := unix.Mkfifo(fifoName, 0622); err != nil {
+		unix.Umask(oldMask)
 		return err
 	}
-	syscall.Umask(oldMask)
+	unix.Umask(oldMask)
 	if err := os.Chown(fifoName, rootuid, rootgid); err != nil {
 		return err
 	}
@@ -637,7 +640,7 @@ func (c *linuxContainer) checkCriuVersion(minVersion string) error {
 	c.criuVersion = x*10000 + y*100 + z
 
 	if c.criuVersion < versionReq {
-		return fmt.Errorf("CRIU version must be %s or higher", minVersion)
+		return fmt.Errorf("CRIU version %d must be %d or higher", c.criuVersion, versionReq)
 	}
 
 	return nil
@@ -727,20 +730,26 @@ func (c *linuxContainer) Checkpoint(criuOpts *CriuOpts) error {
 	defer imageDir.Close()
 
 	rpcOpts := criurpc.CriuOpts{
-		ImagesDirFd:    proto.Int32(int32(imageDir.Fd())),
-		WorkDirFd:      proto.Int32(int32(workDir.Fd())),
-		LogLevel:       proto.Int32(4),
-		LogFile:        proto.String("dump.log"),
-		Root:           proto.String(c.config.Rootfs),
-		ManageCgroups:  proto.Bool(true),
-		NotifyScripts:  proto.Bool(true),
-		Pid:            proto.Int32(int32(c.initProcess.pid())),
-		ShellJob:       proto.Bool(criuOpts.ShellJob),
-		LeaveRunning:   proto.Bool(criuOpts.LeaveRunning),
-		TcpEstablished: proto.Bool(criuOpts.TcpEstablished),
-		ExtUnixSk:      proto.Bool(criuOpts.ExternalUnixConnections),
-		FileLocks:      proto.Bool(criuOpts.FileLocks),
-		EmptyNs:        proto.Uint32(criuOpts.EmptyNs),
+		ImagesDirFd:     proto.Int32(int32(imageDir.Fd())),
+		WorkDirFd:       proto.Int32(int32(workDir.Fd())),
+		LogLevel:        proto.Int32(4),
+		LogFile:         proto.String("dump.log"),
+		Root:            proto.String(c.config.Rootfs),
+		ManageCgroups:   proto.Bool(true),
+		NotifyScripts:   proto.Bool(true),
+		Pid:             proto.Int32(int32(c.initProcess.pid())),
+		ShellJob:        proto.Bool(criuOpts.ShellJob),
+		LeaveRunning:    proto.Bool(criuOpts.LeaveRunning),
+		TcpEstablished:  proto.Bool(criuOpts.TcpEstablished),
+		ExtUnixSk:       proto.Bool(criuOpts.ExternalUnixConnections),
+		FileLocks:       proto.Bool(criuOpts.FileLocks),
+		EmptyNs:         proto.Uint32(criuOpts.EmptyNs),
+		OrphanPtsMaster: proto.Bool(true),
+	}
+
+	fcg := c.cgroupManager.GetPaths()["freezer"]
+	if fcg != "" {
+		rpcOpts.FreezeCgroup = proto.String(fcg)
 	}
 
 	// append optional criu opts, e.g., page-server and port
@@ -914,29 +923,30 @@ func (c *linuxContainer) Restore(process *Process, criuOpts *CriuOpts) error {
 	if err != nil {
 		return err
 	}
-	err = syscall.Mount(c.config.Rootfs, root, "", syscall.MS_BIND|syscall.MS_REC, "")
+	err = unix.Mount(c.config.Rootfs, root, "", unix.MS_BIND|unix.MS_REC, "")
 	if err != nil {
 		return err
 	}
-	defer syscall.Unmount(root, syscall.MNT_DETACH)
+	defer unix.Unmount(root, unix.MNT_DETACH)
 	t := criurpc.CriuReqType_RESTORE
 	req := &criurpc.CriuReq{
 		Type: &t,
 		Opts: &criurpc.CriuOpts{
-			ImagesDirFd:    proto.Int32(int32(imageDir.Fd())),
-			WorkDirFd:      proto.Int32(int32(workDir.Fd())),
-			EvasiveDevices: proto.Bool(true),
-			LogLevel:       proto.Int32(4),
-			LogFile:        proto.String("restore.log"),
-			RstSibling:     proto.Bool(true),
-			Root:           proto.String(root),
-			ManageCgroups:  proto.Bool(true),
-			NotifyScripts:  proto.Bool(true),
-			ShellJob:       proto.Bool(criuOpts.ShellJob),
-			ExtUnixSk:      proto.Bool(criuOpts.ExternalUnixConnections),
-			TcpEstablished: proto.Bool(criuOpts.TcpEstablished),
-			FileLocks:      proto.Bool(criuOpts.FileLocks),
-			EmptyNs:        proto.Uint32(criuOpts.EmptyNs),
+			ImagesDirFd:     proto.Int32(int32(imageDir.Fd())),
+			WorkDirFd:       proto.Int32(int32(workDir.Fd())),
+			EvasiveDevices:  proto.Bool(true),
+			LogLevel:        proto.Int32(4),
+			LogFile:         proto.String("restore.log"),
+			RstSibling:      proto.Bool(true),
+			Root:            proto.String(root),
+			ManageCgroups:   proto.Bool(true),
+			NotifyScripts:   proto.Bool(true),
+			ShellJob:        proto.Bool(criuOpts.ShellJob),
+			ExtUnixSk:       proto.Bool(criuOpts.ExternalUnixConnections),
+			TcpEstablished:  proto.Bool(criuOpts.TcpEstablished),
+			FileLocks:       proto.Bool(criuOpts.FileLocks),
+			EmptyNs:         proto.Uint32(criuOpts.EmptyNs),
+			OrphanPtsMaster: proto.Bool(true),
 		},
 	}
 
@@ -967,7 +977,7 @@ func (c *linuxContainer) Restore(process *Process, criuOpts *CriuOpts) error {
 		c.addCriuRestoreMount(req, m)
 	}
 
-	if criuOpts.EmptyNs&syscall.CLONE_NEWNET == 0 {
+	if criuOpts.EmptyNs&unix.CLONE_NEWNET == 0 {
 		c.restoreNetwork(req, criuOpts)
 	}
 
@@ -1030,15 +1040,23 @@ func (c *linuxContainer) criuApplyCgroups(pid int, req *criurpc.CriuReq) error {
 }
 
 func (c *linuxContainer) criuSwrk(process *Process, req *criurpc.CriuReq, opts *CriuOpts, applyCgroups bool) error {
-	fds, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_SEQPACKET|syscall.SOCK_CLOEXEC, 0)
+	fds, err := unix.Socketpair(unix.AF_LOCAL, unix.SOCK_SEQPACKET|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
 		return err
 	}
 
 	logPath := filepath.Join(opts.WorkDirectory, req.GetOpts().GetLogFile())
 	criuClient := os.NewFile(uintptr(fds[0]), "criu-transport-client")
+	criuClientFileCon, err := net.FileConn(criuClient)
+	criuClient.Close()
+	if err != nil {
+		return err
+	}
+
+	criuClientCon := criuClientFileCon.(*net.UnixConn)
+	defer criuClientCon.Close()
+
 	criuServer := os.NewFile(uintptr(fds[1]), "criu-transport-server")
-	defer criuClient.Close()
 	defer criuServer.Close()
 
 	args := []string{"swrk", "3"}
@@ -1058,7 +1076,7 @@ func (c *linuxContainer) criuSwrk(process *Process, req *criurpc.CriuReq, opts *
 	criuServer.Close()
 
 	defer func() {
-		criuClient.Close()
+		criuClientCon.Close()
 		_, err := cmd.Process.Wait()
 		if err != nil {
 			return
@@ -1101,14 +1119,15 @@ func (c *linuxContainer) criuSwrk(process *Process, req *criurpc.CriuReq, opts *
 	if err != nil {
 		return err
 	}
-	_, err = criuClient.Write(data)
+	_, err = criuClientCon.Write(data)
 	if err != nil {
 		return err
 	}
 
 	buf := make([]byte, 10*4096)
+	oob := make([]byte, 4096)
 	for true {
-		n, err := criuClient.Read(buf)
+		n, oobn, _, _, err := criuClientCon.ReadMsgUnix(buf, oob)
 		if err != nil {
 			return err
 		}
@@ -1136,7 +1155,7 @@ func (c *linuxContainer) criuSwrk(process *Process, req *criurpc.CriuReq, opts *
 			criuFeatures = resp.GetFeatures()
 			break
 		case t == criurpc.CriuReqType_NOTIFY:
-			if err := c.criuNotifications(resp, process, opts, extFds); err != nil {
+			if err := c.criuNotifications(resp, process, opts, extFds, oob[:oobn]); err != nil {
 				return err
 			}
 			t = criurpc.CriuReqType_NOTIFY
@@ -1148,31 +1167,14 @@ func (c *linuxContainer) criuSwrk(process *Process, req *criurpc.CriuReq, opts *
 			if err != nil {
 				return err
 			}
-			_, err = criuClient.Write(data)
+			_, err = criuClientCon.Write(data)
 			if err != nil {
 				return err
 			}
 			continue
 		case t == criurpc.CriuReqType_RESTORE:
 		case t == criurpc.CriuReqType_DUMP:
-			break
 		case t == criurpc.CriuReqType_PRE_DUMP:
-			// In pre-dump mode CRIU is in a loop and waits for
-			// the final DUMP command.
-			// The current runc pre-dump approach, however, is
-			// start criu in PRE_DUMP once for a single pre-dump
-			// and not the whole series of pre-dump, pre-dump, ...m, dump
-			// If we got the message CriuReqType_PRE_DUMP it means
-			// CRIU was successful and we need to forcefully stop CRIU
-			logrus.Debugf("PRE_DUMP finished. Send close signal to CRIU service")
-			criuClient.Close()
-			// Process status won't be success, because one end of sockets is closed
-			_, err := cmd.Process.Wait()
-			if err != nil {
-				logrus.Debugf("After PRE_DUMP CRIU exiting failed")
-				return err
-			}
-			return nil
 		default:
 			return fmt.Errorf("unable to parse the response %s", resp.String())
 		}
@@ -1180,13 +1182,22 @@ func (c *linuxContainer) criuSwrk(process *Process, req *criurpc.CriuReq, opts *
 		break
 	}
 
+	criuClientCon.CloseWrite()
 	// cmd.Wait() waits cmd.goroutines which are used for proxying file descriptors.
 	// Here we want to wait only the CRIU process.
 	st, err := cmd.Process.Wait()
 	if err != nil {
 		return err
 	}
-	if !st.Success() {
+
+	// In pre-dump mode CRIU is in a loop and waits for
+	// the final DUMP command.
+	// The current runc pre-dump approach, however, is
+	// start criu in PRE_DUMP once for a single pre-dump
+	// and not the whole series of pre-dump, pre-dump, ...m, dump
+	// If we got the message CriuReqType_PRE_DUMP it means
+	// CRIU was successful and we need to forcefully stop CRIU
+	if !st.Success() && *req.Type != criurpc.CriuReqType_PRE_DUMP {
 		return fmt.Errorf("criu failed: %s\nlog file: %s", st.String(), logPath)
 	}
 	return nil
@@ -1220,11 +1231,12 @@ func unlockNetwork(config *configs.Config) error {
 	return nil
 }
 
-func (c *linuxContainer) criuNotifications(resp *criurpc.CriuResp, process *Process, opts *CriuOpts, fds []string) error {
+func (c *linuxContainer) criuNotifications(resp *criurpc.CriuResp, process *Process, opts *CriuOpts, fds []string, oob []byte) error {
 	notify := resp.GetNotify()
 	if notify == nil {
 		return fmt.Errorf("invalid response: %s", resp.String())
 	}
+	logrus.Debugf("notify: %s\n", notify.GetScript())
 	switch {
 	case notify.GetScript() == "post-dump":
 		f, err := os.Create(filepath.Join(c.root, "checkpoint"))
@@ -1276,6 +1288,20 @@ func (c *linuxContainer) criuNotifications(resp *criurpc.CriuResp, process *Proc
 			if !os.IsNotExist(err) {
 				logrus.Error(err)
 			}
+		}
+	case notify.GetScript() == "orphan-pts-master":
+		scm, err := syscall.ParseSocketControlMessage(oob)
+		if err != nil {
+			return err
+		}
+		fds, err := syscall.ParseUnixRights(&scm[0])
+
+		master := os.NewFile(uintptr(fds[0]), "orphan-pts-master")
+		defer master.Close()
+
+		// While we can access console.master, using the API is a good idea.
+		if err := utils.SendFd(process.ConsoleSocket, master); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -1339,40 +1365,17 @@ func (c *linuxContainer) refreshState() error {
 	return c.state.transition(&stoppedState{c: c})
 }
 
-// doesInitProcessExist checks if the init process is still the same process
-// as the initial one, it could happen that the original process has exited
-// and a new process has been created with the same pid, in this case, the
-// container would already be stopped.
-func (c *linuxContainer) doesInitProcessExist(initPid int) (bool, error) {
-	startTime, err := system.GetProcessStartTime(initPid)
-	if err != nil {
-		return false, newSystemErrorWithCausef(err, "getting init process %d start time", initPid)
-	}
-	if c.initProcessStartTime != startTime {
-		return false, nil
-	}
-	return true, nil
-}
-
 func (c *linuxContainer) runType() (Status, error) {
 	if c.initProcess == nil {
 		return Stopped, nil
 	}
 	pid := c.initProcess.pid()
-	// return Running if the init process is alive
-	if err := syscall.Kill(pid, 0); err != nil {
-		if err == syscall.ESRCH {
-			// It means the process does not exist anymore, could happen when the
-			// process exited just when we call the function, we should not return
-			// error in this case.
-			return Stopped, nil
-		}
-		return Stopped, newSystemErrorWithCausef(err, "sending signal 0 to pid %d", pid)
+	stat, err := system.Stat(pid)
+	if err != nil {
+		return Stopped, nil
 	}
-	// check if the process is still the original init process.
-	exist, err := c.doesInitProcessExist(pid)
-	if !exist || err != nil {
-		return Stopped, err
+	if stat.StartTime != c.initProcessStartTime || stat.State == system.Zombie || stat.State == system.Dead {
+		return Stopped, nil
 	}
 	// We'll create exec fifo and blocking on it after container is created,
 	// and delete it after start container.
@@ -1401,7 +1404,7 @@ func (c *linuxContainer) isPaused() (bool, error) {
 
 func (c *linuxContainer) currentState() (*State, error) {
 	var (
-		startTime           string
+		startTime           uint64
 		externalDescriptors []string
 		pid                 = -1
 	)

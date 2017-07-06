@@ -427,13 +427,14 @@ func (d *Dispatcher) markNodeReady(ctx context.Context, nodeID string, descripti
 
 	// Wait until the node update batch happens before unblocking register.
 	d.processUpdatesLock.Lock()
+	defer d.processUpdatesLock.Unlock()
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
 	d.processUpdatesCond.Wait()
-	d.processUpdatesLock.Unlock()
 
 	return nil
 }
@@ -529,6 +530,8 @@ func (d *Dispatcher) UpdateTaskStatus(ctx context.Context, r *api.UpdateTaskStat
 		return nil, err
 	}
 
+	validTaskUpdates := make([]*api.UpdateTaskStatusRequest_TaskStatusUpdate, 0, len(r.Updates))
+
 	// Validate task updates
 	for _, u := range r.Updates {
 		if u.Status == nil {
@@ -541,7 +544,8 @@ func (d *Dispatcher) UpdateTaskStatus(ctx context.Context, r *api.UpdateTaskStat
 			t = store.GetTask(tx, u.TaskID)
 		})
 		if t == nil {
-			log.WithField("task.id", u.TaskID).Warn("cannot find target task in store")
+			// Task may have been deleted
+			log.WithField("task.id", u.TaskID).Debug("cannot find target task in store")
 			continue
 		}
 
@@ -550,14 +554,13 @@ func (d *Dispatcher) UpdateTaskStatus(ctx context.Context, r *api.UpdateTaskStat
 			log.WithField("task.id", u.TaskID).Error(err)
 			return nil, err
 		}
+
+		validTaskUpdates = append(validTaskUpdates, u)
 	}
 
 	d.taskUpdatesLock.Lock()
 	// Enqueue task updates
-	for _, u := range r.Updates {
-		if u.Status == nil {
-			continue
-		}
+	for _, u := range validTaskUpdates {
 		d.taskUpdates[u.TaskID] = u.Status
 	}
 
@@ -606,7 +609,8 @@ func (d *Dispatcher) processUpdates(ctx context.Context) {
 				logger := log.WithField("task.id", taskID)
 				task := store.GetTask(tx, taskID)
 				if task == nil {
-					logger.Errorf("task unavailable")
+					// Task may have been deleted
+					logger.Debug("cannot find target task in store")
 					return nil
 				}
 
@@ -627,7 +631,7 @@ func (d *Dispatcher) processUpdates(ctx context.Context) {
 					logger.WithError(err).Error("failed to update task status")
 					return nil
 				}
-				logger.Debug("task status updated")
+				logger.Debug("dispatcher committed status update to store")
 				return nil
 			})
 			if err != nil {

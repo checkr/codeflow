@@ -4,6 +4,10 @@ import:
   subpackages:
   - rest
 - package: github.com/bww/go-json
+- package: github.com/sirupsen/logrus
+- package: github.com/Sirupsen/logrus
+  repo: git@github.com:/sirupsen/logrus
+  vcs: git
 - package: github.com/cheungpat/go-json-rest-middleware-jwt
 - package: github.com/davecgh/go-spew
   subpackages:
@@ -22,11 +26,13 @@ import:
   subpackages:
   - jwk
 - package: github.com/libgit2/git2go
-  version: v25
+  repo: https://gopkg.in/libgit2/git2go.v25.git
+  vcs: git
 - package: github.com/maxwellhealth/bongo
 - package: github.com/pborman/uuid
 - package: github.com/spf13/cobra
 - package: github.com/spf13/viper
+- package: github.com/spf13/pflag
 - package: golang.org/x/crypto
   version: master
   subpackages:
@@ -49,6 +55,6 @@ import:
   - tools/clientcmd
 - package: github.com/ashwanthkumar/slack-go-webhook
 - package: github.com/mattes/migrate
-  version: v1.3.1
+  version: 1.3.1
 - package: github.com/aws/aws-sdk-go
-  version: v1.8.21
+  version: 1.8.21

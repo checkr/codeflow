@@ -17,54 +17,40 @@ function teardown() {
 
   # criu does not work with external terminals so..
   # setting terminal and root:readonly: to false
-  sed -i 's;"terminal": true;"terminal": false;' config.json
-  sed -i 's;"readonly": true;"readonly": false;' config.json
-  sed -i 's/"sh"/"sh","-c","while :; do date; sleep 1; done"/' config.json
 
-  (
-    # run busybox (not detached)
-    runc run test_busybox
-    [ "$status" -eq 0 ]
-  ) &
-
-  # check state
-  wait_for_container 15 1 test_busybox
-
-  runc state test_busybox
-  [ "$status" -eq 0 ]
-  [[ "${output}" == *"running"* ]]
-
-  # checkpoint the running container
-  runc --criu "$CRIU" checkpoint test_busybox
-  # if you are having problems getting criu to work uncomment the following dump:
-  #cat /run/opencontainer/containers/test_busybox/criu.work/dump.log
+  runc run -d --console-socket $CONSOLE_SOCKET test_busybox
   [ "$status" -eq 0 ]
 
-  # after checkpoint busybox is no longer running
-  runc state test_busybox
-  [ "$status" -ne 0 ]
+  testcontainer test_busybox running
 
-  # restore from checkpoint
-  (
-    runc --criu "$CRIU" restore test_busybox
-    [ "$status" -eq 0 ]
-  ) &
+  for i in `seq 2`; do
+    # checkpoint the running container
+    runc --criu "$CRIU" checkpoint --work-path ./work-dir test_busybox
+    ret=$?
+    # if you are having problems getting criu to work uncomment the following dump:
+    #cat /run/opencontainer/containers/test_busybox/criu.work/dump.log
+    cat ./work-dir/dump.log | grep -B 5 Error || true
+    [ "$ret" -eq 0 ]
 
-  # check state
-  wait_for_container 15 1 test_busybox
+    # after checkpoint busybox is no longer running
+    runc state test_busybox
+    [ "$status" -ne 0 ]
 
-  # busybox should be back up and running
-  runc state test_busybox
-  [ "$status" -eq 0 ]
-  [[ "${output}" == *"running"* ]]
+    # restore from checkpoint
+    runc --criu "$CRIU" restore -d --work-path ./work-dir --console-socket $CONSOLE_SOCKET test_busybox
+    ret=$?
+    cat ./work-dir/restore.log | grep -B 5 Error || true
+    [ "$ret" -eq 0 ]
+
+    # busybox should be back up and running
+    testcontainer test_busybox running
+  done
 }
 
 @test "checkpoint --pre-dump and restore" {
   # XXX: currently criu require root containers.
   requires criu root
 
-  # criu does not work with external terminals so..
-  # setting terminal and root:readonly: to false
   sed -i 's;"terminal": true;"terminal": false;' config.json
   sed -i 's;"readonly": true;"readonly": false;' config.json
   sed -i 's/"sh"/"sh","-c","for i in `seq 10`; do read xxx || continue; echo ponG $xxx; done"/' config.json
