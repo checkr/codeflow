@@ -10,7 +10,7 @@ services:
       - "${DOCKER_COMPOSE_MONGODB_PORT}:27017"
   server:
     command: reflex -c reflex.conf
-    image: codeflow:v005
+    image: codeflow:v004
     build:
       context: .
       args:
@@ -29,7 +29,7 @@ services:
       - "mongo"
   dashboard:
     command: npm run start
-    image: codeflow:v005
+    image: codeflow:v004
     build:
       context: .
       args:
@@ -46,7 +46,7 @@ services:
       - ./dashboard/.env.development
   docs:
     command: gitbook serve
-    image: codeflow:v005
+    image: codeflow:v004
     build:
       context: .
       args:
