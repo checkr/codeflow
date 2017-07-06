@@ -1,6 +1,4 @@
-FROM alpine
-
-RUN apk update && apk add git go go-tools nodejs nodejs-npm build-base libgit2-dev
+FROM finalduty/archlinux:monthly
 
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
@@ -10,6 +8,9 @@ ENV PATH ${PATH}:/go/bin
 
 RUN mkdir -p $APP_PATH
 WORKDIR $APP_PATH
+
+RUN pacman -Syu --noconfirm
+RUN pacman -Sy --noconfirm libgit2 git gcc nodejs go go-tools npm base-devel
 
 RUN go get github.com/cespare/reflex
 RUN npm install gitbook-cli -g
