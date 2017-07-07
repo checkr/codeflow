@@ -29,11 +29,6 @@ func (suite *TestSuite) TearDownSuite() {
 }
 
 func (suite *TestSuite) TestHeartbeat() {
-	var e agent.Event
-
-	//e = suite.agent.GetTestEvent("plugins.GitSync", 61)
-	//payload := e.Payload.(plugins.HeartBeat)
-	//assert.Equal(suite.T(), "minute", payload.Tick)
 }
 
 func TestHeartbeat(t *testing.T) {

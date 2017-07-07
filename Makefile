@@ -14,4 +14,5 @@ destroy:
 	docker-compose rm -f
 
 test:
-	cd dashboard && npm i && npm run lint
+	go test -race `go list ./... | grep -v vendor` -cover
+	cd dashboard && npm i --silent && npm run lint && cd ..

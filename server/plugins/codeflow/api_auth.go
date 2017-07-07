@@ -24,8 +24,13 @@ type Auth struct {
 	JWTMiddleware *jwt_m.JWTMiddleware
 }
 
+var (
+	// for stubs
+	viperGetString = viper.GetString
+)
+
 func (a *Auth) Register(api *rest.Api) []*rest.Route {
-	if viper.GetString("plugins.codeflow.jwt_secret_key") == "" {
+	if viperGetString("plugins.codeflow.jwt_secret_key") == "" {
 		panic("plugins.codeflow.jwt_secret_key is empty")
 	}
 

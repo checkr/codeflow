@@ -2,8 +2,11 @@ version: 2
 jobs:
   build:
     working_directory: ~/codeflow
-    machine: true
+    machine:
+      services:
+        - docker
     steps:
       - checkout
       - run: cp ./dashboard/.env ./dashboard/.env.development
-      - run: make test
+      - run: docker build . -t codeflow-test
+      - run: docker run --rm codeflow-test make test

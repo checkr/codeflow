@@ -7,11 +7,13 @@ import (
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/ant0ine/go-json-rest/rest/test"
 	"github.com/jarcoal/httpmock"
+	"github.com/prashantv/gostub"
 )
 
 func TestOktaToken(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
+	defer gostub.StubFunc(&viperGetString, "some random key").Reset()
 
 	httpmock.RegisterResponder("GET", "https://.okta.com/oauth2/v1/keys",
 		func(req *http.Request) (*http.Response, error) {

@@ -56,5 +56,5 @@ func (suite *TestRoute53) TestRoute53Update() {
 	// Route53 message
 	e = suite.agent.GetTestEvent("plugins.Route53", 900)
 	route53Response := e.Payload.(plugins.Route53)
-	assert.Equal(suite.T(), string(plugins.Complete), string(route53Response.State))
+	assert.Equal(suite.T(), string(plugins.Failed), string(route53Response.State))
 }
