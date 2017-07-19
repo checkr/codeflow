@@ -458,7 +458,7 @@ export const fetchProjectReleases = (slug = '', query = '', callee = '') => {
       },
       types: [
         {
-          type: 'PROJECT_RELEASES_FETCH_REQUESTT',
+          type: PROJECT_RELEASES_FETCH_REQUEST,
           meta: { callee: callee }
         },
         PROJECT_RELEASES_FETCH_SUCCESS, PROJECT_RELEASES_FETCH_FAILURE
