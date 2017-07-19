@@ -30,6 +30,17 @@ const me = (state = {}, action = {}) => {
   }
 }
 
+const projectsAll = (state = {}, action = {}) => {
+  switch (action.type) {
+    case ActionTypes.PROJECTS_ALL_REQUEST:
+      return []
+    case ActionTypes.PROJECTS_ALL_SUCCESS:
+      return action.payload
+    default:
+      return state
+  }
+}
+
 const projects = (state = {}, action = {}) => {
   switch (action.type) {
     case ActionTypes.PROJECTS_REQUEST:
@@ -52,6 +63,28 @@ const project = (state = {}, action = {}) => {
       return action.payload
     default:
       return state
+  }
+}
+
+const serviceSpecsSettings = (state = [], action = {}) => {
+  switch (action.type) {
+    case ActionTypes.SERVICE_SPECS_SETTINGS_FETCH_REQUEST:
+      return []
+    case ActionTypes.SERVICE_SPECS_SETTINGS_FETCH_SUCCESS:
+      return action.payload
+    default:
+      return state
+  }
+}
+
+const serviceSpecServices = (state = [], action = {}) => {
+  switch (action.type) {
+  case ActionTypes.SERVICE_SPEC_SERVICES_FETCH_REQUEST:
+    return []
+  case ActionTypes.SERVICE_SPEC_SERVICES_FETCH_SUCCESS:
+    return action.payload
+  default:
+    return state
   }
 }
 
@@ -366,7 +399,10 @@ const rootReducer = combineReducers({
   projectServices,
   projectExtensions,
   projectSettings,
+  projectsAll,
   serviceSpecs,
+  serviceSpecsSettings,
+  serviceSpecServices,
   bookmarks,
   bookmarkReleases,
   features,
