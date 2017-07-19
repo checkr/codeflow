@@ -150,6 +150,9 @@ class ServiceSpec extends Component {
       projectMap[p._id] = p.name
     })
     forEach(services, service => {
+      if (!projectMap[service.projectId]) {
+        return
+      }
       const newName = projectMap[service.projectId].replace(/\//g, "-")
       const href = "/projects/" + newName + "/resources"
       jsx.push(
