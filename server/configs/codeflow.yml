@@ -57,6 +57,8 @@ plugins:
       path: "/bookmarks"
     stats:
       path: "/stats"
+    admin:
+      path: "/admin"
   docker_build:
     workers: 1
     registry_host: "docker.io"
