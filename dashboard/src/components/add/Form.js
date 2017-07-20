@@ -3,11 +3,34 @@ import { Button, Form, FormGroup, Label, Input, FormText } from 'reactstrap'
 import { Field, reduxForm } from 'redux-form'
 import { connect } from 'react-redux'
 
+//validations
+const validate = values => {
+  const errors = {}
+  if (values.gitProtocol === "HTTPS" && !/^https:\/\/[a-z,0-9,\.]+\/.+\.git$/.test(values.gitUrl)) {
+    errors.gitUrl = '* URL must be in the format https://github.com/org/repo.git'
+  }
+  if (values.gitProtocol === "SSH" && !/^git@[a-z,0-9,\.]+:.+.git$/.test(values.gitUrl)) {
+    errors.gitUrl = '* URL must be in the format git@github.com:org/repo.git'
+  }
+  return errors
+}
 
 class AddProject extends Component {
-  renderInput(field) {
+
+  renderInput({input, type, placeholder, meta: {touched, error, warning}}) { 
     return (
-      <Input {...field.input} type={field.type} placeholder={field.placeholder} />
+      <span>
+          <Input {...input} type={type} placeholder={placeholder} />
+          {touched &&
+            ((error &&
+              <span>
+                {error}
+              </span>) ||
+              (warning &&
+                <span>
+                  {warning}
+                </span>))}
+      </span>
     )
   }
 
@@ -37,7 +60,7 @@ class AddProject extends Component {
   }
 
   render() {
-    const { onSubmit } = this.props
+    const { onSubmit, invalid } = this.props
     return (
       <Form onSubmit={onSubmit}>
         <FormGroup>
@@ -64,14 +87,15 @@ class AddProject extends Component {
           </Label>
         </FormGroup>
         <br/>
-        <Button>Create</Button>
+        <Button disabled={invalid}>Create</Button>
       </Form>
     )
   }
 }
 
 const AddProjectForm = reduxForm({
-  form: 'addProject'
+  form: 'addProject',
+  validate
 })(AddProject)
 
 export default connect(
