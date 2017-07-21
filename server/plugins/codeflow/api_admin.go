@@ -7,6 +7,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/ant0ine/go-json-rest/rest"
+	"github.com/checkr/codeflow/server/plugins"
 )
 
 type Admin struct {
@@ -72,7 +73,7 @@ func (x *Admin) serviceSpecServices(w rest.ResponseWriter, r *rest.Request) {
 	service := Service{}
 
 	slug := r.PathParam("slug")
-	match := bson.M{"specId": bson.ObjectIdHex(slug)}
+	match := bson.M{"specId": bson.ObjectIdHex(slug), "state": bson.M{"$in": []plugins.State{plugins.Waiting, plugins.Running}}}
 
 	results := db.Collection("services").Find(match)
 	for results.Next(&service) {
