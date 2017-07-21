@@ -88,6 +88,26 @@ func ProjectCreated(p *Project) error {
 }
 
 func ProjectDeleted(p *Project) error {
+	// Set the services of project to deleted
+	service := Service{}
+	match := bson.M{"projectId": p.Id, "state": bson.M{"$in": []plugins.State{plugins.Waiting, plugins.Running}}}
+	serviceResults := db.Collection("services").Find(match)
+	for serviceResults.Next(&service) {
+		service.State = plugins.Deleted
+		if err := db.Collection("services").Save(&service); err != nil {
+			log.Printf("Service::Save::Error: %v", err.Error())
+		}
+	}
+
+	// Send a delete message to all extensions of the deleted project
+	extensions := db.Collection("extensions").Find(bson.M{"projectId": p.Id})
+	extension := plugins.LoadBalancer{}
+	for extensions.Next(&extension) {
+		extension.Action = plugins.Destroy
+		cf.Events <- agent.NewEvent(extension, nil)
+	}
+
+	// Send out the deleted messages for any subscribers
 	projectMsg := plugins.Project{
 		Action:     plugins.Destroy,
 		Slug:       p.Slug,
