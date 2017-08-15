@@ -10,7 +10,7 @@ ul
 }
 .navbar-full {
   margin-bottom: 50px;
-}  
+}
 .navbar-brand {
   float: none !important;
 }
@@ -368,11 +368,11 @@ a {
 .btn-service-action-right {
   margin-left: 5px;
 }
-.btn-service-action:focus { 
-  outline:0 !important; 
+.btn-service-action:focus {
+  outline:0 !important;
 }
 
-.btn-service-action:active { 
+.btn-service-action:active {
 
 }
 .btn-add-extensions {
@@ -472,4 +472,8 @@ input[type=checkbox], input[type=radio] {
 .extension-lb > pre {
   margin-top: 7px;
   margin-bottom: 0;
+}
+
+.monospace {
+  font-family: Consolas,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New, monospace;
 }
