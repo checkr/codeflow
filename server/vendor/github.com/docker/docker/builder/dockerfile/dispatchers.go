@@ -8,6 +8,7 @@ package dockerfile
 // package.
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"runtime"
@@ -16,17 +17,18 @@ import (
 	"strings"
 	"time"
 
-	"bytes"
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/builder"
 	"github.com/docker/docker/builder/dockerfile/parser"
+	"github.com/docker/docker/image"
+	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/signal"
+	"github.com/docker/docker/pkg/system"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 // ENV foo bar
@@ -144,11 +146,22 @@ func add(req dispatchRequest) error {
 		return errAtLeastTwoArguments("ADD")
 	}
 
+	flChown := req.flags.AddString("chown", "")
 	if err := req.flags.Parse(); err != nil {
 		return err
 	}
 
-	return req.builder.runContextCommand(req, true, true, "ADD", nil)
+	downloader := newRemoteSourceDownloader(req.builder.Output, req.builder.Stdout)
+	copier := copierFromDispatchRequest(req, downloader, nil)
+	defer copier.Cleanup()
+	copyInstruction, err := copier.createCopyInstruction(req.args, "ADD")
+	if err != nil {
+		return err
+	}
+	copyInstruction.chownStr = flChown.Value
+	copyInstruction.allowLocalDecompression = true
+
+	return req.builder.performCopy(req.state, copyInstruction)
 }
 
 // COPY foo /path
@@ -161,6 +174,7 @@ func dispatchCopy(req dispatchRequest) error {
 	}
 
 	flFrom := req.flags.AddString("from", "")
+	flChown := req.flags.AddString("chown", "")
 	if err := req.flags.Parse(); err != nil {
 		return err
 	}
@@ -169,7 +183,16 @@ func dispatchCopy(req dispatchRequest) error {
 	if err != nil {
 		return errors.Wrapf(err, "invalid from flag value %s", flFrom.Value)
 	}
-	return req.builder.runContextCommand(req, false, false, "COPY", im)
+
+	copier := copierFromDispatchRequest(req, errOnSourceDownload, im)
+	defer copier.Cleanup()
+	copyInstruction, err := copier.createCopyInstruction(req.args, "COPY")
+	if err != nil {
+		return err
+	}
+	copyInstruction.chownStr = flChown.Value
+
+	return req.builder.performCopy(req.state, copyInstruction)
 }
 
 func (b *Builder) getImageMount(fromFlag *Flag) (*imageMount, error) {
@@ -178,6 +201,7 @@ func (b *Builder) getImageMount(fromFlag *Flag) (*imageMount, error) {
 		return nil, nil
 	}
 
+	var localOnly bool
 	imageRefOrID := fromFlag.Value
 	stage, err := b.buildStages.get(fromFlag.Value)
 	if err != nil {
@@ -185,8 +209,9 @@ func (b *Builder) getImageMount(fromFlag *Flag) (*imageMount, error) {
 	}
 	if stage != nil {
 		imageRefOrID = stage.ImageID()
+		localOnly = true
 	}
-	return b.imageSources.Get(imageRefOrID)
+	return b.imageSources.Get(imageRefOrID, localOnly)
 }
 
 // FROM imagename[:tag | @digest] [AS build-stage-name]
@@ -201,7 +226,7 @@ func from(req dispatchRequest) error {
 		return err
 	}
 
-	req.builder.resetImageCache()
+	req.builder.imageProber.Reset()
 	image, err := req.builder.getFromImage(req.shlex, req.args[0])
 	if err != nil {
 		return err
@@ -234,10 +259,8 @@ func parseBuildStageName(args []string) (string, error) {
 	return stageName, nil
 }
 
-// scratchImage is used as a token for the empty base image. It uses buildStage
-// as a convenient implementation of builder.Image, but is not actually a
-// buildStage.
-var scratchImage builder.Image = &buildStage{}
+// scratchImage is used as a token for the empty base image.
+var scratchImage builder.Image = &image.Image{}
 
 func (b *Builder) getFromImage(shlex *ShellLex, name string) (builder.Image, error) {
 	substitutionArgs := []string{}
@@ -250,18 +273,22 @@ func (b *Builder) getFromImage(shlex *ShellLex, name string) (builder.Image, err
 		return nil, err
 	}
 
-	if im, ok := b.buildStages.getByName(name); ok {
-		return im, nil
+	var localOnly bool
+	if stage, ok := b.buildStages.getByName(name); ok {
+		name = stage.ImageID()
+		localOnly = true
 	}
 
-	// Windows cannot support a container with no base image.
+	// Windows cannot support a container with no base image unless it is LCOW.
 	if name == api.NoBaseImageSpecifier {
 		if runtime.GOOS == "windows" {
-			return nil, errors.New("Windows does not support FROM scratch")
+			if b.platform == "windows" || (b.platform != "windows" && !system.LCOWSupported()) {
+				return nil, errors.New("Windows does not support FROM scratch")
+			}
 		}
 		return scratchImage, nil
 	}
-	imageMount, err := b.imageSources.Get(name)
+	imageMount, err := b.imageSources.Get(name, localOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +335,7 @@ func processOnBuild(req dispatchRequest) error {
 			}
 		}
 
-		if _, err := dispatchFromDockerfile(req.builder, dockerfile, dispatchState); err != nil {
+		if _, err := dispatchFromDockerfile(req.builder, dockerfile, dispatchState, req.source); err != nil {
 			return err
 		}
 	}
@@ -364,7 +391,7 @@ func workdir(req dispatchRequest) error {
 	runConfig := req.state.runConfig
 	// This is from the Dockerfile and will not necessarily be in platform
 	// specific semantics, hence ensure it is converted.
-	runConfig.WorkingDir, err = normaliseWorkdir(runConfig.WorkingDir, req.args[0])
+	runConfig.WorkingDir, err = normalizeWorkdir(req.builder.platform, runConfig.WorkingDir, req.args[0])
 	if err != nil {
 		return err
 	}
@@ -380,25 +407,16 @@ func workdir(req dispatchRequest) error {
 	}
 
 	comment := "WORKDIR " + runConfig.WorkingDir
-	runConfigWithCommentCmd := copyRunConfig(runConfig, withCmdCommentString(comment))
-	if hit, err := req.builder.probeCache(req.state, runConfigWithCommentCmd); err != nil || hit {
+	runConfigWithCommentCmd := copyRunConfig(runConfig, withCmdCommentString(comment, req.builder.platform))
+	containerID, err := req.builder.probeAndCreate(req.state, runConfigWithCommentCmd)
+	if err != nil || containerID == "" {
+		return err
+	}
+	if err := req.builder.docker.ContainerCreateWorkdir(containerID); err != nil {
 		return err
 	}
 
-	container, err := req.builder.docker.ContainerCreate(types.ContainerCreateConfig{
-		Config: runConfigWithCommentCmd,
-		// Set a log config to override any default value set on the daemon
-		HostConfig: &container.HostConfig{LogConfig: defaultLogConfig},
-	})
-	if err != nil {
-		return err
-	}
-	req.builder.tmpContainers[container.ID] = struct{}{}
-	if err := req.builder.docker.ContainerCreateWorkdir(container.ID); err != nil {
-		return err
-	}
-
-	return req.builder.commitContainer(req.state, container.ID, runConfigWithCommentCmd)
+	return req.builder.commitContainer(req.state, containerID, runConfigWithCommentCmd)
 }
 
 // RUN some command yo
@@ -407,7 +425,7 @@ func workdir(req dispatchRequest) error {
 // the current SHELL which defaults to 'sh -c' under linux or 'cmd /S /C' under
 // Windows, in the event there is only one argument The difference in processing:
 //
-// RUN echo hi          # sh -c echo hi       (Linux)
+// RUN echo hi          # sh -c echo hi       (Linux and LCOW)
 // RUN echo hi          # cmd /S /C echo hi   (Windows)
 // RUN [ "echo", "hi" ] # echo hi
 //
@@ -423,7 +441,7 @@ func run(req dispatchRequest) error {
 	stateRunConfig := req.state.runConfig
 	args := handleJSONArgs(req.args, req.attributes)
 	if !req.attributes["json"] {
-		args = append(getShell(stateRunConfig), args...)
+		args = append(getShell(stateRunConfig, req.builder.platform), args...)
 	}
 	cmdFromArgs := strslice.StrSlice(args)
 	buildArgs := req.builder.buildArgs.FilterAllowed(stateRunConfig.Env)
@@ -454,7 +472,16 @@ func run(req dispatchRequest) error {
 	if err != nil {
 		return err
 	}
-	if err := req.builder.run(cID, runConfig.Cmd); err != nil {
+	if err := req.builder.containerManager.Run(req.builder.clientCtx, cID, req.builder.Stdout, req.builder.Stderr); err != nil {
+		if err, ok := err.(*statusCodeError); ok {
+			// TODO: change error type, because jsonmessage.JSONError assumes HTTP
+			return &jsonmessage.JSONError{
+				Message: fmt.Sprintf(
+					"The command '%s' returned a non-zero code: %d",
+					strings.Join(runConfig.Cmd, " "), err.StatusCode()),
+				Code: err.StatusCode(),
+			}
+		}
 		return err
 	}
 
@@ -499,7 +526,7 @@ func cmd(req dispatchRequest) error {
 	runConfig := req.state.runConfig
 	cmdSlice := handleJSONArgs(req.args, req.attributes)
 	if !req.attributes["json"] {
-		cmdSlice = append(getShell(runConfig), cmdSlice...)
+		cmdSlice = append(getShell(runConfig, req.builder.platform), cmdSlice...)
 	}
 
 	runConfig.Cmd = strslice.StrSlice(cmdSlice)
@@ -651,7 +678,7 @@ func entrypoint(req dispatchRequest) error {
 		runConfig.Entrypoint = nil
 	default:
 		// ENTRYPOINT echo hi
-		runConfig.Entrypoint = strslice.StrSlice(append(getShell(runConfig), parsed[0]))
+		runConfig.Entrypoint = strslice.StrSlice(append(getShell(runConfig, req.builder.platform), parsed[0]))
 	}
 
 	// when setting the entrypoint if a CMD was not explicitly set then
@@ -761,7 +788,7 @@ func stopSignal(req dispatchRequest) error {
 	sig := req.args[0]
 	_, err := signal.ParseSignal(sig)
 	if err != nil {
-		return err
+		return validationError{err}
 	}
 
 	req.state.runConfig.StopSignal = sig

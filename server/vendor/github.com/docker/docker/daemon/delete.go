@@ -7,14 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
-	apierrors "github.com/docker/docker/api/errors"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/system"
 	volumestore "github.com/docker/docker/volume/store"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 // ContainerRm removes the container id from the filesystem. An error
@@ -31,7 +30,7 @@ func (daemon *Daemon) ContainerRm(name string, config *types.ContainerRmConfig) 
 	// Container state RemovalInProgress should be used to avoid races.
 	if inProgress := container.SetRemovalInProgress(); inProgress {
 		err := fmt.Errorf("removal of container %s is already in progress", name)
-		return apierrors.NewBadRequestError(err)
+		return stateConflictError{err}
 	}
 	defer container.ResetRemovalInProgress()
 
@@ -60,7 +59,7 @@ func (daemon *Daemon) rmLink(container *container.Container, name string) error 
 	}
 
 	parent = strings.TrimSuffix(parent, "/")
-	pe, err := daemon.nameIndex.Get(parent)
+	pe, err := daemon.containersReplica.Snapshot().GetID(parent)
 	if err != nil {
 		return fmt.Errorf("Cannot get parent %s for name %s", parent, name)
 	}
@@ -87,7 +86,7 @@ func (daemon *Daemon) cleanupContainer(container *container.Container, forceRemo
 				procedure = "Unpause and then " + strings.ToLower(procedure)
 			}
 			err := fmt.Errorf("You cannot remove a %s container %s. %s", state, container.ID, procedure)
-			return apierrors.NewRequestConflictError(err)
+			return stateConflictError{err}
 		}
 		if err := daemon.Kill(container); err != nil {
 			return fmt.Errorf("Could not kill running container %s, cannot remove - %v", container.ID, err)
@@ -103,22 +102,24 @@ func (daemon *Daemon) cleanupContainer(container *container.Container, forceRemo
 	}
 
 	// Mark container dead. We don't want anybody to be restarting it.
-	container.SetDead()
+	container.Lock()
+	container.Dead = true
 
 	// Save container state to disk. So that if error happens before
 	// container meta file got removed from disk, then a restart of
 	// docker should not make a dead container alive.
-	if err := container.ToDiskLocking(); err != nil && !os.IsNotExist(err) {
+	if err := container.CheckpointTo(daemon.containersReplica); err != nil && !os.IsNotExist(err) {
 		logrus.Errorf("Error saving dying container to disk: %v", err)
 	}
+	container.Unlock()
 
 	// When container creation fails and `RWLayer` has not been created yet, we
 	// do not call `ReleaseRWLayer`
 	if container.RWLayer != nil {
-		metadata, err := daemon.layerStore.ReleaseRWLayer(container.RWLayer)
+		metadata, err := daemon.stores[container.Platform].layerStore.ReleaseRWLayer(container.RWLayer)
 		layer.LogReleaseMetadata(metadata)
-		if err != nil && err != layer.ErrMountDoesNotExist {
-			return errors.Wrapf(err, "driver %q failed to remove root filesystem for %s", daemon.GraphDriverName(), container.ID)
+		if err != nil && err != layer.ErrMountDoesNotExist && !os.IsNotExist(errors.Cause(err)) {
+			return errors.Wrapf(err, "driver %q failed to remove root filesystem for %s", daemon.GraphDriverName(container.Platform), container.ID)
 		}
 	}
 
@@ -126,14 +127,18 @@ func (daemon *Daemon) cleanupContainer(container *container.Container, forceRemo
 		return errors.Wrapf(err, "unable to remove filesystem for %s", container.ID)
 	}
 
-	daemon.nameIndex.Delete(container.ID)
-	daemon.linkIndex.delete(container)
+	linkNames := daemon.linkIndex.delete(container)
 	selinuxFreeLxcContexts(container.ProcessLabel)
 	daemon.idIndex.Delete(container.ID)
 	daemon.containers.Delete(container.ID)
+	daemon.containersReplica.Delete(container)
 	if e := daemon.removeMountPoints(container, removeVolume); e != nil {
 		logrus.Error(e)
 	}
+	for _, name := range linkNames {
+		daemon.releaseName(name)
+	}
+	container.SetRemoved()
 	stateCtr.del(container.ID)
 	daemon.LogContainerEvent(container, "destroy")
 	return nil
@@ -145,7 +150,7 @@ func (daemon *Daemon) cleanupContainer(container *container.Container, forceRemo
 func (daemon *Daemon) VolumeRm(name string, force bool) error {
 	err := daemon.volumeRm(name)
 	if err != nil && volumestore.IsInUse(err) {
-		return apierrors.NewRequestConflictError(err)
+		return stateConflictError{err}
 	}
 	if err == nil || force {
 		daemon.volumes.Purge(name)

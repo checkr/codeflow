@@ -12,13 +12,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
 	daemondiscovery "github.com/docker/docker/daemon/discovery"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/authorization"
 	"github.com/docker/docker/pkg/discovery"
 	"github.com/docker/docker/registry"
 	"github.com/imdario/mergo"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 )
 
@@ -102,9 +102,14 @@ type CommonConfig struct {
 	RootDeprecated       string                    `json:"graph,omitempty"`
 	Root                 string                    `json:"data-root,omitempty"`
 	SocketGroup          string                    `json:"group,omitempty"`
-	TrustKeyPath         string                    `json:"-"`
 	CorsHeaders          string                    `json:"api-cors-header,omitempty"`
 	EnableCors           bool                      `json:"api-enable-cors,omitempty"`
+
+	// TrustKeyPath is used to generate the daemon ID and for signing schema 1 manifests
+	// when pushing to a registry which does not support schema 2. This field is marked as
+	// deprecated because schema 1 manifests are deprecated in favor of schema 2 and the
+	// daemon ID will use a dedicated identifier not shared with exported signatures.
+	TrustKeyPath string `json:"deprecated-key-path,omitempty"`
 
 	// LiveRestoreEnabled determines whether we should keep containers
 	// alive upon daemon shutdown/start
@@ -163,6 +168,11 @@ type CommonConfig struct {
 	ValuesSet map[string]interface{}
 
 	Experimental bool `json:"experimental"` // Experimental indicates whether experimental features should be exposed or not
+
+	// Exposed node Generic Resources
+	NodeGenericResources string `json:"node-generic-resources,omitempty"`
+	// NetworkControlPlaneMTU allows to specify the control plane MTU, this will allow to optimize the network use in some components
+	NetworkControlPlaneMTU int `json:"network-control-plane-mtu,omitempty"`
 }
 
 // IsValueSet returns true if a configuration value
@@ -492,11 +502,20 @@ func Validate(config *Config) error {
 		}
 	}
 
+	if _, err := opts.ParseGenericResources(config.NodeGenericResources); err != nil {
+		return err
+	}
+
 	if defaultRuntime := config.GetDefaultRuntimeName(); defaultRuntime != "" && defaultRuntime != StockRuntimeName {
 		runtimes := config.GetAllRuntimes()
 		if _, ok := runtimes[defaultRuntime]; !ok {
 			return fmt.Errorf("specified default runtime '%s' does not exist", defaultRuntime)
 		}
+	}
+
+	// validate platform-specific settings
+	if err := config.ValidatePlatformConfig(); err != nil {
+		return err
 	}
 
 	return nil

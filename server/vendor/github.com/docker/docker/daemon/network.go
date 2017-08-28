@@ -8,8 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
-	apierrors "github.com/docker/docker/api/errors"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/network"
 	clustertypes "github.com/docker/docker/daemon/cluster/provider"
@@ -21,6 +19,7 @@ import (
 	"github.com/docker/libnetwork/ipamapi"
 	networktypes "github.com/docker/libnetwork/types"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
@@ -57,10 +56,10 @@ func (daemon *Daemon) GetNetworkByID(partialID string) (libnetwork.Network, erro
 	list := daemon.GetNetworksByID(partialID)
 
 	if len(list) == 0 {
-		return nil, libnetwork.ErrNoSuchNetwork(partialID)
+		return nil, errors.WithStack(networkNotFound(partialID))
 	}
 	if len(list) > 1 {
-		return nil, libnetwork.ErrInvalidID(partialID)
+		return nil, errors.WithStack(invalidIdentifier(partialID))
 	}
 	return list[0], nil
 }
@@ -287,7 +286,7 @@ func (daemon *Daemon) CreateNetwork(create types.NetworkCreateRequest) (*types.N
 func (daemon *Daemon) createNetwork(create types.NetworkCreateRequest, id string, agent bool) (*types.NetworkCreateResponse, error) {
 	if runconfig.IsPreDefinedNetwork(create.Name) && !agent {
 		err := fmt.Errorf("%s is a pre-defined network and cannot be created", create.Name)
-		return nil, apierrors.NewRequestForbiddenError(err)
+		return nil, notAllowedError{err}
 	}
 
 	var warning string
@@ -318,6 +317,11 @@ func (daemon *Daemon) createNetwork(create types.NetworkCreateRequest, id string
 		libnetwork.NetworkOptionLabels(create.Labels),
 		libnetwork.NetworkOptionAttachable(create.Attachable),
 		libnetwork.NetworkOptionIngress(create.Ingress),
+		libnetwork.NetworkOptionScope(create.Scope),
+	}
+
+	if create.ConfigOnly {
+		nwOptions = append(nwOptions, libnetwork.NetworkOptionConfigOnly())
 	}
 
 	if create.IPAM != nil {
@@ -337,9 +341,14 @@ func (daemon *Daemon) createNetwork(create types.NetworkCreateRequest, id string
 		nwOptions = append(nwOptions, libnetwork.NetworkOptionPersist(false))
 	}
 
+	if create.ConfigFrom != nil {
+		nwOptions = append(nwOptions, libnetwork.NetworkOptionConfigFrom(create.ConfigFrom.Network))
+	}
+
 	n, err := c.NewNetwork(driver, create.Name, id, nwOptions...)
 	if err != nil {
 		if _, ok := err.(libnetwork.ErrDataStoreNotInitialized); ok {
+			// nolint: golint
 			return nil, errors.New("This node is not a swarm manager. Use \"docker swarm init\" or \"docker swarm join\" to connect this node to swarm and try again.")
 		}
 		return nil, err
@@ -495,16 +504,32 @@ func (daemon *Daemon) deleteNetwork(networkID string, dynamic bool) error {
 
 	if runconfig.IsPreDefinedNetwork(nw.Name()) && !dynamic {
 		err := fmt.Errorf("%s is a pre-defined network and cannot be removed", nw.Name())
-		return apierrors.NewRequestForbiddenError(err)
+		return notAllowedError{err}
+	}
+
+	if dynamic && !nw.Info().Dynamic() {
+		if runconfig.IsPreDefinedNetwork(nw.Name()) {
+			// Predefined networks now support swarm services. Make this
+			// a no-op when cluster requests to remove the predefined network.
+			return nil
+		}
+		err := fmt.Errorf("%s is not a dynamic network", nw.Name())
+		return notAllowedError{err}
 	}
 
 	if err := nw.Delete(); err != nil {
 		return err
 	}
-	daemon.pluginRefCount(nw.Type(), driverapi.NetworkPluginEndpointType, plugingetter.Release)
-	ipamType, _, _, _ := nw.Info().IpamConfig()
-	daemon.pluginRefCount(ipamType, ipamapi.PluginEndpointType, plugingetter.Release)
-	daemon.LogNetworkEvent(nw, "destroy")
+
+	// If this is not a configuration only network, we need to
+	// update the corresponding remote drivers' reference counts
+	if !nw.Info().ConfigOnly() {
+		daemon.pluginRefCount(nw.Type(), driverapi.NetworkPluginEndpointType, plugingetter.Release)
+		ipamType, _, _, _ := nw.Info().IpamConfig()
+		daemon.pluginRefCount(ipamType, ipamapi.PluginEndpointType, plugingetter.Release)
+		daemon.LogNetworkEvent(nw, "destroy")
+	}
+
 	return nil
 }
 

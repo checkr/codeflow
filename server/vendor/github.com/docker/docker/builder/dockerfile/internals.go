@@ -7,30 +7,18 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"os"
 	"path/filepath"
-	"runtime"
-	"sort"
+	"strconv"
 	"strings"
-	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/backend"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/builder"
-	"github.com/docker/docker/builder/remotecontext"
-	"github.com/docker/docker/pkg/httputils"
-	"github.com/docker/docker/pkg/ioutils"
-	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/docker/docker/pkg/progress"
-	"github.com/docker/docker/pkg/streamformatter"
+	"github.com/docker/docker/image"
+	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/pkg/system"
-	"github.com/docker/docker/pkg/urlutil"
+	"github.com/docker/docker/pkg/symlink"
+	lcUser "github.com/opencontainers/runc/libcontainer/user"
 	"github.com/pkg/errors"
 )
 
@@ -42,7 +30,7 @@ func (b *Builder) commit(dispatchState *dispatchState, comment string) error {
 		return errors.New("Please provide a source image with `from` prior to commit")
 	}
 
-	runConfigWithCommentCmd := copyRunConfig(dispatchState.runConfig, withCmdComment(comment))
+	runConfigWithCommentCmd := copyRunConfig(dispatchState.runConfig, withCmdComment(comment, b.platform))
 	hit, err := b.probeCache(dispatchState, runConfigWithCommentCmd)
 	if err != nil || hit {
 		return err
@@ -55,7 +43,6 @@ func (b *Builder) commit(dispatchState *dispatchState, comment string) error {
 	return b.commitContainer(dispatchState, id, runConfigWithCommentCmd)
 }
 
-// TODO: see if any args can be dropped
 func (b *Builder) commitContainer(dispatchState *dispatchState, id string, containerConfig *container.Config) error {
 	if b.disableCommit {
 		return nil
@@ -78,120 +65,216 @@ func (b *Builder) commitContainer(dispatchState *dispatchState, id string, conta
 	}
 
 	dispatchState.imageID = imageID
-	b.buildStages.update(imageID, dispatchState.runConfig)
+	b.buildStages.update(imageID)
 	return nil
 }
 
-type copyInfo struct {
-	root       string
-	path       string
-	hash       string
-	decompress bool
-}
-
-// TODO: this needs to be split so that a Builder method doesn't accept req
-func (b *Builder) runContextCommand(req dispatchRequest, allowRemote bool, allowLocalDecompression bool, cmdName string, imageSource *imageMount) error {
-	args := req.args
-	if len(args) < 2 {
-		return fmt.Errorf("Invalid %s format - at least two arguments required", cmdName)
-	}
-
-	// Work in daemon-specific filepath semantics
-	dest := filepath.FromSlash(args[len(args)-1]) // last one is always the dest
-
-	var infos []copyInfo
-
-	// Loop through each src file and calculate the info we need to
-	// do the copy (e.g. hash value if cached).  Don't actually do
-	// the copy until we've looked at all src files
-	var err error
-	for _, orig := range args[0 : len(args)-1] {
-		if urlutil.IsURL(orig) {
-			if !allowRemote {
-				return fmt.Errorf("Source can't be a URL for %s", cmdName)
-			}
-			remote, path, err := b.download(orig)
-			if err != nil {
-				return err
-			}
-			defer os.RemoveAll(remote.Root())
-			h, err := remote.Hash(path)
-			if err != nil {
-				return err
-			}
-			infos = append(infos, copyInfo{
-				root: remote.Root(),
-				path: path,
-				hash: h,
-			})
-			continue
-		}
-		// not a URL
-		subInfos, err := b.calcCopyInfo(cmdName, orig, allowLocalDecompression, true, imageSource)
-		if err != nil {
-			return err
-		}
-
-		infos = append(infos, subInfos...)
-	}
-
-	if len(infos) == 0 {
-		return errors.New("No source files were specified")
-	}
-	if len(infos) > 1 && !strings.HasSuffix(dest, string(os.PathSeparator)) {
-		return fmt.Errorf("When using %s with more than one source file, the destination must be a directory and end with a /", cmdName)
-	}
-
-	// For backwards compat, if there's just one info then use it as the
-	// cache look-up string, otherwise hash 'em all into one
-	var srcHash string
-
-	if len(infos) == 1 {
-		info := infos[0]
-		srcHash = info.hash
-	} else {
-		var hashs []string
-		var origs []string
-		for _, info := range infos {
-			origs = append(origs, info.path)
-			hashs = append(hashs, info.hash)
-		}
-		hasher := sha256.New()
-		hasher.Write([]byte(strings.Join(hashs, ",")))
-		srcHash = "multi:" + hex.EncodeToString(hasher.Sum(nil))
-	}
-
-	// TODO: should this have been using origPaths instead of srcHash in the comment?
-	runConfigWithCommentCmd := copyRunConfig(
-		req.state.runConfig,
-		withCmdCommentString(fmt.Sprintf("%s %s in %s ", cmdName, srcHash, dest)))
-	if hit, err := b.probeCache(req.state, runConfigWithCommentCmd); err != nil || hit {
-		return err
-	}
-
-	container, err := b.docker.ContainerCreate(types.ContainerCreateConfig{
-		Config: runConfigWithCommentCmd,
-		// Set a log config to override any default value set on the daemon
-		HostConfig: &container.HostConfig{LogConfig: defaultLogConfig},
-	})
+func (b *Builder) exportImage(state *dispatchState, imageMount *imageMount, runConfig *container.Config) error {
+	newLayer, err := imageMount.Layer().Commit(b.platform)
 	if err != nil {
 		return err
 	}
-	b.tmpContainers[container.ID] = struct{}{}
 
-	// Twiddle the destination when it's a relative path - meaning, make it
-	// relative to the WORKINGDIR
-	if dest, err = normaliseDest(cmdName, req.state.runConfig.WorkingDir, dest); err != nil {
+	// add an image mount without an image so the layer is properly unmounted
+	// if there is an error before we can add the full mount with image
+	b.imageSources.Add(newImageMount(nil, newLayer))
+
+	parentImage, ok := imageMount.Image().(*image.Image)
+	if !ok {
+		return errors.Errorf("unexpected image type")
+	}
+
+	newImage := image.NewChildImage(parentImage, image.ChildConfig{
+		Author:          state.maintainer,
+		ContainerConfig: runConfig,
+		DiffID:          newLayer.DiffID(),
+		Config:          copyRunConfig(state.runConfig),
+	}, parentImage.OS)
+
+	// TODO: it seems strange to marshal this here instead of just passing in the
+	// image struct
+	config, err := newImage.MarshalJSON()
+	if err != nil {
+		return errors.Wrap(err, "failed to encode image config")
+	}
+
+	exportedImage, err := b.docker.CreateImage(config, state.imageID, parentImage.OS)
+	if err != nil {
+		return errors.Wrapf(err, "failed to export image")
+	}
+
+	state.imageID = exportedImage.ImageID()
+	b.imageSources.Add(newImageMount(exportedImage, newLayer))
+	b.buildStages.update(state.imageID)
+	return nil
+}
+
+func (b *Builder) performCopy(state *dispatchState, inst copyInstruction) error {
+	srcHash := getSourceHashFromInfos(inst.infos)
+
+	var chownComment string
+	if inst.chownStr != "" {
+		chownComment = fmt.Sprintf("--chown=%s", inst.chownStr)
+	}
+	commentStr := fmt.Sprintf("%s %s%s in %s ", inst.cmdName, chownComment, srcHash, inst.dest)
+
+	// TODO: should this have been using origPaths instead of srcHash in the comment?
+	runConfigWithCommentCmd := copyRunConfig(
+		state.runConfig,
+		withCmdCommentString(commentStr, b.platform))
+	hit, err := b.probeCache(state, runConfigWithCommentCmd)
+	if err != nil || hit {
 		return err
 	}
 
-	for _, info := range infos {
-		if err := b.docker.CopyOnBuild(container.ID, dest, info.root, info.path, info.decompress); err != nil {
-			return err
+	imageMount, err := b.imageSources.Get(state.imageID, true)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get destination image %q", state.imageID)
+	}
+	destInfo, err := createDestInfo(state.runConfig.WorkingDir, inst, imageMount)
+	if err != nil {
+		return err
+	}
+
+	chownPair := b.archiver.IDMappings.RootPair()
+	// if a chown was requested, perform the steps to get the uid, gid
+	// translated (if necessary because of user namespaces), and replace
+	// the root pair with the chown pair for copy operations
+	if inst.chownStr != "" {
+		chownPair, err = parseChownFlag(inst.chownStr, destInfo.root, b.archiver.IDMappings)
+		if err != nil {
+			return errors.Wrapf(err, "unable to convert uid/gid chown string to host mapping")
 		}
 	}
 
-	return b.commitContainer(req.state, container.ID, runConfigWithCommentCmd)
+	opts := copyFileOptions{
+		decompress: inst.allowLocalDecompression,
+		archiver:   b.archiver,
+		chownPair:  chownPair,
+	}
+	for _, info := range inst.infos {
+		if err := performCopyForInfo(destInfo, info, opts); err != nil {
+			return errors.Wrapf(err, "failed to copy files")
+		}
+	}
+	return b.exportImage(state, imageMount, runConfigWithCommentCmd)
+}
+
+func parseChownFlag(chown, ctrRootPath string, idMappings *idtools.IDMappings) (idtools.IDPair, error) {
+	var userStr, grpStr string
+	parts := strings.Split(chown, ":")
+	if len(parts) > 2 {
+		return idtools.IDPair{}, errors.New("invalid chown string format: " + chown)
+	}
+	if len(parts) == 1 {
+		// if no group specified, use the user spec as group as well
+		userStr, grpStr = parts[0], parts[0]
+	} else {
+		userStr, grpStr = parts[0], parts[1]
+	}
+
+	passwdPath, err := symlink.FollowSymlinkInScope(filepath.Join(ctrRootPath, "etc", "passwd"), ctrRootPath)
+	if err != nil {
+		return idtools.IDPair{}, errors.Wrapf(err, "can't resolve /etc/passwd path in container rootfs")
+	}
+	groupPath, err := symlink.FollowSymlinkInScope(filepath.Join(ctrRootPath, "etc", "group"), ctrRootPath)
+	if err != nil {
+		return idtools.IDPair{}, errors.Wrapf(err, "can't resolve /etc/group path in container rootfs")
+	}
+	uid, err := lookupUser(userStr, passwdPath)
+	if err != nil {
+		return idtools.IDPair{}, errors.Wrapf(err, "can't find uid for user "+userStr)
+	}
+	gid, err := lookupGroup(grpStr, groupPath)
+	if err != nil {
+		return idtools.IDPair{}, errors.Wrapf(err, "can't find gid for group "+grpStr)
+	}
+
+	// convert as necessary because of user namespaces
+	chownPair, err := idMappings.ToHost(idtools.IDPair{UID: uid, GID: gid})
+	if err != nil {
+		return idtools.IDPair{}, errors.Wrapf(err, "unable to convert uid/gid to host mapping")
+	}
+	return chownPair, nil
+}
+
+func lookupUser(userStr, filepath string) (int, error) {
+	// if the string is actually a uid integer, parse to int and return
+	// as we don't need to translate with the help of files
+	uid, err := strconv.Atoi(userStr)
+	if err == nil {
+		return uid, nil
+	}
+	users, err := lcUser.ParsePasswdFileFilter(filepath, func(u lcUser.User) bool {
+		if u.Name == userStr {
+			return true
+		}
+		return false
+	})
+	if err != nil {
+		return 0, err
+	}
+	if len(users) == 0 {
+		return 0, errors.New("no such user: " + userStr)
+	}
+	return users[0].Uid, nil
+}
+
+func lookupGroup(groupStr, filepath string) (int, error) {
+	// if the string is actually a gid integer, parse to int and return
+	// as we don't need to translate with the help of files
+	gid, err := strconv.Atoi(groupStr)
+	if err == nil {
+		return gid, nil
+	}
+	groups, err := lcUser.ParseGroupFileFilter(filepath, func(g lcUser.Group) bool {
+		if g.Name == groupStr {
+			return true
+		}
+		return false
+	})
+	if err != nil {
+		return 0, err
+	}
+	if len(groups) == 0 {
+		return 0, errors.New("no such group: " + groupStr)
+	}
+	return groups[0].Gid, nil
+}
+
+func createDestInfo(workingDir string, inst copyInstruction, imageMount *imageMount) (copyInfo, error) {
+	// Twiddle the destination when it's a relative path - meaning, make it
+	// relative to the WORKINGDIR
+	dest, err := normalizeDest(workingDir, inst.dest)
+	if err != nil {
+		return copyInfo{}, errors.Wrapf(err, "invalid %s", inst.cmdName)
+	}
+
+	destMount, err := imageMount.Source()
+	if err != nil {
+		return copyInfo{}, errors.Wrapf(err, "failed to mount copy source")
+	}
+
+	return newCopyInfoFromSource(destMount, dest, ""), nil
+}
+
+// For backwards compat, if there's just one info then use it as the
+// cache look-up string, otherwise hash 'em all into one
+func getSourceHashFromInfos(infos []copyInfo) string {
+	if len(infos) == 1 {
+		return infos[0].hash
+	}
+	var hashs []string
+	for _, info := range infos {
+		hashs = append(hashs, info.hash)
+	}
+	return hashStringSlice("multi", hashs)
+}
+
+func hashStringSlice(prefix string, slice []string) string {
+	hasher := sha256.New()
+	hasher.Write([]byte(strings.Join(slice, ",")))
+	return prefix + ":" + hex.EncodeToString(hasher.Sum(nil))
 }
 
 type runConfigModifier func(*container.Config)
@@ -212,9 +295,9 @@ func withCmd(cmd []string) runConfigModifier {
 
 // withCmdComment sets Cmd to a nop comment string. See withCmdCommentString for
 // why there are two almost identical versions of this.
-func withCmdComment(comment string) runConfigModifier {
+func withCmdComment(comment string, platform string) runConfigModifier {
 	return func(runConfig *container.Config) {
-		runConfig.Cmd = append(getShell(runConfig), "#(nop) ", comment)
+		runConfig.Cmd = append(getShell(runConfig, platform), "#(nop) ", comment)
 	}
 }
 
@@ -222,9 +305,9 @@ func withCmdComment(comment string) runConfigModifier {
 // A few instructions (workdir, copy, add) used a nop comment that is a single arg
 // where as all the other instructions used a two arg comment string. This
 // function implements the single arg version.
-func withCmdCommentString(comment string) runConfigModifier {
+func withCmdCommentString(comment string, platform string) runConfigModifier {
 	return func(runConfig *container.Config) {
-		runConfig.Cmd = append(getShell(runConfig), "#(nop) "+comment)
+		runConfig.Cmd = append(getShell(runConfig, platform), "#(nop) "+comment)
 	}
 }
 
@@ -251,385 +334,72 @@ func withEntrypointOverride(cmd []string, entrypoint []string) runConfigModifier
 
 // getShell is a helper function which gets the right shell for prefixing the
 // shell-form of RUN, ENTRYPOINT and CMD instructions
-func getShell(c *container.Config) []string {
+func getShell(c *container.Config, platform string) []string {
 	if 0 == len(c.Shell) {
-		return append([]string{}, defaultShell[:]...)
+		return append([]string{}, defaultShellForPlatform(platform)[:]...)
 	}
 	return append([]string{}, c.Shell[:]...)
 }
 
-func (b *Builder) download(srcURL string) (remote builder.Source, p string, err error) {
-	// get filename from URL
-	u, err := url.Parse(srcURL)
-	if err != nil {
-		return
-	}
-	path := filepath.FromSlash(u.Path) // Ensure in platform semantics
-	if strings.HasSuffix(path, string(os.PathSeparator)) {
-		path = path[:len(path)-1]
-	}
-	parts := strings.Split(path, string(os.PathSeparator))
-	filename := parts[len(parts)-1]
-	if filename == "" {
-		err = fmt.Errorf("cannot determine filename from url: %s", u)
-		return
-	}
-
-	// Initiate the download
-	resp, err := httputils.Download(srcURL)
-	if err != nil {
-		return
-	}
-
-	// Prepare file in a tmp dir
-	tmpDir, err := ioutils.TempDir("", "docker-remote")
-	if err != nil {
-		return
-	}
-	defer func() {
-		if err != nil {
-			os.RemoveAll(tmpDir)
-		}
-	}()
-	tmpFileName := filepath.Join(tmpDir, filename)
-	tmpFile, err := os.OpenFile(tmpFileName, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
-	if err != nil {
-		return
-	}
-
-	progressOutput := streamformatter.NewJSONProgressOutput(b.Output, true)
-	progressReader := progress.NewProgressReader(resp.Body, progressOutput, resp.ContentLength, "", "Downloading")
-	// Download and dump result to tmp file
-	// TODO: add filehash directly
-	if _, err = io.Copy(tmpFile, progressReader); err != nil {
-		tmpFile.Close()
-		return
-	}
-	fmt.Fprintln(b.Stdout)
-
-	// Set the mtime to the Last-Modified header value if present
-	// Otherwise just remove atime and mtime
-	mTime := time.Time{}
-
-	lastMod := resp.Header.Get("Last-Modified")
-	if lastMod != "" {
-		// If we can't parse it then just let it default to 'zero'
-		// otherwise use the parsed time value
-		if parsedMTime, err := http.ParseTime(lastMod); err == nil {
-			mTime = parsedMTime
-		}
-	}
-
-	tmpFile.Close()
-
-	if err = system.Chtimes(tmpFileName, mTime, mTime); err != nil {
-		return
-	}
-
-	lc, err := remotecontext.NewLazyContext(tmpDir)
-	if err != nil {
-		return
-	}
-
-	return lc, filename, nil
-}
-
-var windowsBlacklist = map[string]bool{
-	"c:\\":        true,
-	"c:\\windows": true,
-}
-
-func (b *Builder) calcCopyInfo(cmdName, origPath string, allowLocalDecompression, allowWildcards bool, imageSource *imageMount) ([]copyInfo, error) {
-
-	// Work in daemon-specific OS filepath semantics
-	origPath = filepath.FromSlash(origPath)
-	// validate windows paths from other images
-	if imageSource != nil && runtime.GOOS == "windows" {
-		p := strings.ToLower(filepath.Clean(origPath))
-		if !filepath.IsAbs(p) {
-			if filepath.VolumeName(p) != "" {
-				if p[len(p)-2:] == ":." { // case where clean returns weird c:. paths
-					p = p[:len(p)-1]
-				}
-				p += "\\"
-			} else {
-				p = filepath.Join("c:\\", p)
-			}
-		}
-		if _, blacklisted := windowsBlacklist[p]; blacklisted {
-			return nil, errors.New("copy from c:\\ or c:\\windows is not allowed on windows")
-		}
-	}
-
-	if origPath != "" && origPath[0] == os.PathSeparator && len(origPath) > 1 {
-		origPath = origPath[1:]
-	}
-	origPath = strings.TrimPrefix(origPath, "."+string(os.PathSeparator))
-
-	source := b.source
-	var err error
-	if imageSource != nil {
-		source, err = imageSource.Source()
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to copy")
-		}
-	}
-
-	if source == nil {
-		return nil, errors.Errorf("No context given. Impossible to use %s", cmdName)
-	}
-
-	// Deal with wildcards
-	if allowWildcards && containsWildcards(origPath) {
-		var copyInfos []copyInfo
-		if err := filepath.Walk(source.Root(), func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			rel, err := remotecontext.Rel(source.Root(), path)
-			if err != nil {
-				return err
-			}
-			if rel == "." {
-				return nil
-			}
-			if match, _ := filepath.Match(origPath, rel); !match {
-				return nil
-			}
-
-			// Note we set allowWildcards to false in case the name has
-			// a * in it
-			subInfos, err := b.calcCopyInfo(cmdName, rel, allowLocalDecompression, false, imageSource)
-			if err != nil {
-				return err
-			}
-			copyInfos = append(copyInfos, subInfos...)
-			return nil
-		}); err != nil {
-			return nil, err
-		}
-		return copyInfos, nil
-	}
-
-	// Must be a dir or a file
-	hash, err := source.Hash(origPath)
-	if err != nil {
-		return nil, err
-	}
-
-	fi, err := remotecontext.StatAt(source, origPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: remove, handle dirs in Hash()
-	copyInfos := []copyInfo{{root: source.Root(), path: origPath, hash: hash, decompress: allowLocalDecompression}}
-
-	if imageSource != nil {
-		// fast-cache based on imageID
-		if h, ok := b.imageSources.getCache(imageSource.Image().ImageID(), origPath); ok {
-			copyInfos[0].hash = h.(string)
-			return copyInfos, nil
-		}
-	}
-
-	// Deal with the single file case
-	if !fi.IsDir() {
-		copyInfos[0].hash = "file:" + copyInfos[0].hash
-		return copyInfos, nil
-	}
-
-	fp, err := remotecontext.FullPath(source, origPath)
-	if err != nil {
-		return nil, err
-	}
-	// Must be a dir
-	var subfiles []string
-	err = filepath.Walk(fp, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := remotecontext.Rel(source.Root(), path)
-		if err != nil {
-			return err
-		}
-		if rel == "." {
-			return nil
-		}
-		hash, err := source.Hash(rel)
-		if err != nil {
-			return nil
-		}
-		// we already checked handleHash above
-		subfiles = append(subfiles, hash)
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	sort.Strings(subfiles)
-	hasher := sha256.New()
-	hasher.Write([]byte(strings.Join(subfiles, ",")))
-	copyInfos[0].hash = "dir:" + hex.EncodeToString(hasher.Sum(nil))
-	if imageSource != nil {
-		b.imageSources.setCache(imageSource.Image().ImageID(), origPath, copyInfos[0].hash)
-	}
-
-	return copyInfos, nil
-}
-
-// probeCache checks if cache match can be found for current build instruction.
-// If an image is found, probeCache returns `(true, nil)`.
-// If no image is found, it returns `(false, nil)`.
-// If there is any error, it returns `(false, err)`.
 func (b *Builder) probeCache(dispatchState *dispatchState, runConfig *container.Config) (bool, error) {
-	c := b.imageCache
-	if c == nil || b.options.NoCache || b.cacheBusted {
-		return false, nil
-	}
-	cache, err := c.GetCache(dispatchState.imageID, runConfig)
-	if err != nil {
+	cachedID, err := b.imageProber.Probe(dispatchState.imageID, runConfig)
+	if cachedID == "" || err != nil {
 		return false, err
 	}
-	if len(cache) == 0 {
-		logrus.Debugf("[BUILDER] Cache miss: %s", runConfig.Cmd)
-		b.cacheBusted = true
-		return false, nil
-	}
-
 	fmt.Fprint(b.Stdout, " ---> Using cache\n")
-	logrus.Debugf("[BUILDER] Use cached version: %s", runConfig.Cmd)
-	dispatchState.imageID = string(cache)
-	b.buildStages.update(dispatchState.imageID, runConfig)
 
+	dispatchState.imageID = string(cachedID)
+	b.buildStages.update(dispatchState.imageID)
 	return true, nil
 }
 
+var defaultLogConfig = container.LogConfig{Type: "none"}
+
+func (b *Builder) probeAndCreate(dispatchState *dispatchState, runConfig *container.Config) (string, error) {
+	if hit, err := b.probeCache(dispatchState, runConfig); err != nil || hit {
+		return "", err
+	}
+	// Set a log config to override any default value set on the daemon
+	hostConfig := &container.HostConfig{LogConfig: defaultLogConfig}
+	container, err := b.containerManager.Create(runConfig, hostConfig, b.platform)
+	return container.ID, err
+}
+
 func (b *Builder) create(runConfig *container.Config) (string, error) {
-	resources := container.Resources{
-		CgroupParent: b.options.CgroupParent,
-		CPUShares:    b.options.CPUShares,
-		CPUPeriod:    b.options.CPUPeriod,
-		CPUQuota:     b.options.CPUQuota,
-		CpusetCpus:   b.options.CPUSetCPUs,
-		CpusetMems:   b.options.CPUSetMems,
-		Memory:       b.options.Memory,
-		MemorySwap:   b.options.MemorySwap,
-		Ulimits:      b.options.Ulimits,
-	}
-
-	// TODO: why not embed a hostconfig in builder?
-	hostConfig := &container.HostConfig{
-		SecurityOpt: b.options.SecurityOpt,
-		Isolation:   b.options.Isolation,
-		ShmSize:     b.options.ShmSize,
-		Resources:   resources,
-		NetworkMode: container.NetworkMode(b.options.NetworkMode),
-		// Set a log config to override any default value set on the daemon
-		LogConfig:  defaultLogConfig,
-		ExtraHosts: b.options.ExtraHosts,
-	}
-
-	// Create the container
-	c, err := b.docker.ContainerCreate(types.ContainerCreateConfig{
-		Config:     runConfig,
-		HostConfig: hostConfig,
-	})
+	hostConfig := hostConfigFromOptions(b.options)
+	container, err := b.containerManager.Create(runConfig, hostConfig, b.platform)
 	if err != nil {
 		return "", err
 	}
-	for _, warning := range c.Warnings {
+	// TODO: could this be moved into containerManager.Create() ?
+	for _, warning := range container.Warnings {
 		fmt.Fprintf(b.Stdout, " ---> [Warning] %s\n", warning)
 	}
-
-	b.tmpContainers[c.ID] = struct{}{}
-	fmt.Fprintf(b.Stdout, " ---> Running in %s\n", stringid.TruncateID(c.ID))
-	return c.ID, nil
+	fmt.Fprintf(b.Stdout, " ---> Running in %s\n", stringid.TruncateID(container.ID))
+	return container.ID, nil
 }
 
-var errCancelled = errors.New("build cancelled")
-
-func (b *Builder) run(cID string, cmd []string) (err error) {
-	attached := make(chan struct{})
-	errCh := make(chan error)
-	go func() {
-		errCh <- b.docker.ContainerAttachRaw(cID, nil, b.Stdout, b.Stderr, true, attached)
-	}()
-
-	select {
-	case err := <-errCh:
-		return err
-	case <-attached:
+func hostConfigFromOptions(options *types.ImageBuildOptions) *container.HostConfig {
+	resources := container.Resources{
+		CgroupParent: options.CgroupParent,
+		CPUShares:    options.CPUShares,
+		CPUPeriod:    options.CPUPeriod,
+		CPUQuota:     options.CPUQuota,
+		CpusetCpus:   options.CPUSetCPUs,
+		CpusetMems:   options.CPUSetMems,
+		Memory:       options.Memory,
+		MemorySwap:   options.MemorySwap,
+		Ulimits:      options.Ulimits,
 	}
 
-	finished := make(chan struct{})
-	cancelErrCh := make(chan error, 1)
-	go func() {
-		select {
-		case <-b.clientCtx.Done():
-			logrus.Debugln("Build cancelled, killing and removing container:", cID)
-			b.docker.ContainerKill(cID, 0)
-			b.removeContainer(cID)
-			cancelErrCh <- errCancelled
-		case <-finished:
-			cancelErrCh <- nil
-		}
-	}()
-
-	if err := b.docker.ContainerStart(cID, nil, "", ""); err != nil {
-		close(finished)
-		if cancelErr := <-cancelErrCh; cancelErr != nil {
-			logrus.Debugf("Build cancelled (%v) and got an error from ContainerStart: %v",
-				cancelErr, err)
-		}
-		return err
-	}
-
-	// Block on reading output from container, stop on err or chan closed
-	if err := <-errCh; err != nil {
-		close(finished)
-		if cancelErr := <-cancelErrCh; cancelErr != nil {
-			logrus.Debugf("Build cancelled (%v) and got an error from errCh: %v",
-				cancelErr, err)
-		}
-		return err
-	}
-
-	if ret, _ := b.docker.ContainerWait(cID, -1); ret != 0 {
-		close(finished)
-		if cancelErr := <-cancelErrCh; cancelErr != nil {
-			logrus.Debugf("Build cancelled (%v) and got a non-zero code from ContainerWait: %d",
-				cancelErr, ret)
-		}
-		// TODO: change error type, because jsonmessage.JSONError assumes HTTP
-		return &jsonmessage.JSONError{
-			Message: fmt.Sprintf("The command '%s' returned a non-zero code: %d", strings.Join(cmd, " "), ret),
-			Code:    ret,
-		}
-	}
-	close(finished)
-	return <-cancelErrCh
-}
-
-func (b *Builder) removeContainer(c string) error {
-	rmConfig := &types.ContainerRmConfig{
-		ForceRemove:  true,
-		RemoveVolume: true,
-	}
-	if err := b.docker.ContainerRm(c, rmConfig); err != nil {
-		fmt.Fprintf(b.Stdout, "Error removing intermediate container %s: %v\n", stringid.TruncateID(c), err)
-		return err
-	}
-	return nil
-}
-
-func (b *Builder) clearTmp() {
-	for c := range b.tmpContainers {
-		if err := b.removeContainer(c); err != nil {
-			return
-		}
-		delete(b.tmpContainers, c)
-		fmt.Fprintf(b.Stdout, "Removing intermediate container %s\n", stringid.TruncateID(c))
+	return &container.HostConfig{
+		SecurityOpt: options.SecurityOpt,
+		Isolation:   options.Isolation,
+		ShmSize:     options.ShmSize,
+		Resources:   resources,
+		NetworkMode: container.NetworkMode(options.NetworkMode),
+		// Set a log config to override any default value set on the daemon
+		LogConfig:  defaultLogConfig,
+		ExtraHosts: options.ExtraHosts,
 	}
 }

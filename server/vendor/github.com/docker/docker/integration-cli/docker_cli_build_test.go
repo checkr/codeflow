@@ -25,10 +25,9 @@ import (
 	"github.com/docker/docker/integration-cli/cli/build/fakestorage"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/stringutils"
-	"github.com/docker/docker/pkg/testutil"
-	icmd "github.com/docker/docker/pkg/testutil/cmd"
 	"github.com/go-check/check"
-	"github.com/opencontainers/go-digest"
+	"github.com/gotestyourself/gotestyourself/icmd"
+	digest "github.com/opencontainers/go-digest"
 )
 
 func (s *DockerSuite) TestBuildJSONEmptyRun(c *check.C) {
@@ -1526,7 +1525,7 @@ func (s *DockerSuite) TestBuildContextCleanup(c *check.C) {
 	if err != nil {
 		c.Fatalf("failed to list contents of tmp dir: %s", err)
 	}
-	if err = testutil.CompareDirectoryEntries(entries, entriesFinal); err != nil {
+	if err = compareDirectoryEntries(entries, entriesFinal); err != nil {
 		c.Fatalf("context should have been deleted, but wasn't")
 	}
 
@@ -1550,10 +1549,29 @@ func (s *DockerSuite) TestBuildContextCleanupFailedBuild(c *check.C) {
 	if err != nil {
 		c.Fatalf("failed to list contents of tmp dir: %s", err)
 	}
-	if err = testutil.CompareDirectoryEntries(entries, entriesFinal); err != nil {
+	if err = compareDirectoryEntries(entries, entriesFinal); err != nil {
 		c.Fatalf("context should have been deleted, but wasn't")
 	}
 
+}
+
+// compareDirectoryEntries compares two sets of FileInfo (usually taken from a directory)
+// and returns an error if different.
+func compareDirectoryEntries(e1 []os.FileInfo, e2 []os.FileInfo) error {
+	var (
+		e1Entries = make(map[string]struct{})
+		e2Entries = make(map[string]struct{})
+	)
+	for _, e := range e1 {
+		e1Entries[e.Name()] = struct{}{}
+	}
+	for _, e := range e2 {
+		e2Entries[e.Name()] = struct{}{}
+	}
+	if !reflect.DeepEqual(e1Entries, e2Entries) {
+		return fmt.Errorf("entries differ")
+	}
+	return nil
 }
 
 func (s *DockerSuite) TestBuildCmd(c *check.C) {
@@ -1712,7 +1730,7 @@ func (s *DockerSuite) TestBuildEntrypoint(c *check.C) {
 }
 
 // #6445 ensure ONBUILD triggers aren't committed to grandchildren
-func (s *DockerSuite) TestBuildOnBuildLimitedInheritence(c *check.C) {
+func (s *DockerSuite) TestBuildOnBuildLimitedInheritance(c *check.C) {
 	buildImageSuccessfully(c, "testonbuildtrigger1", build.WithDockerfile(`
 		FROM busybox
 		RUN echo "GRANDPARENT"
@@ -3063,7 +3081,7 @@ func (s *DockerSuite) TestBuildFromGitWithContext(c *check.C) {
 	}
 }
 
-func (s *DockerSuite) TestBuildFromGitwithF(c *check.C) {
+func (s *DockerSuite) TestBuildFromGitWithF(c *check.C) {
 	name := "testbuildfromgitwithf"
 	git := fakegit.New(c, "repo", map[string]string{
 		"myApp/myDockerfile": `FROM busybox
@@ -3225,7 +3243,7 @@ func (s *DockerSuite) TestBuildCmdJSONNoShDashC(c *check.C) {
 	}
 }
 
-func (s *DockerSuite) TestBuildEntrypointCanBeOverridenByChild(c *check.C) {
+func (s *DockerSuite) TestBuildEntrypointCanBeOverriddenByChild(c *check.C) {
 	buildImageSuccessfully(c, "parent", build.WithDockerfile(`
     FROM busybox
     ENTRYPOINT exit 130
@@ -3245,7 +3263,7 @@ func (s *DockerSuite) TestBuildEntrypointCanBeOverridenByChild(c *check.C) {
 	})
 }
 
-func (s *DockerSuite) TestBuildEntrypointCanBeOverridenByChildInspect(c *check.C) {
+func (s *DockerSuite) TestBuildEntrypointCanBeOverriddenByChildInspect(c *check.C) {
 	var (
 		name     = "testbuildepinherit"
 		name2    = "testbuildepinherit2"
@@ -3848,7 +3866,7 @@ func (s *DockerSuite) TestBuildDockerfileOutsideContext(c *check.C) {
 		filepath.Join(ctx, "dockerfile2"),
 	} {
 		result := dockerCmdWithResult("build", "-t", name, "--no-cache", "-f", dockerfilePath, ".")
-		c.Assert(result, icmd.Matches, icmd.Expected{
+		result.Assert(c, icmd.Expected{
 			Err:      "must be within the build context",
 			ExitCode: 1,
 		})
@@ -4052,7 +4070,7 @@ func (s *DockerSuite) TestBuildContainerWithCgroupParent(c *check.C) {
 	if err != nil {
 		c.Fatalf("failed to read '/proc/self/cgroup - %v", err)
 	}
-	selfCgroupPaths := testutil.ParseCgroupPaths(string(data))
+	selfCgroupPaths := ParseCgroupPaths(string(data))
 	_, found := selfCgroupPaths["memory"]
 	if !found {
 		c.Fatalf("unable to find self memory cgroup path. CgroupsPath: %v", selfCgroupPaths)
@@ -4472,26 +4490,26 @@ func (s *DockerSuite) TestBuildBuildTimeArgOverrideArgDefinedBeforeEnv(c *check.
 	imgName := "bldargtest"
 	envKey := "foo"
 	envVal := "bar"
-	envValOveride := "barOverride"
+	envValOverride := "barOverride"
 	dockerfile := fmt.Sprintf(`FROM busybox
 		ARG %s
 		ENV %s %s
 		RUN echo $%s
 		CMD echo $%s
-        `, envKey, envKey, envValOveride, envKey, envKey)
+        `, envKey, envKey, envValOverride, envKey, envKey)
 
 	result := buildImage(imgName,
 		cli.WithFlags("--build-arg", fmt.Sprintf("%s=%s", envKey, envVal)),
 		build.WithDockerfile(dockerfile),
 	)
 	result.Assert(c, icmd.Success)
-	if strings.Count(result.Combined(), envValOveride) != 2 {
-		c.Fatalf("failed to access environment variable in output: %q expected: %q", result.Combined(), envValOveride)
+	if strings.Count(result.Combined(), envValOverride) != 2 {
+		c.Fatalf("failed to access environment variable in output: %q expected: %q", result.Combined(), envValOverride)
 	}
 
 	containerName := "bldargCont"
-	if out, _ := dockerCmd(c, "run", "--name", containerName, imgName); !strings.Contains(out, envValOveride) {
-		c.Fatalf("run produced invalid output: %q, expected %q", out, envValOveride)
+	if out, _ := dockerCmd(c, "run", "--name", containerName, imgName); !strings.Contains(out, envValOverride) {
+		c.Fatalf("run produced invalid output: %q, expected %q", out, envValOverride)
 	}
 }
 
@@ -4501,25 +4519,25 @@ func (s *DockerSuite) TestBuildBuildTimeArgOverrideEnvDefinedBeforeArg(c *check.
 	imgName := "bldargtest"
 	envKey := "foo"
 	envVal := "bar"
-	envValOveride := "barOverride"
+	envValOverride := "barOverride"
 	dockerfile := fmt.Sprintf(`FROM busybox
 		ENV %s %s
 		ARG %s
 		RUN echo $%s
 		CMD echo $%s
-        `, envKey, envValOveride, envKey, envKey, envKey)
+        `, envKey, envValOverride, envKey, envKey, envKey)
 	result := buildImage(imgName,
 		cli.WithFlags("--build-arg", fmt.Sprintf("%s=%s", envKey, envVal)),
 		build.WithDockerfile(dockerfile),
 	)
 	result.Assert(c, icmd.Success)
-	if strings.Count(result.Combined(), envValOveride) != 2 {
-		c.Fatalf("failed to access environment variable in output: %q expected: %q", result.Combined(), envValOveride)
+	if strings.Count(result.Combined(), envValOverride) != 2 {
+		c.Fatalf("failed to access environment variable in output: %q expected: %q", result.Combined(), envValOverride)
 	}
 
 	containerName := "bldargCont"
-	if out, _ := dockerCmd(c, "run", "--name", containerName, imgName); !strings.Contains(out, envValOveride) {
-		c.Fatalf("run produced invalid output: %q, expected %q", out, envValOveride)
+	if out, _ := dockerCmd(c, "run", "--name", containerName, imgName); !strings.Contains(out, envValOverride) {
+		c.Fatalf("run produced invalid output: %q, expected %q", out, envValOverride)
 	}
 }
 
@@ -4616,25 +4634,25 @@ func (s *DockerSuite) TestBuildBuildTimeArgExpansionOverride(c *check.C) {
 	envKey := "foo"
 	envVal := "bar"
 	envKey1 := "foo1"
-	envValOveride := "barOverride"
+	envValOverride := "barOverride"
 	dockerfile := fmt.Sprintf(`FROM busybox
 		ARG %s
 		ENV %s %s
 		ENV %s ${%s}
 		RUN echo $%s
-		CMD echo $%s`, envKey, envKey, envValOveride, envKey1, envKey, envKey1, envKey1)
+		CMD echo $%s`, envKey, envKey, envValOverride, envKey1, envKey, envKey1, envKey1)
 	result := buildImage(imgName,
 		cli.WithFlags("--build-arg", fmt.Sprintf("%s=%s", envKey, envVal)),
 		build.WithDockerfile(dockerfile),
 	)
 	result.Assert(c, icmd.Success)
-	if strings.Count(result.Combined(), envValOveride) != 2 {
-		c.Fatalf("failed to access environment variable in output: %q expected: %q", result.Combined(), envValOveride)
+	if strings.Count(result.Combined(), envValOverride) != 2 {
+		c.Fatalf("failed to access environment variable in output: %q expected: %q", result.Combined(), envValOverride)
 	}
 
 	containerName := "bldargCont"
-	if out, _ := dockerCmd(c, "run", "--name", containerName, imgName); !strings.Contains(out, envValOveride) {
-		c.Fatalf("run produced invalid output: %q, expected %q", out, envValOveride)
+	if out, _ := dockerCmd(c, "run", "--name", containerName, imgName); !strings.Contains(out, envValOverride) {
+		c.Fatalf("run produced invalid output: %q, expected %q", out, envValOverride)
 	}
 }
 
@@ -4690,24 +4708,24 @@ func (s *DockerSuite) TestBuildBuildTimeArgDefaultOverride(c *check.C) {
 	imgName := "bldargtest"
 	envKey := "foo"
 	envVal := "bar"
-	envValOveride := "barOverride"
+	envValOverride := "barOverride"
 	dockerfile := fmt.Sprintf(`FROM busybox
 		ARG %s=%s
 		ENV %s $%s
 		RUN echo $%s
 		CMD echo $%s`, envKey, envVal, envKey, envKey, envKey, envKey)
 	result := buildImage(imgName,
-		cli.WithFlags("--build-arg", fmt.Sprintf("%s=%s", envKey, envValOveride)),
+		cli.WithFlags("--build-arg", fmt.Sprintf("%s=%s", envKey, envValOverride)),
 		build.WithDockerfile(dockerfile),
 	)
 	result.Assert(c, icmd.Success)
-	if strings.Count(result.Combined(), envValOveride) != 1 {
-		c.Fatalf("failed to access environment variable in output: %q expected: %q", result.Combined(), envValOveride)
+	if strings.Count(result.Combined(), envValOverride) != 1 {
+		c.Fatalf("failed to access environment variable in output: %q expected: %q", result.Combined(), envValOverride)
 	}
 
 	containerName := "bldargCont"
-	if out, _ := dockerCmd(c, "run", "--name", containerName, imgName); !strings.Contains(out, envValOveride) {
-		c.Fatalf("run produced invalid output: %q, expected %q", out, envValOveride)
+	if out, _ := dockerCmd(c, "run", "--name", containerName, imgName); !strings.Contains(out, envValOverride) {
+		c.Fatalf("run produced invalid output: %q, expected %q", out, envValOverride)
 	}
 }
 
@@ -4824,7 +4842,7 @@ func (s *DockerSuite) TestBuildBuildTimeArgEmptyValVariants(c *check.C) {
 	buildImageSuccessfully(c, imgName, build.WithDockerfile(dockerfile))
 }
 
-func (s *DockerSuite) TestBuildBuildTimeArgDefintionWithNoEnvInjection(c *check.C) {
+func (s *DockerSuite) TestBuildBuildTimeArgDefinitionWithNoEnvInjection(c *check.C) {
 	imgName := "bldargtest"
 	envKey := "foo"
 	dockerfile := fmt.Sprintf(`FROM busybox
@@ -5785,7 +5803,7 @@ func (s *DockerSuite) TestBuildWithExtraHostInvalidFormat(c *check.C) {
 		buildFlag  string
 	}{
 		{"extra_host_missing_ip", dockerfile, "--add-host=foo"},
-		{"extra_host_missing_ip_with_delimeter", dockerfile, "--add-host=foo:"},
+		{"extra_host_missing_ip_with_delimiter", dockerfile, "--add-host=foo:"},
 		{"extra_host_missing_hostname", dockerfile, "--add-host=:127.0.0.1"},
 		{"extra_host_invalid_ipv4", dockerfile, "--add-host=foo:101.10.2"},
 		{"extra_host_invalid_ipv6", dockerfile, "--add-host=foo:2001::1::3F"},
@@ -5870,15 +5888,17 @@ func (s *DockerSuite) TestBuildCopyFromPreviousRootFS(c *check.C) {
 	dockerfile := `
 		FROM busybox AS first
 		COPY foo bar
+
 		FROM busybox
-    %s
-    COPY baz baz
-    RUN echo mno > baz/cc
+		%s
+		COPY baz baz
+		RUN echo mno > baz/cc
+
 		FROM busybox
-    COPY bar /
-    COPY --from=1 baz sub/
-    COPY --from=0 bar baz
-    COPY --from=first bar bay`
+		COPY bar /
+		COPY --from=1 baz sub/
+		COPY --from=0 bar baz
+		COPY --from=first bar bay`
 
 	ctx := fakecontext.New(c, "",
 		fakecontext.WithDockerfile(fmt.Sprintf(dockerfile, "")),
@@ -5892,31 +5912,24 @@ func (s *DockerSuite) TestBuildCopyFromPreviousRootFS(c *check.C) {
 
 	cli.BuildCmd(c, "build1", build.WithExternalBuildContext(ctx))
 
-	out := cli.DockerCmd(c, "run", "build1", "cat", "bar").Combined()
-	c.Assert(strings.TrimSpace(out), check.Equals, "def")
-	out = cli.DockerCmd(c, "run", "build1", "cat", "sub/aa").Combined()
-	c.Assert(strings.TrimSpace(out), check.Equals, "ghi")
-	out = cli.DockerCmd(c, "run", "build1", "cat", "sub/cc").Combined()
-	c.Assert(strings.TrimSpace(out), check.Equals, "mno")
-	out = cli.DockerCmd(c, "run", "build1", "cat", "baz").Combined()
-	c.Assert(strings.TrimSpace(out), check.Equals, "abc")
-	out = cli.DockerCmd(c, "run", "build1", "cat", "bay").Combined()
-	c.Assert(strings.TrimSpace(out), check.Equals, "abc")
+	cli.DockerCmd(c, "run", "build1", "cat", "bar").Assert(c, icmd.Expected{Out: "def"})
+	cli.DockerCmd(c, "run", "build1", "cat", "sub/aa").Assert(c, icmd.Expected{Out: "ghi"})
+	cli.DockerCmd(c, "run", "build1", "cat", "sub/cc").Assert(c, icmd.Expected{Out: "mno"})
+	cli.DockerCmd(c, "run", "build1", "cat", "baz").Assert(c, icmd.Expected{Out: "abc"})
+	cli.DockerCmd(c, "run", "build1", "cat", "bay").Assert(c, icmd.Expected{Out: "abc"})
 
 	result := cli.BuildCmd(c, "build2", build.WithExternalBuildContext(ctx))
 
 	// all commands should be cached
 	c.Assert(strings.Count(result.Combined(), "Using cache"), checker.Equals, 7)
+	c.Assert(getIDByName(c, "build1"), checker.Equals, getIDByName(c, "build2"))
 
 	err := ioutil.WriteFile(filepath.Join(ctx.Dir, "Dockerfile"), []byte(fmt.Sprintf(dockerfile, "COPY baz/aa foo")), 0644)
 	c.Assert(err, checker.IsNil)
 
 	// changing file in parent block should not affect last block
 	result = cli.BuildCmd(c, "build3", build.WithExternalBuildContext(ctx))
-
 	c.Assert(strings.Count(result.Combined(), "Using cache"), checker.Equals, 5)
-
-	c.Assert(getIDByName(c, "build1"), checker.Equals, getIDByName(c, "build2"))
 
 	err = ioutil.WriteFile(filepath.Join(ctx.Dir, "foo"), []byte("pqr"), 0644)
 	c.Assert(err, checker.IsNil)
@@ -5925,10 +5938,8 @@ func (s *DockerSuite) TestBuildCopyFromPreviousRootFS(c *check.C) {
 	result = cli.BuildCmd(c, "build4", build.WithExternalBuildContext(ctx))
 	c.Assert(strings.Count(result.Combined(), "Using cache"), checker.Equals, 5)
 
-	out = cli.DockerCmd(c, "run", "build4", "cat", "bay").Combined()
-	c.Assert(strings.TrimSpace(out), check.Equals, "pqr")
-	out = cli.DockerCmd(c, "run", "build4", "cat", "baz").Combined()
-	c.Assert(strings.TrimSpace(out), check.Equals, "pqr")
+	cli.DockerCmd(c, "run", "build4", "cat", "bay").Assert(c, icmd.Expected{Out: "pqr"})
+	cli.DockerCmd(c, "run", "build4", "cat", "baz").Assert(c, icmd.Expected{Out: "pqr"})
 }
 
 func (s *DockerSuite) TestBuildCopyFromPreviousRootFSErrors(c *check.C) {
@@ -6202,6 +6213,27 @@ func (s *DockerSuite) TestBuildCopyFromWindowsIsCaseInsensitive(c *check.C) {
 	})
 }
 
+// #33176
+func (s *DockerSuite) TestBuildCopyFromResetScratch(c *check.C) {
+	testRequires(c, DaemonIsLinux)
+
+	dockerfile := `
+		FROM busybox
+		WORKDIR /foo/bar
+		FROM scratch
+		ENV FOO=bar
+		`
+	ctx := fakecontext.New(c, "",
+		fakecontext.WithDockerfile(dockerfile),
+	)
+	defer ctx.Close()
+
+	cli.BuildCmd(c, "build1", build.WithExternalBuildContext(ctx))
+
+	res := cli.InspectCmd(c, "build1", cli.Format(".Config.WorkingDir")).Combined()
+	c.Assert(strings.TrimSpace(res), checker.Equals, "")
+}
+
 func (s *DockerSuite) TestBuildIntermediateTarget(c *check.C) {
 	dockerfile := `
 		FROM busybox AS build-env
@@ -6444,4 +6476,33 @@ func (s *DockerSuite) TestBuildIidFileCleanupOnFail(c *check.C) {
 	_, err = os.Stat(tmpIidFile)
 	c.Assert(err, check.NotNil)
 	c.Assert(os.IsNotExist(err), check.Equals, true)
+}
+
+func (s *DockerSuite) TestBuildIidFileSquash(c *check.C) {
+	testRequires(c, ExperimentalDaemon)
+	tmpDir, err := ioutil.TempDir("", "TestBuildIidFileSquash")
+	if err != nil {
+		c.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+	tmpIidFile := filepath.Join(tmpDir, "iidsquash")
+
+	name := "testbuildiidfilesquash"
+	// Use a Dockerfile with multiple stages to ensure we get the last one
+	cli.BuildCmd(c, name,
+		// This could be minimalBaseImage except
+		// https://github.com/moby/moby/issues/33823 requires
+		// `touch` to workaround.
+		build.WithDockerfile(`FROM busybox
+ENV FOO FOO
+ENV BAR BAR
+RUN touch /foop
+`),
+		cli.WithFlags("--iidfile", tmpIidFile, "--squash"))
+
+	id, err := ioutil.ReadFile(tmpIidFile)
+	c.Assert(err, check.IsNil)
+	d, err := digest.Parse(string(id))
+	c.Assert(err, check.IsNil)
+	c.Assert(d.String(), checker.Equals, getIDByName(c, name))
 }

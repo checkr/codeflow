@@ -30,6 +30,12 @@ func SwarmFromGRPC(c swarmapi.Cluster) types.Swarm {
 				EncryptionConfig: types.EncryptionConfig{
 					AutoLockManagers: c.Spec.EncryptionConfig.AutoLockManagers,
 				},
+				CAConfig: types.CAConfig{
+					// do not include the signing CA cert or key (it should already be redacted via the swarm APIs) -
+					// the key because it's secret, and the cert because otherwise doing a get + update on the spec
+					// can cause issues because the key would be missing and the cert wouldn't
+					ForceRotate: c.Spec.CAConfig.ForceRotate,
+				},
 			},
 			TLSInfo: types.TLSInfo{
 				TrustRoot: string(c.RootCA.CACert),
@@ -114,6 +120,14 @@ func MergeSwarmSpecToGRPC(s types.Spec, spec swarmapi.ClusterSpec) (swarmapi.Clu
 	if s.CAConfig.NodeCertExpiry != 0 {
 		spec.CAConfig.NodeCertExpiry = gogotypes.DurationProto(s.CAConfig.NodeCertExpiry)
 	}
+	if s.CAConfig.SigningCACert != "" {
+		spec.CAConfig.SigningCACert = []byte(s.CAConfig.SigningCACert)
+	}
+	if s.CAConfig.SigningCAKey != "" {
+		// do propagate the signing CA key here because we want to provide it TO the swarm APIs
+		spec.CAConfig.SigningCAKey = []byte(s.CAConfig.SigningCAKey)
+	}
+	spec.CAConfig.ForceRotate = s.CAConfig.ForceRotate
 
 	for _, ca := range s.CAConfig.ExternalCAs {
 		protocol, ok := swarmapi.ExternalCA_CAProtocol_value[strings.ToUpper(string(ca.Protocol))]
