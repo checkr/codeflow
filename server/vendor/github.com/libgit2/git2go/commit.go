@@ -26,6 +26,29 @@ func (c Commit) RawMessage() string {
 	return C.GoString(C.git_commit_message_raw(c.cast_ptr))
 }
 
+func (c Commit) ExtractSignature() (string, string, error) {
+
+	var c_signed C.git_buf
+	defer C.git_buf_free(&c_signed)
+
+	var c_signature C.git_buf
+	defer C.git_buf_free(&c_signature)
+
+	oid := c.Id()
+	repo := C.git_commit_owner(c.cast_ptr)
+
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	ret := C.git_commit_extract_signature(&c_signature, &c_signed, repo, oid.toC(), nil)
+
+	if ret < 0 {
+		return "", "", MakeGitError(ret)
+	} else {
+		return C.GoString(c_signature.ptr), C.GoString(c_signed.ptr), nil
+	}
+
+}
+
 func (c Commit) Summary() string {
 	return C.GoString(C.git_commit_summary(c.cast_ptr))
 }
@@ -65,15 +88,21 @@ func (c *Commit) Parent(n uint) *Commit {
 		return nil
 	}
 
-	return allocCommit(cobj, c.repo)
+	parent := allocCommit(cobj, c.repo)
+	runtime.KeepAlive(c)
+	return parent
 }
 
 func (c *Commit) ParentId(n uint) *Oid {
-	return newOidFromC(C.git_commit_parent_id(c.cast_ptr, C.uint(n)))
+	ret := newOidFromC(C.git_commit_parent_id(c.cast_ptr, C.uint(n)))
+	runtime.KeepAlive(c)
+	return ret
 }
 
 func (c *Commit) ParentCount() uint {
-	return uint(C.git_commit_parentcount(c.cast_ptr))
+	ret := uint(C.git_commit_parentcount(c.cast_ptr))
+	runtime.KeepAlive(c)
+	return ret
 }
 
 func (c *Commit) Amend(refname string, author, committer *Signature, message string, tree *Tree) (*Oid, error) {
@@ -106,6 +135,9 @@ func (c *Commit) Amend(refname string, author, committer *Signature, message str
 	oid := new(Oid)
 
 	cerr := C.git_commit_amend(oid.toC(), c.cast_ptr, cref, authorSig, committerSig, nil, cmsg, tree.cast_ptr)
+	runtime.KeepAlive(oid)
+	runtime.KeepAlive(c)
+	runtime.KeepAlive(tree)
 	if cerr < 0 {
 		return nil, MakeGitError(cerr)
 	}

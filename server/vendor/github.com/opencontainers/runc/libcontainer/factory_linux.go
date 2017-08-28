@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"runtime/debug"
 	"strconv"
-	"syscall"
 
 	"github.com/docker/docker/pkg/mount"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
@@ -20,6 +19,8 @@ import (
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/configs/validate"
 	"github.com/opencontainers/runc/libcontainer/utils"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -92,7 +93,7 @@ func TmpfsRoot(l *LinuxFactory) error {
 		return err
 	}
 	if !mounted {
-		if err := syscall.Mount("tmpfs", l.Root, "tmpfs", 0, ""); err != nil {
+		if err := unix.Mount("tmpfs", l.Root, "tmpfs", 0, ""); err != nil {
 			return err
 		}
 	}
@@ -161,14 +162,6 @@ func (l *LinuxFactory) Create(id string, config *configs.Config) (Container, err
 	if err := l.Validator.Validate(config); err != nil {
 		return nil, newGenericError(err, ConfigInvalid)
 	}
-	uid, err := config.HostRootUID()
-	if err != nil {
-		return nil, newGenericError(err, SystemError)
-	}
-	gid, err := config.HostRootGID()
-	if err != nil {
-		return nil, newGenericError(err, SystemError)
-	}
 	containerRoot := filepath.Join(l.Root, id)
 	if _, err := os.Stat(containerRoot); err == nil {
 		return nil, newGenericError(fmt.Errorf("container with id exists: %v", id), IdInUse)
@@ -178,7 +171,7 @@ func (l *LinuxFactory) Create(id string, config *configs.Config) (Container, err
 	if err := os.MkdirAll(containerRoot, 0711); err != nil {
 		return nil, newGenericError(err, SystemError)
 	}
-	if err := os.Chown(containerRoot, uid, gid); err != nil {
+	if err := os.Chown(containerRoot, unix.Geteuid(), unix.Getegid()); err != nil {
 		return nil, newGenericError(err, SystemError)
 	}
 	if config.Rootless {
@@ -240,10 +233,10 @@ func (l *LinuxFactory) Type() string {
 // This is a low level implementation detail of the reexec and should not be consumed externally
 func (l *LinuxFactory) StartInitialization() (err error) {
 	var (
-		pipefd, rootfd int
+		pipefd, fifofd int
 		consoleSocket  *os.File
 		envInitPipe    = os.Getenv("_LIBCONTAINER_INITPIPE")
-		envStateDir    = os.Getenv("_LIBCONTAINER_STATEDIR")
+		envFifoFd      = os.Getenv("_LIBCONTAINER_FIFOFD")
 		envConsole     = os.Getenv("_LIBCONTAINER_CONSOLE")
 	)
 
@@ -259,11 +252,11 @@ func (l *LinuxFactory) StartInitialization() (err error) {
 	)
 	defer pipe.Close()
 
-	// Only init processes have STATEDIR.
-	rootfd = -1
+	// Only init processes have FIFOFD.
+	fifofd = -1
 	if it == initStandard {
-		if rootfd, err = strconv.Atoi(envStateDir); err != nil {
-			return fmt.Errorf("unable to convert _LIBCONTAINER_STATEDIR=%s to int: %s", envStateDir, err)
+		if fifofd, err = strconv.Atoi(envFifoFd); err != nil {
+			return fmt.Errorf("unable to convert _LIBCONTAINER_FIFOFD=%s to int: %s", envFifoFd, err)
 		}
 	}
 
@@ -298,7 +291,7 @@ func (l *LinuxFactory) StartInitialization() (err error) {
 		}
 	}()
 
-	i, err := newContainerInit(it, pipe, consoleSocket, rootfd)
+	i, err := newContainerInit(it, pipe, consoleSocket, fifofd)
 	if err != nil {
 		return err
 	}

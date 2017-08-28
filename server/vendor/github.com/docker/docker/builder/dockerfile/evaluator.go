@@ -22,6 +22,7 @@ package dockerfile
 import (
 	"bytes"
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
@@ -68,6 +69,7 @@ type dispatchRequest struct {
 	original   string
 	shlex      *ShellLex
 	state      *dispatchState
+	source     builder.Source
 }
 
 func newDispatchRequestFromOptions(options dispatchOptions, builder *Builder, args []string) dispatchRequest {
@@ -79,6 +81,7 @@ func newDispatchRequestFromOptions(options dispatchOptions, builder *Builder, ar
 		flags:      NewBFlagsWithArgs(options.node.Flags),
 		shlex:      options.shlex,
 		state:      options.state,
+		source:     options.source,
 	}
 }
 
@@ -136,7 +139,7 @@ func (b *Builder) dispatch(options dispatchOptions) (*dispatchState, error) {
 	// on which the daemon is running does not support a builder command.
 	if err := platformSupports(strings.ToLower(cmd)); err != nil {
 		buildsFailed.WithValues(metricsCommandNotSupportedError).Inc()
-		return nil, err
+		return nil, validationError{err}
 	}
 
 	msg := bytes.NewBufferString(fmt.Sprintf("Step %s : %s%s",
@@ -148,7 +151,7 @@ func (b *Builder) dispatch(options dispatchOptions) (*dispatchState, error) {
 		var err error
 		ast, args, err = handleOnBuildNode(node, msg)
 		if err != nil {
-			return nil, err
+			return nil, validationError{err}
 		}
 	}
 
@@ -158,7 +161,7 @@ func (b *Builder) dispatch(options dispatchOptions) (*dispatchState, error) {
 	words, err := getDispatchArgsFromNode(ast, processFunc, msg)
 	if err != nil {
 		buildsFailed.WithValues(metricsErrorProcessingCommandsError).Inc()
-		return nil, err
+		return nil, validationError{err}
 	}
 	args = append(args, words...)
 
@@ -167,13 +170,11 @@ func (b *Builder) dispatch(options dispatchOptions) (*dispatchState, error) {
 	f, ok := evaluateTable[cmd]
 	if !ok {
 		buildsFailed.WithValues(metricsUnknownInstructionError).Inc()
-		return nil, fmt.Errorf("unknown instruction: %s", upperCasedCmd)
-	}
-	if err := f(newDispatchRequestFromOptions(options, b, args)); err != nil {
-		return nil, err
+		return nil, validationError{errors.Errorf("unknown instruction: %s", upperCasedCmd)}
 	}
 	options.state.updateRunConfig()
-	return options.state, nil
+	err = f(newDispatchRequestFromOptions(options, b, args))
+	return options.state, err
 }
 
 type dispatchOptions struct {
@@ -181,6 +182,7 @@ type dispatchOptions struct {
 	stepMsg string
 	node    *parser.Node
 	shlex   *ShellLex
+	source  builder.Source
 }
 
 // dispatchState is a data object which is modified by dispatchers
@@ -219,26 +221,33 @@ func (s *dispatchState) beginStage(stageName string, image builder.Image) {
 
 	if image.RunConfig() != nil {
 		s.runConfig = image.RunConfig()
+	} else {
+		s.runConfig = &container.Config{}
 	}
 	s.baseImage = image
 	s.setDefaultPath()
 }
 
 // Add the default PATH to runConfig.ENV if one exists for the platform and there
-// is no PATH set. Note that windows won't have one as it's set by HCS
+// is no PATH set. Note that Windows containers on Windows won't have one as it's set by HCS
 func (s *dispatchState) setDefaultPath() {
-	if system.DefaultPathEnv == "" {
+	// TODO @jhowardmsft LCOW Support - This will need revisiting later
+	platform := runtime.GOOS
+	if system.LCOWSupported() {
+		platform = "linux"
+	}
+	if system.DefaultPathEnv(platform) == "" {
 		return
 	}
 	envMap := opts.ConvertKVStringsToMap(s.runConfig.Env)
 	if _, ok := envMap["PATH"]; !ok {
-		s.runConfig.Env = append(s.runConfig.Env, "PATH="+system.DefaultPathEnv)
+		s.runConfig.Env = append(s.runConfig.Env, "PATH="+system.DefaultPathEnv(platform))
 	}
 }
 
 func handleOnBuildNode(ast *parser.Node, msg *bytes.Buffer) (*parser.Node, []string, error) {
 	if ast.Next == nil {
-		return nil, nil, errors.New("ONBUILD requires at least one argument")
+		return nil, nil, validationError{errors.New("ONBUILD requires at least one argument")}
 	}
 	ast = ast.Next.Children[0]
 	msg.WriteString(" " + ast.Value + formatFlags(ast.Flags))

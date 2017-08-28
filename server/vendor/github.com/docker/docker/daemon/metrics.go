@@ -1,15 +1,21 @@
 package daemon
 
 import (
+	"path/filepath"
 	"sync"
 
-	"github.com/docker/go-metrics"
+	"github.com/docker/docker/pkg/mount"
+	"github.com/docker/docker/pkg/plugingetter"
+	metrics "github.com/docker/go-metrics"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 )
+
+const metricsPluginType = "MetricsCollector"
 
 var (
 	containerActions          metrics.LabeledTimer
-	containerStates           metrics.LabeledGauge
 	imageActions              metrics.LabeledTimer
 	networkActions            metrics.LabeledTimer
 	engineInfo                metrics.LabeledGauge
@@ -105,4 +111,63 @@ func (ctr *stateCounter) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(ctr.desc, prometheus.GaugeValue, float64(running), "running")
 	ch <- prometheus.MustNewConstMetric(ctr.desc, prometheus.GaugeValue, float64(paused), "paused")
 	ch <- prometheus.MustNewConstMetric(ctr.desc, prometheus.GaugeValue, float64(stopped), "stopped")
+}
+
+func (d *Daemon) cleanupMetricsPlugins() {
+	ls := d.PluginStore.GetAllManagedPluginsByCap(metricsPluginType)
+	var wg sync.WaitGroup
+	wg.Add(len(ls))
+
+	for _, p := range ls {
+		go func() {
+			defer wg.Done()
+			pluginStopMetricsCollection(p)
+		}()
+	}
+	wg.Wait()
+
+	if d.metricsPluginListener != nil {
+		d.metricsPluginListener.Close()
+	}
+}
+
+type metricsPlugin struct {
+	plugingetter.CompatPlugin
+}
+
+func (p metricsPlugin) sock() string {
+	return "metrics.sock"
+}
+
+func (p metricsPlugin) sockBase() string {
+	return filepath.Join(p.BasePath(), "run", "docker")
+}
+
+func pluginStartMetricsCollection(p plugingetter.CompatPlugin) error {
+	type metricsPluginResponse struct {
+		Err string
+	}
+	var res metricsPluginResponse
+	if err := p.Client().Call(metricsPluginType+".StartMetrics", nil, &res); err != nil {
+		return errors.Wrap(err, "could not start metrics plugin")
+	}
+	if res.Err != "" {
+		return errors.New(res.Err)
+	}
+	return nil
+}
+
+func pluginStopMetricsCollection(p plugingetter.CompatPlugin) {
+	if err := p.Client().Call(metricsPluginType+".StopMetrics", nil, nil); err != nil {
+		logrus.WithError(err).WithField("name", p.Name()).Error("error stopping metrics collector")
+	}
+
+	mp := metricsPlugin{p}
+	sockPath := filepath.Join(mp.sockBase(), mp.sock())
+	if err := mount.Unmount(sockPath); err != nil {
+		if mounted, _ := mount.Mounted(sockPath); mounted {
+			logrus.WithError(err).WithField("name", p.Name()).WithField("socket", sockPath).Error("error unmounting metrics socket for plugin")
+		}
+	}
+	return
 }

@@ -5,6 +5,7 @@ package v2
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/docker/docker/api/types"
@@ -17,7 +18,7 @@ import (
 // InitSpec creates an OCI spec from the plugin's config.
 func (p *Plugin) InitSpec(execRoot string) (*specs.Spec, error) {
 	s := oci.DefaultSpec()
-	s.Root = specs.Root{
+	s.Root = &specs.Root{
 		Path:     p.Rootfs,
 		Readonly: false, // TODO: all plugins should be readonly? settable in config?
 	}
@@ -108,7 +109,7 @@ func (p *Plugin) InitSpec(execRoot string) (*specs.Spec, error) {
 	}
 
 	envs := make([]string, 1, len(p.PluginObj.Settings.Env)+1)
-	envs[0] = "PATH=" + system.DefaultPathEnv
+	envs[0] = "PATH=" + system.DefaultPathEnv(runtime.GOOS)
 	envs = append(envs, p.PluginObj.Settings.Env...)
 
 	args := append(p.PluginObj.Config.Entrypoint, p.PluginObj.Settings.Args...)

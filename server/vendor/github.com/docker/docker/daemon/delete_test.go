@@ -9,7 +9,7 @@ import (
 	"github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/container"
-	"github.com/docker/docker/pkg/testutil"
+	"github.com/docker/docker/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,11 +26,9 @@ func newDaemonWithTmpRoot(t *testing.T) (*Daemon, func()) {
 
 func newContainerWithState(state *container.State) *container.Container {
 	return &container.Container{
-		CommonContainer: container.CommonContainer{
-			ID:     "test",
-			State:  state,
-			Config: &containertypes.Config{},
-		},
+		ID:     "test",
+		State:  state,
+		Config: &containertypes.Config{},
 	}
 
 }

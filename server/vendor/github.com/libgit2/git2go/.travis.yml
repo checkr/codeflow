@@ -1,14 +1,11 @@
 language: go
 
-sudo: required
-
-install: ./script/install-libgit2.sh
-
 go:
-  - 1.5
-  - 1.6
   - 1.7
+  - 1.8
   - tip
+
+script: make test-static
 
 matrix:
   allow_failures:

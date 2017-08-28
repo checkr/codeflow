@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"io"
+	"runtime"
 	"strings"
 
 	dist "github.com/docker/distribution"
@@ -17,7 +18,7 @@ import (
 
 // PullImage initiates a pull operation. image is the repository name to pull, and
 // tag may be either empty, or indicate a specific tag to pull.
-func (daemon *Daemon) PullImage(ctx context.Context, image, tag string, metaHeaders map[string][]string, authConfig *types.AuthConfig, outStream io.Writer) error {
+func (daemon *Daemon) PullImage(ctx context.Context, image, tag, platform string, metaHeaders map[string][]string, authConfig *types.AuthConfig, outStream io.Writer) error {
 	// Special case: "pull -a" may send an image name with a
 	// trailing :. This is ugly, but let's not break API
 	// compatibility.
@@ -25,7 +26,7 @@ func (daemon *Daemon) PullImage(ctx context.Context, image, tag string, metaHead
 
 	ref, err := reference.ParseNormalizedNamed(image)
 	if err != nil {
-		return err
+		return validationError{err}
 	}
 
 	if tag != "" {
@@ -38,14 +39,14 @@ func (daemon *Daemon) PullImage(ctx context.Context, image, tag string, metaHead
 			ref, err = reference.WithTag(ref, tag)
 		}
 		if err != nil {
-			return err
+			return validationError{err}
 		}
 	}
 
-	return daemon.pullImageWithReference(ctx, ref, metaHeaders, authConfig, outStream)
+	return daemon.pullImageWithReference(ctx, ref, platform, metaHeaders, authConfig, outStream)
 }
 
-func (daemon *Daemon) pullImageWithReference(ctx context.Context, ref reference.Named, metaHeaders map[string][]string, authConfig *types.AuthConfig, outStream io.Writer) error {
+func (daemon *Daemon) pullImageWithReference(ctx context.Context, ref reference.Named, platform string, metaHeaders map[string][]string, authConfig *types.AuthConfig, outStream io.Writer) error {
 	// Include a buffer so that slow client connections don't affect
 	// transfer performance.
 	progressChan := make(chan progress.Progress, 100)
@@ -59,6 +60,11 @@ func (daemon *Daemon) pullImageWithReference(ctx context.Context, ref reference.
 		close(writesDone)
 	}()
 
+	// Default to the host OS platform in case it hasn't been populated with an explicit value.
+	if platform == "" {
+		platform = runtime.GOOS
+	}
+
 	imagePullConfig := &distribution.ImagePullConfig{
 		Config: distribution.Config{
 			MetaHeaders:      metaHeaders,
@@ -66,12 +72,13 @@ func (daemon *Daemon) pullImageWithReference(ctx context.Context, ref reference.
 			ProgressOutput:   progress.ChanOutput(progressChan),
 			RegistryService:  daemon.RegistryService,
 			ImageEventLogger: daemon.LogImageEvent,
-			MetadataStore:    daemon.distributionMetadataStore,
-			ImageStore:       distribution.NewImageConfigStoreFromStore(daemon.imageStore),
+			MetadataStore:    daemon.stores[platform].distributionMetadataStore,
+			ImageStore:       distribution.NewImageConfigStoreFromStore(daemon.stores[platform].imageStore),
 			ReferenceStore:   daemon.referenceStore,
 		},
 		DownloadManager: daemon.downloadManager,
 		Schema2Types:    distribution.ImageTypes,
+		Platform:        platform,
 	}
 
 	err := distribution.Pull(ctx, ref, imagePullConfig)
@@ -89,7 +96,7 @@ func (daemon *Daemon) GetRepository(ctx context.Context, ref reference.Named, au
 	}
 	// makes sure name is not empty or `scratch`
 	if err := distribution.ValidateRepoName(repoInfo.Name); err != nil {
-		return nil, false, err
+		return nil, false, validationError{err}
 	}
 
 	// get endpoints

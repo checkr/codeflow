@@ -3,10 +3,10 @@ package daemon
 import (
 	"fmt"
 	"regexp"
+	"runtime"
 	"sync/atomic"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -14,27 +14,56 @@ import (
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/directory"
+	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/docker/volume"
 	"github.com/docker/libnetwork"
 	digest "github.com/opencontainers/go-digest"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
 var (
-	// ErrPruneRunning is returned when a prune request is received while
+	// errPruneRunning is returned when a prune request is received while
 	// one is in progress
-	ErrPruneRunning = fmt.Errorf("a prune operation is already running")
+	errPruneRunning = fmt.Errorf("a prune operation is already running")
+
+	containersAcceptedFilters = map[string]bool{
+		"label":  true,
+		"label!": true,
+		"until":  true,
+	}
+	volumesAcceptedFilters = map[string]bool{
+		"label":  true,
+		"label!": true,
+	}
+	imagesAcceptedFilters = map[string]bool{
+		"dangling": true,
+		"label":    true,
+		"label!":   true,
+		"until":    true,
+	}
+	networksAcceptedFilters = map[string]bool{
+		"label":  true,
+		"label!": true,
+		"until":  true,
+	}
 )
 
 // ContainersPrune removes unused containers
 func (daemon *Daemon) ContainersPrune(ctx context.Context, pruneFilters filters.Args) (*types.ContainersPruneReport, error) {
 	if !atomic.CompareAndSwapInt32(&daemon.pruneRunning, 0, 1) {
-		return nil, ErrPruneRunning
+		return nil, errPruneRunning
 	}
 	defer atomic.StoreInt32(&daemon.pruneRunning, 0)
 
 	rep := &types.ContainersPruneReport{}
+
+	// make sure that only accepted filters have been received
+	err := pruneFilters.Validate(containersAcceptedFilters)
+	if err != nil {
+		return nil, err
+	}
 
 	until, err := getUntilFromPruneFilters(pruneFilters)
 	if err != nil {
@@ -45,8 +74,8 @@ func (daemon *Daemon) ContainersPrune(ctx context.Context, pruneFilters filters.
 	for _, c := range allContainers {
 		select {
 		case <-ctx.Done():
-			logrus.Warnf("ContainersPrune operation cancelled: %#v", *rep)
-			return rep, ctx.Err()
+			logrus.Debugf("ContainersPrune operation cancelled: %#v", *rep)
+			return rep, nil
 		default:
 		}
 
@@ -77,16 +106,22 @@ func (daemon *Daemon) ContainersPrune(ctx context.Context, pruneFilters filters.
 // VolumesPrune removes unused local volumes
 func (daemon *Daemon) VolumesPrune(ctx context.Context, pruneFilters filters.Args) (*types.VolumesPruneReport, error) {
 	if !atomic.CompareAndSwapInt32(&daemon.pruneRunning, 0, 1) {
-		return nil, ErrPruneRunning
+		return nil, errPruneRunning
 	}
 	defer atomic.StoreInt32(&daemon.pruneRunning, 0)
+
+	// make sure that only accepted filters have been received
+	err := pruneFilters.Validate(volumesAcceptedFilters)
+	if err != nil {
+		return nil, err
+	}
 
 	rep := &types.VolumesPruneReport{}
 
 	pruneVols := func(v volume.Volume) error {
 		select {
 		case <-ctx.Done():
-			logrus.Warnf("VolumesPrune operation cancelled: %#v", *rep)
+			logrus.Debugf("VolumesPrune operation cancelled: %#v", *rep)
 			return ctx.Err()
 		default:
 		}
@@ -117,17 +152,32 @@ func (daemon *Daemon) VolumesPrune(ctx context.Context, pruneFilters filters.Arg
 		return nil
 	}
 
-	err := daemon.traverseLocalVolumes(pruneVols)
+	err = daemon.traverseLocalVolumes(pruneVols)
+	if err == context.Canceled {
+		return rep, nil
+	}
 
 	return rep, err
 }
 
 // ImagesPrune removes unused images
 func (daemon *Daemon) ImagesPrune(ctx context.Context, pruneFilters filters.Args) (*types.ImagesPruneReport, error) {
+	// TODO @jhowardmsft LCOW Support: This will need revisiting later.
+	platform := runtime.GOOS
+	if system.LCOWSupported() {
+		platform = "linux"
+	}
+
 	if !atomic.CompareAndSwapInt32(&daemon.pruneRunning, 0, 1) {
-		return nil, ErrPruneRunning
+		return nil, errPruneRunning
 	}
 	defer atomic.StoreInt32(&daemon.pruneRunning, 0)
+
+	// make sure that only accepted filters have been received
+	err := pruneFilters.Validate(imagesAcceptedFilters)
+	if err != nil {
+		return nil, err
+	}
 
 	rep := &types.ImagesPruneReport{}
 
@@ -136,7 +186,7 @@ func (daemon *Daemon) ImagesPrune(ctx context.Context, pruneFilters filters.Args
 		if pruneFilters.ExactMatch("dangling", "false") || pruneFilters.ExactMatch("dangling", "0") {
 			danglingOnly = false
 		} else if !pruneFilters.ExactMatch("dangling", "true") && !pruneFilters.ExactMatch("dangling", "1") {
-			return nil, fmt.Errorf("Invalid filter 'dangling=%s'", pruneFilters.Get("dangling"))
+			return nil, invalidFilter{"dangling", pruneFilters.Get("dangling")}
 		}
 	}
 
@@ -147,9 +197,9 @@ func (daemon *Daemon) ImagesPrune(ctx context.Context, pruneFilters filters.Args
 
 	var allImages map[image.ID]*image.Image
 	if danglingOnly {
-		allImages = daemon.imageStore.Heads()
+		allImages = daemon.stores[platform].imageStore.Heads()
 	} else {
-		allImages = daemon.imageStore.Map()
+		allImages = daemon.stores[platform].imageStore.Map()
 	}
 	allContainers := daemon.List()
 	imageRefs := map[string]bool{}
@@ -163,7 +213,7 @@ func (daemon *Daemon) ImagesPrune(ctx context.Context, pruneFilters filters.Args
 	}
 
 	// Filter intermediary images and get their unique size
-	allLayers := daemon.layerStore.Map()
+	allLayers := daemon.stores[platform].layerStore.Map()
 	topImages := map[image.ID]*image.Image{}
 	for id, img := range allImages {
 		select {
@@ -171,13 +221,13 @@ func (daemon *Daemon) ImagesPrune(ctx context.Context, pruneFilters filters.Args
 			return nil, ctx.Err()
 		default:
 			dgst := digest.Digest(id)
-			if len(daemon.referenceStore.References(dgst)) == 0 && len(daemon.imageStore.Children(id)) != 0 {
+			if len(daemon.referenceStore.References(dgst)) == 0 && len(daemon.stores[platform].imageStore.Children(id)) != 0 {
 				continue
 			}
 			if !until.IsZero() && img.Created.After(until) {
 				continue
 			}
-			if !matchLabels(pruneFilters, img.Config.Labels) {
+			if img.Config != nil && !matchLabels(pruneFilters, img.Config.Labels) {
 				continue
 			}
 			topImages[id] = img
@@ -256,8 +306,7 @@ deleteImagesLoop:
 	}
 
 	if canceled {
-		logrus.Warnf("ImagesPrune operation cancelled: %#v", *rep)
-		return nil, ctx.Err()
+		logrus.Debugf("ImagesPrune operation cancelled: %#v", *rep)
 	}
 
 	return rep, nil
@@ -273,8 +322,12 @@ func (daemon *Daemon) localNetworksPrune(ctx context.Context, pruneFilters filte
 	l := func(nw libnetwork.Network) bool {
 		select {
 		case <-ctx.Done():
+			// context cancelled
 			return true
 		default:
+		}
+		if nw.Info().ConfigOnly() {
+			return false
 		}
 		if !until.IsZero() && nw.Info().Created().After(until) {
 			return false
@@ -320,7 +373,7 @@ func (daemon *Daemon) clusterNetworksPrune(ctx context.Context, pruneFilters fil
 	for _, nw := range networks {
 		select {
 		case <-ctx.Done():
-			return rep, ctx.Err()
+			return rep, nil
 		default:
 			if nw.Ingress {
 				// Routing-mesh network removal has to be explicitly invoked by user
@@ -353,9 +406,15 @@ func (daemon *Daemon) clusterNetworksPrune(ctx context.Context, pruneFilters fil
 // NetworksPrune removes unused networks
 func (daemon *Daemon) NetworksPrune(ctx context.Context, pruneFilters filters.Args) (*types.NetworksPruneReport, error) {
 	if !atomic.CompareAndSwapInt32(&daemon.pruneRunning, 0, 1) {
-		return nil, ErrPruneRunning
+		return nil, errPruneRunning
 	}
 	defer atomic.StoreInt32(&daemon.pruneRunning, 0)
+
+	// make sure that only accepted filters have been received
+	err := pruneFilters.Validate(networksAcceptedFilters)
+	if err != nil {
+		return nil, err
+	}
 
 	if _, err := getUntilFromPruneFilters(pruneFilters); err != nil {
 		return nil, err
@@ -371,8 +430,8 @@ func (daemon *Daemon) NetworksPrune(ctx context.Context, pruneFilters filters.Ar
 
 	select {
 	case <-ctx.Done():
-		logrus.Warnf("NetworksPrune operation cancelled: %#v", *rep)
-		return nil, ctx.Err()
+		logrus.Debugf("NetworksPrune operation cancelled: %#v", *rep)
+		return rep, nil
 	default:
 	}
 
