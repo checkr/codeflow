@@ -1,5 +1,5 @@
-hash: 2644536197eea2997d68ca48dfe71d129fd955fcfbe278c514b040d855c67e09
-updated: 2017-08-28T15:04:46.033433973-07:00
+hash: 5bdff83a85ffca22b0d83bf5a85ff9a738d53ad87f3a20dd504f4c0aa6ded93d
+updated: 2017-08-28T17:03:27.617125941-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -7,7 +7,7 @@ imports:
   - compute/metadata
   - internal
 - name: github.com/ant0ine/go-json-rest
-  version: ce4b71cdf7ba29ef443d704bd923f5bbf281ee30
+  version: 731ccde05312e2c1f5578a504ea8e77d38020340
   subpackages:
   - rest
   - rest/test
@@ -105,7 +105,7 @@ imports:
   - digest
   - reference
 - name: github.com/docker/docker
-  version: a1183dda578f531ef65766611f9e16a0636e3a17
+  version: 765e543a385bef1174bc73e98b59af1c81b29b45
   subpackages:
   - api/types
   - api/types/blkiodev
@@ -282,7 +282,7 @@ imports:
   - jwk
 - name: github.com/libgit2/git2go
   version: e424134bb6a425a508cf037ed62218c6b21600ce
-  repo: git@github.com:mikolajb/git2go.git
+  repo: https://github.com/mikolajb/git2go.git
 - name: github.com/magiconair/properties
   version: be5ece7dd465ab0765a9682137865547526d1dfb
 - name: github.com/mailru/easyjson
@@ -331,7 +331,7 @@ imports:
 - name: github.com/parnurzeal/gorequest
   version: 5bf13be198787abbed057fb7c4007f372083a0f5
 - name: github.com/pborman/uuid
-  version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
+  version: e790cca94e6cc75c7064b1332e63811d4aae1a53
 - name: github.com/pelletier/go-toml
   version: 9c1b4e331f1e3d98e72600677699fbe212cd6d16
 - name: github.com/pkg/errors
@@ -359,7 +359,7 @@ imports:
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
 - name: github.com/sirupsen/logrus
-  version: 89742aefa4b206dcf400792f3bd35b542998eb3b
+  version: f006c2ac4710855cf0f916dd6b77acf6b048dc6e
 - name: github.com/spf13/afero
   version: 36f8810e2e3d7eeac4ac05b57f65690fbfba62a2
   subpackages:

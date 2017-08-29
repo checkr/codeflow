@@ -22,8 +22,8 @@ import:
   subpackages:
   - jwk
 - package: github.com/libgit2/git2go
-  version: v26.0
-  repo: git@github.com:mikolajb/git2go.git
+  version: v26
+  repo: https://github.com/mikolajb/git2go.git
 - package: github.com/maxwellhealth/bongo
 - package: github.com/pborman/uuid
 - package: github.com/spf13/cobra
@@ -55,3 +55,5 @@ import:
   version: v1.8.21
 - package: github.com/gogo/protobuf
   version: ^0.4.0
+- package: github.com/sirupsen/logrus
+  version: ^1.0.3
