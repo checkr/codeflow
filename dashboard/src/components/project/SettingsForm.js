@@ -4,6 +4,13 @@ import { Button, Form, FormGroup, Label, Input } from 'reactstrap'
 import { Field, FieldArray, reduxForm, change } from 'redux-form'
 import ButtonConfirmAction from '../ButtonConfirmAction'
 
+const normalizeBool = (value, _previousValue) => {
+    if(value === ""){
+        return false
+    }
+    return true
+}
+
 class ProjectSettings extends Component {
   static propTypes = {
     dispatch: PropTypes.func.isRequired
@@ -150,12 +157,12 @@ class ProjectSettings extends Component {
         </div>
         <FormGroup check>
           <Label check>
-            <Field name="continuousIntegration" component={this.renderCheckbox} type="checkbox"/> Continuous Integration (CircleCI)
+            <Field name="continuousIntegration" component={this.renderCheckbox} type="checkbox" normalize={normalizeBool} /> Continuous Integration (CircleCI)
           </Label>
         </FormGroup>
         <FormGroup check>
           <Label check>
-            <Field name="continuousDelivery" component={this.renderCheckbox} type="checkbox"/> Continuous Delivery (Deploy on green)
+            <Field name="continuousDelivery" component={this.renderCheckbox} type="checkbox" normalize={normalizeBool} /> Continuous Delivery (Deploy on green)
           </Label>
         </FormGroup>
         <FormGroup>

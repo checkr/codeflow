@@ -27,6 +27,13 @@ const normalizeInt = (value, _previousValue) => {
   return parseInt(value, 10)
 }
 
+const normalizeBool = (value, _previousValue) => {
+    if(value === ""){
+        return false
+    }
+    return true
+}
+
 const InputWithWarnings = props => {
   const { error, touched } = props.meta
 
@@ -134,7 +141,7 @@ class ProjectServiceForm extends Component {
                 </div>
 
                 <div className="form-group">
-                  <Field className="form-check-input" name="oneShot" component={renderInput} type="checkbox" value="false"/> One-shot
+                  <Field className="form-check-input" name="oneShot" component={renderInput} type="checkbox" value="false" normalize={normalizeBool} /> One-shot
                 </div>
 
                 <div className="row">

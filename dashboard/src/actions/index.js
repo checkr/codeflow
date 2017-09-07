@@ -657,12 +657,6 @@ export const PROJECT_SETTINGS_UPDATE_SUCCESS = 'PROJECT_SETTINGS_UPDATE_SUCCESS'
 export const PROJECT_SETTINGS_UPDATE_FAILURE = 'PROJECT_SETTINGS_UPDATE_FAILURE'
 
 export const updateProjectSettings = (project_slug, payload) => {
-  if (payload.continuousDelivery === "") {
-    payload.continuousDelivery = false
-  }
-  if (payload.continuousIntegration === "") {
-    payload.continuousIntegration = false
-  } 
   return {
     [CALL_API]: {
       endpoint: `${API_ROOT}/projects/${project_slug}/settings`,
