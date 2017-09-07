@@ -27,6 +27,21 @@ import (
 	"github.com/spf13/viper"
 )
 
+type SimplePodSpec struct {
+	Name          string
+	DeployPorts   []v1.ContainerPort
+	ReadyProbe    v1.Probe
+	LiveProbe     v1.Probe
+	RestartPolicy v1.RestartPolicy
+	NodeSelector  map[string]string
+	Args          []string
+	Service       plugins.Service
+	Image         string
+	Env           []v1.EnvVar
+	VolumeMounts  []v1.VolumeMount
+	Volumes       []v1.Volume
+}
+
 func genNamespaceName(suggestedEnvironment string, projectSlug string) string {
 	if viper.IsSet("plugins.kubedeploy.environment") {
 		return fmt.Sprintf("%s-%s", viper.GetString("plugins.kubedeploy.environment"), projectSlug)
@@ -143,6 +158,39 @@ func (x *KubeDeploy) createNamespaceIfNotExists(namespace string, coreInterface 
 	return nil
 }
 
+// Returns false if there is no failures detected and true if there is an error waiting
+func detectPodFailure(pod v1.Pod) (string, bool) {
+	if len(pod.Status.ContainerStatuses) > 0 {
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if containerStatus.State.Waiting != nil {
+				switch waitingReason := containerStatus.State.Waiting.Reason; waitingReason {
+				case "CrashLoopBackOff", "ImagePullBackOff", "ImageInspectError", "ErrImagePull", "ErrImageNeverPull", "RegistryUnavilable", "InvalidImageName":
+					failmessage := fmt.Sprintf("Detected Pod '%s' is waiting forever because of '%s'", pod.Name, waitingReason)
+					// Pod is waiting forever
+					log.Println(failmessage)
+					return failmessage, true
+				default:
+					log.Printf("Pod '%s' is waiting because '%s'", pod.Name, waitingReason)
+					return "", false
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+// Returns an array of services with all Waiting statuses re-set to Failed
+func setFailServices(deploymentServices []plugins.Service) []plugins.Service {
+	var deploymentServicesFailed []plugins.Service
+	for index := range deploymentServices {
+		if deploymentServices[index].State == plugins.Waiting {
+			deploymentServices[index].State = plugins.Failed
+			deploymentServices[index].StateMessage = "Failed from waiting too long"
+		}
+	}
+	return deploymentServicesFailed
+}
+
 func getContainerPorts(service plugins.Service) []v1.ContainerPort {
 	var deployPorts []v1.ContainerPort
 
@@ -159,10 +207,58 @@ func getContainerPorts(service plugins.Service) []v1.ContainerPort {
 	return deployPorts
 }
 
+func genPodTemplateSpec(podConfig SimplePodSpec, kind string) v1.PodTemplateSpec {
+	container := v1.Container{
+		Name:  strings.ToLower(podConfig.Service.Name),
+		Image: podConfig.Image,
+		Ports: podConfig.DeployPorts,
+		Args:  podConfig.Args,
+		Resources: v1.ResourceRequirements{
+			Limits: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse(podConfig.Service.Spec.CpuLimit),
+				v1.ResourceMemory: resource.MustParse(podConfig.Service.Spec.MemoryLimit),
+			},
+			Requests: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse(podConfig.Service.Spec.CpuRequest),
+				v1.ResourceMemory: resource.MustParse(podConfig.Service.Spec.MemoryRequest),
+			},
+		},
+		ImagePullPolicy: v1.PullIfNotPresent,
+		Env:             podConfig.Env,
+		VolumeMounts:    podConfig.VolumeMounts,
+	}
+	if kind == "Deployment" {
+		container.ReadinessProbe = &podConfig.ReadyProbe
+		container.LivenessProbe = &podConfig.LiveProbe
+	}
+	podTemplateSpec := v1.PodTemplateSpec{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:   podConfig.Name,
+			Labels: map[string]string{"app": podConfig.Name},
+		},
+		Spec: v1.PodSpec{
+			NodeSelector:                  podConfig.NodeSelector,
+			TerminationGracePeriodSeconds: &podConfig.Service.Spec.TerminationGracePeriodSeconds,
+			ImagePullSecrets: []v1.LocalObjectReference{
+				{
+					Name: "docker-io",
+				},
+			},
+			Containers: []v1.Container{
+				container,
+			},
+			Volumes:       podConfig.Volumes,
+			RestartPolicy: podConfig.RestartPolicy,
+			DNSPolicy:     v1.DNSClusterFirst,
+		},
+	}
+	return podTemplateSpec
+}
+
 func (x *KubeDeploy) doDeploy(e agent.Event) error {
 	// Codeflow will load the kube config from a file, specified by CF_PLUGINS_KUBEDEPLOY_KUBECONFIG environment variable
 	kubeconfig := viper.GetString("plugins.kubedeploy.kubeconfig")
-	log.Println("Using kubeconfig: %s", kubeconfig)
+	log.Printf("Using kubeconfig file: %s", kubeconfig)
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
@@ -371,46 +467,19 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 			nodeSelector = map[string]string{arrayKeyValue[0]: arrayKeyValue[1]}
 		}
 
-		terminationGracePeriodSeconds := service.Spec.TerminationGracePeriodSeconds
-
-		podTemplateSpec := v1.PodTemplateSpec{
-			ObjectMeta: meta_v1.ObjectMeta{
-				Name:   oneShotServiceName,
-				Labels: map[string]string{"app": oneShotServiceName},
-			},
-			Spec: v1.PodSpec{
-				NodeSelector:                  nodeSelector,
-				TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-				ImagePullSecrets: []v1.LocalObjectReference{
-					{
-						Name: "docker-io",
-					},
-				},
-				Containers: []v1.Container{
-					{
-						Name:  strings.ToLower(service.Name),
-						Image: data.Docker.Image,
-						Args:  commandArray,
-						Resources: v1.ResourceRequirements{
-							Limits: v1.ResourceList{
-								v1.ResourceCPU:    resource.MustParse(service.Spec.CpuLimit),
-								v1.ResourceMemory: resource.MustParse(service.Spec.MemoryLimit),
-							},
-							Requests: v1.ResourceList{
-								v1.ResourceCPU:    resource.MustParse(service.Spec.CpuRequest),
-								v1.ResourceMemory: resource.MustParse(service.Spec.MemoryRequest),
-							},
-						},
-						ImagePullPolicy: v1.PullIfNotPresent,
-						Env:             myEnvVars,
-						VolumeMounts:    volumeMounts,
-					},
-				},
-				Volumes:       deployVolumes,
-				RestartPolicy: v1.RestartPolicyNever,
-				DNSPolicy:     v1.DNSClusterFirst,
-			},
+		simplePod := SimplePodSpec{
+			Name:          oneShotServiceName,
+			RestartPolicy: v1.RestartPolicyNever,
+			NodeSelector:  nodeSelector,
+			Args:          commandArray,
+			Service:       service,
+			Image:         data.Docker.Image,
+			Env:           myEnvVars,
+			VolumeMounts:  volumeMounts,
+			Volumes:       deployVolumes,
 		}
+
+		podTemplateSpec := genPodTemplateSpec(simplePod, "Job")
 
 		numParallelPods := int32(1)
 		numCompletionsToTerminate := int32(service.Replicas)
@@ -497,28 +566,17 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				x.sendDDErrorResponse(e, oneShotServices, oneShotServices[index].StateMessage)
 			} else {
 				for _, item := range pods.Items {
-					if len(item.Status.ContainerStatuses) > 0 {
-						for _, containerStatus := range item.Status.ContainerStatuses {
-							if containerStatus.State.Waiting != nil {
-								switch waitingReason := containerStatus.State.Waiting.Reason; waitingReason {
-								case "ImagePullBackOff", "ImageInspectError", "ErrImagePull", "ErrImageNeverPull", "RegistryUnavilable", "InvalidImageName":
-									// Job has failed
-									oneShotServices[index].State = plugins.Failed
-									oneShotServices[index].StateMessage = fmt.Sprintf("Error job has failed due to InvalidImageName: %s", oneShotServiceName)
-									x.sendDDErrorResponse(e, oneShotServices, oneShotServices[index].StateMessage)
-									return nil
-								default:
-									log.Printf("Pod is waiting because %s", waitingReason)
-								}
-							}
-						}
+					if message, result := detectPodFailure(item); result {
+						// Job has failed
+						oneShotServices[index].State = plugins.Failed
+						oneShotServices[index].StateMessage = fmt.Sprintf(message)
+						x.sendDDErrorResponse(e, oneShotServices, message)
+						return nil
 					}
 				}
 			}
-
 			time.Sleep(5 * time.Second)
 		}
-
 	}
 
 	for index, service := range deploymentServices {
@@ -613,49 +671,22 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 		}
 
 		var revisionHistoryLimit int32 = 10
-		terminationGracePeriodSeconds := service.Spec.TerminationGracePeriodSeconds
 
-		podTemplateSpec := v1.PodTemplateSpec{
-			ObjectMeta: meta_v1.ObjectMeta{
-				Name:   deploymentName,
-				Labels: map[string]string{"app": deploymentName},
-			},
-			Spec: v1.PodSpec{
-				NodeSelector:                  nodeSelector,
-				TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-				ImagePullSecrets: []v1.LocalObjectReference{
-					{
-						Name: "docker-io",
-					},
-				},
-				Containers: []v1.Container{
-					{
-						Name:  strings.ToLower(service.Name),
-						Image: data.Docker.Image,
-						Ports: deployPorts,
-						Args:  commandArray,
-						Resources: v1.ResourceRequirements{
-							Limits: v1.ResourceList{
-								v1.ResourceCPU:    resource.MustParse(service.Spec.CpuLimit),
-								v1.ResourceMemory: resource.MustParse(service.Spec.MemoryLimit),
-							},
-							Requests: v1.ResourceList{
-								v1.ResourceCPU:    resource.MustParse(service.Spec.CpuRequest),
-								v1.ResourceMemory: resource.MustParse(service.Spec.MemoryRequest),
-							},
-						},
-						ImagePullPolicy: v1.PullIfNotPresent,
-						Env:             myEnvVars,
-						ReadinessProbe:  &readyProbe,
-						LivenessProbe:   &liveProbe,
-						VolumeMounts:    volumeMounts,
-					},
-				},
-				Volumes:       deployVolumes,
-				RestartPolicy: v1.RestartPolicyAlways,
-				DNSPolicy:     v1.DNSClusterFirst,
-			},
+		simplePod := SimplePodSpec{
+			Name:          deploymentName,
+			DeployPorts:   deployPorts,
+			ReadyProbe:    readyProbe,
+			LiveProbe:     liveProbe,
+			RestartPolicy: v1.RestartPolicyAlways,
+			NodeSelector:  nodeSelector,
+			Args:          commandArray,
+			Service:       service,
+			Image:         data.Docker.Image,
+			Env:           myEnvVars,
+			VolumeMounts:  volumeMounts,
+			Volumes:       deployVolumes,
 		}
+		podTemplateSpec := genPodTemplateSpec(simplePod, "Deployment")
 
 		var deployParams *v1beta1.Deployment
 
@@ -728,7 +759,6 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				if deployment.Status.ObservedGeneration >= deployment.ObjectMeta.Generation && deployment.Status.UpdatedReplicas == *deployment.Spec.Replicas && deployment.Status.AvailableReplicas >= deployment.Status.UpdatedReplicas && deployment.Status.UnavailableReplicas == 0 {
 					// deployment success
 					deploymentServices[index].State = plugins.Complete
-					/// AH HA!! haha
 					successfulDeploys = 0
 					for _, d := range deploymentServices {
 						if d.State == plugins.Complete {
@@ -738,15 +768,47 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 					log.Printf("%s deploy: %d of %d deployments successful.", deploymentName, successfulDeploys, len(deploymentServices))
 				}
 
-				//for _, condition := range deployment.Status.Conditions {
-				//	if condition.Type == v1beta1.DeploymentReplicaFailure || (condition.Type == v1beta1.DeploymentProgressing && condition.Status == v1.ConditionFalse) {
-				//		replicaFailures += 1
-				//		data.Services[index].State = plugins.Failed
-				//		data.Services[index].StateMessage = condition.Message
-				//		log.Printf("%s failed to start: %v (%v)", deploymentName, condition.Message, condition.Reason)
-				//	}
-				//}
+				latestRevision := deployment.Annotations["deployment.kubernetes.io/revision"]
 
+				// Check for indications of pod failures on the latest replicaSet so we can fail faster than waiting for a timeout.
+				matchLabel := make(map[string]string)
+				matchLabel["app"] = deploymentName
+				replicaSetList, err := depInterface.ReplicaSets(namespace).List(meta_v1.ListOptions{
+					LabelSelector: "app=" + deploymentName,
+				})
+
+				var currentReplica v1beta1.ReplicaSet
+
+				for _, r := range replicaSetList.Items {
+					if r.Annotations["deployment.kubernetes.io/revision"] == latestRevision {
+						currentReplica = r
+						break
+					}
+				}
+
+				allPods, podErr := coreInterface.Pods(namespace).List(meta_v1.ListOptions{})
+				if podErr != nil {
+					log.Printf("Error retrieving list of pods for %s", namespace)
+					continue
+				}
+
+				for _, pod := range allPods.Items {
+					for _, ref := range pod.ObjectMeta.OwnerReferences {
+						if ref.Kind == "ReplicaSet" {
+							if ref.Name == currentReplica.Name {
+								// This is a pod we want to check status for
+								if message, result := detectPodFailure(pod); result {
+									// Pod is waiting forever, fail the deployment.
+									var servicesPayload []plugins.Service
+									servicesPayload = setFailServices(deploymentServices)
+									log.Println(message)
+									x.sendDDErrorResponse(e, append(servicesPayload, oneShotServices...), message)
+									return nil
+								}
+							}
+						}
+					}
+				}
 			}
 
 			if successfulDeploys == len(deploymentServices) {
@@ -754,17 +816,10 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 			}
 
 			if curTime >= timeout || replicaFailures > 1 {
-				// timeout and get ready to rollback!
 				errMsg := fmt.Sprintf("Error, timeout reached waiting for all deployments to succeed.")
 				log.Printf(errMsg)
-
-				for index := range deploymentServices {
-					if deploymentServices[index].State == plugins.Waiting {
-						deploymentServices[index].State = plugins.Failed
-						deploymentServices[index].StateMessage = errMsg
-					}
-				}
-				x.sendDDErrorResponse(e, append(deploymentServices, oneShotServices...), errMsg)
+				servicesPayload := setFailServices(deploymentServices)
+				x.sendDDErrorResponse(e, append(servicesPayload, oneShotServices...), errMsg)
 				return nil
 			}
 			time.Sleep(5 * time.Second)
