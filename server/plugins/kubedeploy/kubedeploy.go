@@ -46,7 +46,7 @@ func (x *KubeDeploy) Subscribe() []string {
 }
 
 func (x *KubeDeploy) Process(e agent.Event) error {
-	log.Printf("Process KubeDeploy event: %s", e.Name)
+	log.Printf("Process KubeDeploy event: %s:%s", e.Name, e.ID)
 
 	switch e.Name {
 	case "plugins.DockerDeploy:create":
@@ -62,5 +62,8 @@ func (x *KubeDeploy) Process(e agent.Event) error {
 	case "plugins.LoadBalancer:destroy":
 		x.doDeleteLoadBalancer(e)
 	}
+
+	log.Printf("Processed KubeDeploy event: %s:%s", e.Name, e.ID)
+
 	return nil
 }

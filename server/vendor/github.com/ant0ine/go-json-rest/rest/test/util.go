@@ -1,11 +1,8 @@
 package test
 
 import (
-	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"mime"
 	"net/http"
@@ -84,17 +81,14 @@ func ContentEncodingIsGzip(t *testing.T, r *httptest.ResponseRecorder) {
 }
 
 func BodyIs(t *testing.T, r *httptest.ResponseRecorder, expectedBody string) {
-	body, err := DecodedBody(r)
-	if err != nil {
-		t.Errorf("Body '%s' expected, got error: '%s'", expectedBody, err)
-	}
-	if string(body) != expectedBody {
+	body := r.Body.String()
+	if body != expectedBody {
 		t.Errorf("Body '%s' expected, got: '%s'", expectedBody, body)
 	}
 }
 
 func DecodeJsonPayload(r *httptest.ResponseRecorder, v interface{}) error {
-	content, err := DecodedBody(r)
+	content, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return err
 	}
@@ -103,26 +97,6 @@ func DecodeJsonPayload(r *httptest.ResponseRecorder, v interface{}) error {
 		return err
 	}
 	return nil
-}
-
-// DecodedBody returns the entire body read from r.Body, with it
-// gunzipped if Content-Encoding is set to gzip
-func DecodedBody(r *httptest.ResponseRecorder) ([]byte, error) {
-	if r.Header().Get("Content-Encoding") != "gzip" {
-		return ioutil.ReadAll(r.Body)
-	}
-	dec, err := gzip.NewReader(r.Body)
-	if err != nil {
-		return nil, err
-	}
-	b := new(bytes.Buffer)
-	if _, err = io.Copy(b, dec); err != nil {
-		return nil, err
-	}
-	if err = dec.Close(); err != nil {
-		return nil, err
-	}
-	return b.Bytes(), nil
 }
 
 type Recorded struct {
@@ -159,8 +133,4 @@ func (rd *Recorded) BodyIs(expectedBody string) {
 
 func (rd *Recorded) DecodeJsonPayload(v interface{}) error {
 	return DecodeJsonPayload(rd.Recorder, v)
-}
-
-func (rd *Recorded) DecodedBody() ([]byte, error) {
-	return DecodedBody(rd.Recorder)
 }

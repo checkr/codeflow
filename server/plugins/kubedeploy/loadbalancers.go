@@ -5,11 +5,11 @@ import (
 	"log"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/errors"
-	"k8s.io/client-go/pkg/api/unversioned"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"strings"
@@ -49,10 +49,10 @@ func (x *KubeDeploy) doDeleteLoadBalancer(e agent.Event) error {
 
 	namespace := genNamespaceName(payload.Environment, payload.Project.Slug)
 
-	_, svcGetErr := coreInterface.Services(namespace).Get(payload.Name)
+	_, svcGetErr := coreInterface.Services(namespace).Get(payload.Name, meta_v1.GetOptions{})
 	if svcGetErr == nil {
 		// Service was found, ready to delete
-		svcDeleteErr := coreInterface.Services(namespace).Delete(payload.Name, &v1.DeleteOptions{})
+		svcDeleteErr := coreInterface.Services(namespace).Delete(payload.Name, &meta_v1.DeleteOptions{})
 		if svcDeleteErr != nil {
 			failMessage := fmt.Sprintf("Error '%s' deleting service %s", svcDeleteErr, payload.Name)
 			log.Printf("ERROR managing loadbalancer %s: %s", payload.Service.Name, failMessage)
@@ -176,11 +176,11 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 		Ports:    servicePorts,
 	}
 	serviceParams := v1.Service{
-		TypeMeta: unversioned.TypeMeta{
+		TypeMeta: meta_v1.TypeMeta{
 			Kind:       "service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: meta_v1.ObjectMeta{
 			Name:        payload.Name,
 			Annotations: serviceAnnotations,
 		},
@@ -189,7 +189,7 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 
 	// Implement service update-or-create semantics.
 	service := coreInterface.Services(namespace)
-	svc, err := service.Get(payload.Name)
+	svc, err := service.Get(payload.Name, meta_v1.GetOptions{})
 	switch {
 	case err == nil:
 		serviceParams.ObjectMeta.ResourceVersion = svc.ObjectMeta.ResourceVersion
@@ -219,7 +219,7 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 		// Timeout waiting for ELB DNS name after 600 seconds
 		timeout := 600
 		for {
-			elbResult, elbErr := coreInterface.Services(namespace).Get(payload.Name)
+			elbResult, elbErr := coreInterface.Services(namespace).Get(payload.Name, meta_v1.GetOptions{})
 			if elbErr != nil {
 				log.Printf("Error '%s' describing service %s", elbErr, payload.Name)
 			} else {

@@ -764,6 +764,7 @@ func DockerDeployStatus(e *plugins.DockerDeploy) error {
 	}
 
 	release.State = e.State
+	release.StateMessage = e.StateMessage
 
 	for i, service := range release.Services {
 		for _, s := range e.Services {

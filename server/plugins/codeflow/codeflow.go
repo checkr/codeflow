@@ -123,6 +123,8 @@ func (x *Codeflow) AvailableCodeflowHandlers() []CodeflowHandler {
 func (x *Codeflow) Start(events chan agent.Event) error {
 	var err error
 
+	log.Printf("Starting Codeflow service on %s\n", x.ServiceAddress)
+
 	x.Events = events
 	cf = x
 

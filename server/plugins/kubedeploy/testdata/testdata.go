@@ -76,14 +76,14 @@ func LBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalancer {
 			CpuLimit:                      "500m",
 			MemoryRequest:                 "1Mi",
 			MemoryLimit:                   "500Mi",
-			TerminationGracePeriodSeconds: int64(600),
+			TerminationGracePeriodSeconds: int64(1),
 		},
 		Replicas: 1,
 	}
 	lbe := plugins.LoadBalancer{
 		Name:        "nginx-test-lb-asdf1234",
 		Action:      action,
-		Environment: "testing2",
+		Environment: "integrationtest2",
 		Type:        t,
 		Project:     project,
 		Service:     service,
@@ -123,14 +123,14 @@ func UpdateLBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalan
 			CpuLimit:                      "500m",
 			MemoryRequest:                 "1Mi",
 			MemoryLimit:                   "500Mi",
-			TerminationGracePeriodSeconds: int64(600),
+			TerminationGracePeriodSeconds: int64(1),
 		},
 		Replicas: 1,
 	}
 	lbe := plugins.LoadBalancer{
 		Name:        "nginx-test-lb-asdf1234",
 		Action:      action,
-		Environment: "testing2",
+		Environment: "integrationtest2",
 		Type:        t,
 		Project:     project,
 		Service:     service,
@@ -162,6 +162,30 @@ func TeardownPreviousDeploy(name string) agent.Event {
 	return event
 }
 
+func CreateSuccessJob() agent.Event {
+	job := JobData("job-success", plugins.Create)
+	event := agent.NewEvent(job, nil)
+	return event
+}
+
+func CreateAlreadyActiveSoFailJob(serviceName string) agent.Event {
+	job := OneServiceJobData("job-already-active-so-fail", serviceName, plugins.Create)
+	event := agent.NewEvent(job, nil)
+	return event
+}
+
+func CreateFailJob() agent.Event {
+	job := JobDataFail("job-fail", plugins.Create)
+	event := agent.NewEvent(job, nil)
+	return event
+}
+
+func CreateFailJobNonZero() agent.Event {
+	job := JobDataFailNonZero("job-fail-non-zero", plugins.Create)
+	event := agent.NewEvent(job, nil)
+	return event
+}
+
 func CreateSuccessDeploy() agent.Event {
 	deploy := DeployData("nginx-test-success", plugins.Create)
 	event := agent.NewEvent(deploy, nil)
@@ -176,7 +200,7 @@ func CreateSuccessDeployRenamed() agent.Event {
 
 func CreateDockerSocketDeploy() agent.Event {
 	deploy := DeployData("checkr-codeflow", plugins.Create)
-	deploy.Environment = "testing2"
+	deploy.Environment = "integrationtest2"
 	event := agent.NewEvent(deploy, nil)
 	return event
 }
@@ -257,7 +281,7 @@ func DeployDataMixedActions(name string, actions []plugins.Action) plugins.Docke
 				CpuLimit:                      "500m",
 				MemoryRequest:                 "1Mi",
 				MemoryLimit:                   "500Mi",
-				TerminationGracePeriodSeconds: int64(600),
+				TerminationGracePeriodSeconds: int64(1),
 			},
 			Replicas: 1,
 		})
@@ -270,7 +294,7 @@ func DeployDataMixedActions(name string, actions []plugins.Action) plugins.Docke
 	kubeDeploy := plugins.DockerDeploy{
 		Action:      plugins.Create,
 		Docker:      docker,
-		Environment: "testing2",
+		Environment: "integrationtest2",
 		Project:     project,
 		Timeout:     60,
 		Release:     release,
@@ -330,7 +354,7 @@ func DeployDataRenamed(name string, action plugins.Action) plugins.DockerDeploy 
 				CpuLimit:                      "500m",
 				MemoryRequest:                 "1Mi",
 				MemoryLimit:                   "500Mi",
-				TerminationGracePeriodSeconds: int64(600),
+				TerminationGracePeriodSeconds: int64(1),
 			},
 			Replicas: 1,
 		})
@@ -347,7 +371,7 @@ func DeployDataRenamed(name string, action plugins.Action) plugins.DockerDeploy 
 			CpuLimit:                      "500m",
 			MemoryRequest:                 "1Mi",
 			MemoryLimit:                   "500Mi",
-			TerminationGracePeriodSeconds: int64(600),
+			TerminationGracePeriodSeconds: int64(1),
 		},
 		Replicas: 1,
 	})
@@ -359,7 +383,7 @@ func DeployDataRenamed(name string, action plugins.Action) plugins.DockerDeploy 
 	kubeDeploy := plugins.DockerDeploy{
 		Action:      action,
 		Docker:      docker,
-		Environment: "testing2",
+		Environment: "integrationtest2",
 		Project:     project,
 		Timeout:     60,
 		Release:     release,
@@ -372,6 +396,297 @@ func DeployDataRenamed(name string, action plugins.Action) plugins.DockerDeploy 
 			},
 		},
 	}
+	return kubeDeploy
+}
+
+func JobDataFailNonZero(name string, action plugins.Action) plugins.DockerDeploy {
+	project := plugins.Project{
+		Slug: name,
+	}
+
+	headFeature := plugins.Feature{
+		Message:    "jobtest1",
+		User:       "shreyas@checkr.com",
+		Hash:       "112",
+		ParentHash: "112",
+	}
+
+	tailFeature := plugins.Feature{
+		Message:    "jobtest2",
+		User:       "shreyas@checkr.com",
+		Hash:       "456",
+		ParentHash: "456",
+	}
+
+	release := plugins.Release{
+		HeadFeature: headFeature,
+		TailFeature: tailFeature,
+	}
+
+	listener := plugins.Listener{
+		Port:     80,
+		Protocol: "TCP",
+	}
+
+	var serviceArray []plugins.Service
+
+	serviceArray = append(serviceArray, plugins.Service{
+		Action:    action,
+		Name:      "exit-non-zero",
+		Command:   "exit 1",
+		Listeners: []plugins.Listener{listener},
+		State:     plugins.Waiting,
+		Spec: plugins.ServiceSpec{
+			CpuRequest:                    "10m",
+			CpuLimit:                      "500m",
+			MemoryRequest:                 "1Mi",
+			MemoryLimit:                   "500Mi",
+			TerminationGracePeriodSeconds: int64(1),
+		},
+		Replicas: 1,
+		OneShot:  true,
+	})
+
+	docker := plugins.Docker{
+		Image: "checkr/deploy-test:latest",
+	}
+
+	kubeDeploy := plugins.DockerDeploy{
+		Action:      action,
+		Docker:      docker,
+		Environment: "integrationtest2",
+		Project:     project,
+		Timeout:     60,
+		Release:     release,
+		Services:    serviceArray,
+		Secrets: []plugins.Secret{
+			{
+				Key:   "MY_SECRET_KEY",
+				Value: "MY_SECRET_VALUE",
+				Type:  plugins.Env,
+			},
+		},
+	}
+
+	return kubeDeploy
+}
+
+func OneServiceJobData(name string, serviceName string, action plugins.Action) plugins.DockerDeploy {
+	project := plugins.Project{
+		Slug: name,
+	}
+
+	headFeature := plugins.Feature{
+		Message:    "jobtest1",
+		User:       "shreyas@checkr.com",
+		Hash:       "112",
+		ParentHash: "112",
+	}
+
+	tailFeature := plugins.Feature{
+		Message:    "jobtest2",
+		User:       "shreyas@checkr.com",
+		Hash:       "456",
+		ParentHash: "456",
+	}
+
+	release := plugins.Release{
+		HeadFeature: headFeature,
+		TailFeature: tailFeature,
+	}
+
+	listener := plugins.Listener{
+		Port:     80,
+		Protocol: "TCP",
+	}
+
+	var serviceArray []plugins.Service
+
+	serviceArray = append(serviceArray, plugins.Service{
+		Action:    action,
+		Name:      serviceName,
+		Command:   "sleep 10",
+		Listeners: []plugins.Listener{listener},
+		State:     plugins.Waiting,
+		Spec: plugins.ServiceSpec{
+			CpuRequest:                    "10m",
+			CpuLimit:                      "500m",
+			MemoryRequest:                 "1Mi",
+			MemoryLimit:                   "500Mi",
+			TerminationGracePeriodSeconds: int64(1),
+		},
+		Replicas: 1,
+		OneShot:  true,
+	})
+
+	docker := plugins.Docker{
+		Image: "checkr/deploy-test:latest",
+	}
+
+	kubeDeploy := plugins.DockerDeploy{
+		Action:      action,
+		Docker:      docker,
+		Environment: "integrationtest2",
+		Project:     project,
+		Timeout:     60,
+		Release:     release,
+		Services:    serviceArray,
+		Secrets: []plugins.Secret{
+			{
+				Key:   "MY_SECRET_KEY",
+				Value: "MY_SECRET_VALUE",
+				Type:  plugins.Env,
+			},
+		},
+	}
+
+	return kubeDeploy
+}
+
+func JobData(name string, action plugins.Action) plugins.DockerDeploy {
+	project := plugins.Project{
+		Slug: name,
+	}
+
+	headFeature := plugins.Feature{
+		Message:    "jobtest1",
+		User:       "shreyas@checkr.com",
+		Hash:       "112",
+		ParentHash: "112",
+	}
+
+	tailFeature := plugins.Feature{
+		Message:    "jobtest2",
+		User:       "shreyas@checkr.com",
+		Hash:       "456",
+		ParentHash: "456",
+	}
+
+	release := plugins.Release{
+		HeadFeature: headFeature,
+		TailFeature: tailFeature,
+	}
+
+	listener := plugins.Listener{
+		Port:     80,
+		Protocol: "TCP",
+	}
+
+	var serviceArray []plugins.Service
+
+	for i := 0; i < 2; i++ {
+		serviceArray = append(serviceArray, plugins.Service{
+			Action:    action,
+			Name:      fmt.Sprintf("sleep-job%d", i),
+			Command:   "sleep 10",
+			Listeners: []plugins.Listener{listener},
+			State:     plugins.Waiting,
+			Spec: plugins.ServiceSpec{
+				CpuRequest:                    "10m",
+				CpuLimit:                      "500m",
+				MemoryRequest:                 "1Mi",
+				MemoryLimit:                   "500Mi",
+				TerminationGracePeriodSeconds: int64(1),
+			},
+			Replicas: 1,
+			OneShot:  true,
+		})
+	}
+
+	docker := plugins.Docker{
+		Image: "checkr/deploy-test:latest",
+	}
+
+	kubeDeploy := plugins.DockerDeploy{
+		Action:      action,
+		Docker:      docker,
+		Environment: "integrationtest2",
+		Project:     project,
+		Timeout:     60,
+		Release:     release,
+		Services:    serviceArray,
+		Secrets: []plugins.Secret{
+			{
+				Key:   "MY_SECRET_KEY",
+				Value: "MY_SECRET_VALUE",
+				Type:  plugins.Env,
+			},
+		},
+	}
+
+	return kubeDeploy
+}
+
+func JobDataFail(name string, action plugins.Action) plugins.DockerDeploy {
+	project := plugins.Project{
+		Slug: name,
+	}
+
+	headFeature := plugins.Feature{
+		Message:    "jobtest1",
+		User:       "shreyas@checkr.com",
+		Hash:       "112",
+		ParentHash: "112",
+	}
+
+	tailFeature := plugins.Feature{
+		Message:    "jobtest2",
+		User:       "shreyas@checkr.com",
+		Hash:       "456",
+		ParentHash: "456",
+	}
+
+	release := plugins.Release{
+		HeadFeature: headFeature,
+		TailFeature: tailFeature,
+	}
+
+	listener := plugins.Listener{
+		Port:     80,
+		Protocol: "TCP",
+	}
+
+	var serviceArray []plugins.Service
+
+	serviceArray = append(serviceArray, plugins.Service{
+		Action:    action,
+		Name:      fmt.Sprintf("helloworld-job"),
+		Command:   "bam!",
+		Listeners: []plugins.Listener{listener},
+		State:     plugins.Waiting,
+		Spec: plugins.ServiceSpec{
+			CpuRequest:                    "10m",
+			CpuLimit:                      "500m",
+			MemoryRequest:                 "1Mi",
+			MemoryLimit:                   "500Mi",
+			TerminationGracePeriodSeconds: int64(1),
+		},
+		Replicas: 1,
+		OneShot:  true,
+	})
+
+	// intentionally wrong image url to test failure
+	docker := plugins.Docker{
+		Image: "checkr:deploy-test:latest",
+	}
+
+	kubeDeploy := plugins.DockerDeploy{
+		Action:      action,
+		Docker:      docker,
+		Environment: "integrationtest2",
+		Project:     project,
+		Timeout:     60,
+		Release:     release,
+		Services:    serviceArray,
+		Secrets: []plugins.Secret{
+			{
+				Key:   "MY_SECRET_KEY",
+				Value: "MY_SECRET_VALUE",
+				Type:  plugins.Env,
+			},
+		},
+	}
+
 	return kubeDeploy
 }
 
@@ -419,7 +734,7 @@ func DeployData(name string, action plugins.Action) plugins.DockerDeploy {
 				CpuLimit:                      "500m",
 				MemoryRequest:                 "1Mi",
 				MemoryLimit:                   "500Mi",
-				TerminationGracePeriodSeconds: int64(600),
+				TerminationGracePeriodSeconds: int64(1),
 			},
 			Replicas: 1,
 		})
@@ -428,7 +743,7 @@ func DeployData(name string, action plugins.Action) plugins.DockerDeploy {
 	serviceArray = append(serviceArray, plugins.Service{
 		Action:  action,
 		Name:    "worker",
-		Command: "/bin/sh -c 'while(/bin/true); do sleep 1; echo waiting forever...; done'",
+		Command: "/bin/sh -c 'while(/bin/true); do sleep 1; echo waiting forever; done'",
 		State:   plugins.Waiting,
 		Spec: plugins.ServiceSpec{
 
@@ -436,7 +751,7 @@ func DeployData(name string, action plugins.Action) plugins.DockerDeploy {
 			CpuLimit:                      "500m",
 			MemoryRequest:                 "1Mi",
 			MemoryLimit:                   "500Mi",
-			TerminationGracePeriodSeconds: int64(600),
+			TerminationGracePeriodSeconds: int64(1),
 		},
 		Replicas: 1,
 	})
@@ -448,7 +763,7 @@ func DeployData(name string, action plugins.Action) plugins.DockerDeploy {
 	kubeDeploy := plugins.DockerDeploy{
 		Action:      action,
 		Docker:      docker,
-		Environment: "testing2",
+		Environment: "integrationtest2",
 		Project:     project,
 		Timeout:     60,
 		Release:     release,
@@ -509,7 +824,7 @@ func DeployDataFail(name string, action plugins.Action) plugins.DockerDeploy {
 				CpuLimit:                      "500m",
 				MemoryRequest:                 "1Mi",
 				MemoryLimit:                   "500Mi",
-				TerminationGracePeriodSeconds: int64(600),
+				TerminationGracePeriodSeconds: int64(1),
 			},
 			Replicas: 1,
 		})
@@ -526,7 +841,7 @@ func DeployDataFail(name string, action plugins.Action) plugins.DockerDeploy {
 			CpuLimit:                      "500m",
 			MemoryRequest:                 "1Mi",
 			MemoryLimit:                   "500Mi",
-			TerminationGracePeriodSeconds: int64(600),
+			TerminationGracePeriodSeconds: int64(1),
 		},
 		Replicas: 1,
 	})
@@ -538,7 +853,7 @@ func DeployDataFail(name string, action plugins.Action) plugins.DockerDeploy {
 	kubeDeploy := plugins.DockerDeploy{
 		Action:      action,
 		Docker:      docker,
-		Environment: "testing2",
+		Environment: "integrationtest2",
 		Project:     project,
 		Timeout:     60,
 		Release:     release,

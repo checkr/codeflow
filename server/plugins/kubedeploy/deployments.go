@@ -8,15 +8,16 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/pkg/api/errors"
-	"k8s.io/client-go/pkg/api/resource"
-	"k8s.io/client-go/pkg/api/unversioned"
 	"k8s.io/client-go/pkg/api/v1"
+	apis_batch_v1 "k8s.io/client-go/pkg/apis/batch/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/pkg/util"
-	"k8s.io/client-go/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/checkr/codeflow/server/agent"
@@ -37,6 +38,10 @@ func genDeploymentName(repoName string, serviceName string) string {
 	return slug.Slug(repoName) + "-" + serviceName
 }
 
+func genOneShotServiceName(repoName string, serviceName string) string {
+	return "os-" + slug.Slug(repoName) + "-" + serviceName
+}
+
 func (x *KubeDeploy) sendDDResponse(e agent.Event, services []plugins.Service, state plugins.State, failureMessage string) {
 	data := e.Payload.(plugins.DockerDeploy)
 	data.Action = plugins.Status
@@ -44,6 +49,7 @@ func (x *KubeDeploy) sendDDResponse(e agent.Event, services []plugins.Service, s
 	data.Services = services
 	data.StateMessage = failureMessage
 	event := e.NewEvent(data, nil)
+
 	x.events <- event
 }
 
@@ -77,7 +83,7 @@ func secretifyDockerCred() string {
 
 func (x *KubeDeploy) createDockerIOSecretIfNotExists(namespace string, coreInterface corev1.CoreV1Interface) error {
 	// Load up the docker-io secrets for image pull if not exists
-	_, dockerIOSecretErr := coreInterface.Secrets(namespace).Get("docker-io")
+	_, dockerIOSecretErr := coreInterface.Secrets(namespace).Get("docker-io", meta_v1.GetOptions{})
 	if dockerIOSecretErr != nil {
 		if errors.IsNotFound(dockerIOSecretErr) {
 			log.Printf("docker-io secret not found for %s, creating.", namespace)
@@ -85,11 +91,11 @@ func (x *KubeDeploy) createDockerIOSecretIfNotExists(namespace string, coreInter
 				".dockercfg": secretifyDockerCred(),
 			}
 			_, createDockerIOSecretErr := coreInterface.Secrets(namespace).Create(&v1.Secret{
-				TypeMeta: unversioned.TypeMeta{
+				TypeMeta: meta_v1.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
 				},
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: meta_v1.ObjectMeta{
 					Name:      "docker-io",
 					Namespace: namespace,
 				},
@@ -110,16 +116,16 @@ func (x *KubeDeploy) createDockerIOSecretIfNotExists(namespace string, coreInter
 
 func (x *KubeDeploy) createNamespaceIfNotExists(namespace string, coreInterface corev1.CoreV1Interface) error {
 	// Create namespace if it does not exist.
-	_, nameGetErr := coreInterface.Namespaces().Get(namespace)
+	_, nameGetErr := coreInterface.Namespaces().Get(namespace, meta_v1.GetOptions{})
 	if nameGetErr != nil {
 		if errors.IsNotFound(nameGetErr) {
 			log.Printf("Namespace %s does not yet exist, creating.", namespace)
 			namespaceParams := &v1.Namespace{
-				TypeMeta: unversioned.TypeMeta{
+				TypeMeta: meta_v1.TypeMeta{
 					Kind:       "Namespace",
 					APIVersion: "v1",
 				},
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: meta_v1.ObjectMeta{
 					Name: namespace,
 				},
 			}
@@ -137,11 +143,28 @@ func (x *KubeDeploy) createNamespaceIfNotExists(namespace string, coreInterface 
 	return nil
 }
 
+func getContainerPorts(service plugins.Service) []v1.ContainerPort {
+	var deployPorts []v1.ContainerPort
+
+	// ContainerPorts for the deployment
+	for _, cPort := range service.Listeners {
+		// Build the deployments containerports array
+		newContainerPort := v1.ContainerPort{
+			ContainerPort: cPort.Port,
+			Protocol:      v1.Protocol(cPort.Protocol),
+		}
+		deployPorts = append(deployPorts, newContainerPort)
+	}
+
+	return deployPorts
+}
+
 func (x *KubeDeploy) doDeploy(e agent.Event) error {
 	// Codeflow will load the kube config from a file, specified by CF_PLUGINS_KUBEDEPLOY_KUBECONFIG environment variable
 	kubeconfig := viper.GetString("plugins.kubedeploy.kubeconfig")
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	log.Println("Using kubeconfig: %s", kubeconfig)
 
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -163,8 +186,6 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 		timeout = 600
 	}
 	curTime := 0
-
-	totalDeploysRequested := len(data.Services)
 
 	createNamespaceErr := x.createNamespaceIfNotExists(namespace, coreInterface)
 	if createNamespaceErr != nil {
@@ -189,11 +210,11 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 	}
 
 	secretParams := &v1.Secret{
-		TypeMeta: unversioned.TypeMeta{
+		TypeMeta: meta_v1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: meta_v1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%v-", data.Project.Slug),
 			Namespace:    namespace,
 		},
@@ -262,6 +283,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 
 	// Do update/create of deployments and services
 	depInterface := clientset.Extensions()
+	batchv1DepInterface := clientset.BatchV1()
 
 	// Validate we have some services to deploy
 	if len(data.Services) == 0 {
@@ -287,19 +309,221 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 		})
 	}
 
-	for index, service := range data.Services {
-		deploymentName := genDeploymentName(data.Project.Slug, service.Name)
-		var deployPorts []v1.ContainerPort
+	// prioritize one-shot services over deployments
+	// because migrations (which are one-shot jobs) should be
+	// run before app code deployments
 
-		// ContainerPorts for the deployment
-		for _, cPort := range service.Listeners {
-			// Build the deployments containerports array
-			newContainerPort := v1.ContainerPort{
-				ContainerPort: cPort.Port,
-				Protocol:      v1.Protocol(cPort.Protocol),
-			}
-			deployPorts = append(deployPorts, newContainerPort)
+	var deploymentServices []plugins.Service
+	var oneShotServices []plugins.Service
+
+	for _, service := range data.Services {
+		if service.OneShot == true {
+			oneShotServices = append(oneShotServices, service)
+		} else {
+			deploymentServices = append(deploymentServices, service)
 		}
+	}
+
+	for index, service := range oneShotServices {
+		oneShotServiceName := strings.ToLower(genOneShotServiceName(data.Project.Slug, service.Name))
+
+		// Check and delete any completed or failed jobs, and delete respective pods
+		existingJobs, err := batchv1DepInterface.Jobs(namespace).List(meta_v1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", "app", oneShotServiceName)})
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to list existing jobs with label app=%s, with error: %s", oneShotServiceName, err)
+			oneShotServices[index].State = plugins.Failed
+			oneShotServices[index].StateMessage = errMsg
+			x.sendDDErrorResponse(e, oneShotServices, oneShotServices[index].StateMessage)
+			return nil
+		}
+
+		for index, job := range existingJobs.Items {
+			if *job.Spec.Completions > 0 {
+				if (job.Status.Active == 0 && job.Status.Failed == 0 && job.Status.Succeeded == 0) || job.Status.Active > 0 {
+					oneShotServices[index].State = plugins.Failed
+					oneShotServices[index].StateMessage = fmt.Sprintf("Error previous job is still active: %s", job.Name)
+					x.sendDDErrorResponse(e, oneShotServices, oneShotServices[index].StateMessage)
+					return nil
+				}
+			}
+
+			// delete old job
+			gracePeriod := int64(0)
+			isOrphan := true
+			deleteOptions := meta_v1.DeleteOptions{
+				GracePeriodSeconds: &gracePeriod,
+				OrphanDependents:   &isOrphan,
+			}
+
+			err = batchv1DepInterface.Jobs(namespace).Delete(job.Name, &deleteOptions)
+			if err != nil {
+				log.Printf("Failed to delete job %s with err %s", job.Name, err)
+			}
+		}
+
+		// Command parsing into entrypoint vs. args
+		commandArray, _ := shlex.Split(service.Command)
+
+		// Node selector
+		var nodeSelector map[string]string
+		if viper.IsSet("plugins.kubedeploy.node_selector") {
+			arrayKeyValue := strings.SplitN(viper.GetString("plugins.kubedeploy.node_selector"), "=", 2)
+			nodeSelector = map[string]string{arrayKeyValue[0]: arrayKeyValue[1]}
+		}
+
+		terminationGracePeriodSeconds := service.Spec.TerminationGracePeriodSeconds
+
+		podTemplateSpec := v1.PodTemplateSpec{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name:   oneShotServiceName,
+				Labels: map[string]string{"app": oneShotServiceName},
+			},
+			Spec: v1.PodSpec{
+				NodeSelector:                  nodeSelector,
+				TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+				ImagePullSecrets: []v1.LocalObjectReference{
+					{
+						Name: "docker-io",
+					},
+				},
+				Containers: []v1.Container{
+					{
+						Name:  strings.ToLower(service.Name),
+						Image: data.Docker.Image,
+						Args:  commandArray,
+						Resources: v1.ResourceRequirements{
+							Limits: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse(service.Spec.CpuLimit),
+								v1.ResourceMemory: resource.MustParse(service.Spec.MemoryLimit),
+							},
+							Requests: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse(service.Spec.CpuRequest),
+								v1.ResourceMemory: resource.MustParse(service.Spec.MemoryRequest),
+							},
+						},
+						ImagePullPolicy: v1.PullIfNotPresent,
+						Env:             myEnvVars,
+						VolumeMounts:    volumeMounts,
+					},
+				},
+				Volumes:       deployVolumes,
+				RestartPolicy: v1.RestartPolicyNever,
+				DNSPolicy:     v1.DNSClusterFirst,
+			},
+		}
+
+		numParallelPods := int32(1)
+		numCompletionsToTerminate := int32(service.Replicas)
+
+		var jobParams *apis_batch_v1.Job
+		jobParams = &apis_batch_v1.Job{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "Job",
+				APIVersion: "batch/v1",
+			},
+			ObjectMeta: meta_v1.ObjectMeta{
+				GenerateName: fmt.Sprintf("%v-", oneShotServiceName),
+				Labels:       map[string]string{"app": oneShotServiceName},
+			},
+			Spec: apis_batch_v1.JobSpec{
+				Parallelism: &numParallelPods,
+				Completions: &numCompletionsToTerminate,
+				Template:    podTemplateSpec,
+			},
+		}
+
+		createdJob, err := batchv1DepInterface.Jobs(namespace).Create(jobParams)
+		if err != nil {
+			log.Printf("Failed to create service job %s, with error: %s", createdJob.Name, err)
+			oneShotServices[index].State = plugins.Failed
+			oneShotServices[index].StateMessage = fmt.Sprintf("Failed to create job %s, with error: %s", createdJob.Name, err)
+			x.sendDDErrorResponse(e, oneShotServices, oneShotServices[index].StateMessage)
+			return nil
+		}
+
+		// Loop and block any other jobs/ deployments from running until
+		// the current job is terminated
+		for {
+			job, err := batchv1DepInterface.Jobs(namespace).Get(createdJob.Name, meta_v1.GetOptions{})
+			if err != nil {
+				log.Printf("Error '%s' fetching job status for %s", err, createdJob.Name)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			log.Printf("Job Status: Active: %v ; Succeeded: %v, Failed: %v \n", job.Status.Active, job.Status.Succeeded, job.Status.Failed)
+
+			// Container is still creating
+			if int32(service.Replicas) != 0 && job.Status.Active == 0 && job.Status.Failed == 0 && job.Status.Succeeded == 0 {
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			if job.Status.Failed > 0 {
+				// Job has failed. Delete job and report
+				activeDeadlineSeconds := int64(1)
+
+				job.Spec.ActiveDeadlineSeconds = &activeDeadlineSeconds
+				job, err = batchv1DepInterface.Jobs(namespace).Update(job)
+				if err != nil {
+					log.Printf("Error %s updating job %s before deletion", job.Name, err)
+				}
+
+				oneShotServices[index].State = plugins.Failed
+				oneShotServices[index].StateMessage = fmt.Sprintf("Error job has failed %s", oneShotServiceName)
+				x.sendDDErrorResponse(e, oneShotServices, oneShotServices[index].StateMessage)
+				return nil
+			}
+
+			if job.Status.Active == int32(0) {
+				// Check for success
+				if job.Status.Succeeded == int32(service.Replicas) {
+					oneShotServices[index].State = plugins.Complete
+					break
+				} else {
+					// Job has failed!
+					oneShotServices[index].State = plugins.Failed
+					oneShotServices[index].StateMessage = fmt.Sprintf("Error job has failed %s", oneShotServiceName)
+					x.sendDDErrorResponse(e, oneShotServices, oneShotServices[index].StateMessage)
+					return nil
+				}
+			}
+
+			// Check Job's Pod status
+			if pods, err := clientset.Core().Pods(job.Namespace).List(meta_v1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", "app", oneShotServiceName)}); err != nil {
+				log.Printf("List Pods of service[%s] error: %v", job.Name, err)
+				oneShotServices[index].State = plugins.Failed
+				oneShotServices[index].StateMessage = fmt.Sprintf("List Pods of service[%s] error: %v", job.Name, err)
+				x.sendDDErrorResponse(e, oneShotServices, oneShotServices[index].StateMessage)
+			} else {
+				for _, item := range pods.Items {
+					if len(item.Status.ContainerStatuses) > 0 {
+						for _, containerStatus := range item.Status.ContainerStatuses {
+							if containerStatus.State.Waiting != nil {
+								switch waitingReason := containerStatus.State.Waiting.Reason; waitingReason {
+								case "ImagePullBackOff", "ImageInspectError", "ErrImagePull", "ErrImageNeverPull", "RegistryUnavilable", "InvalidImageName":
+									// Job has failed
+									oneShotServices[index].State = plugins.Failed
+									oneShotServices[index].StateMessage = fmt.Sprintf("Error job has failed due to InvalidImageName: %s", oneShotServiceName)
+									x.sendDDErrorResponse(e, oneShotServices, oneShotServices[index].StateMessage)
+									return nil
+								default:
+									log.Printf("Pod is waiting because %s", waitingReason)
+								}
+							}
+						}
+					}
+				}
+			}
+
+			time.Sleep(5 * time.Second)
+		}
+
+	}
+
+	for index, service := range deploymentServices {
+		deploymentName := genDeploymentName(data.Project.Slug, service.Name)
+		deployPorts := getContainerPorts(service)
 
 		// Support ready and liveness probes
 		var readyProbe v1.Probe
@@ -391,12 +615,56 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 		var revisionHistoryLimit int32 = 10
 		terminationGracePeriodSeconds := service.Spec.TerminationGracePeriodSeconds
 
-		deployParams := &v1beta1.Deployment{
-			TypeMeta: unversioned.TypeMeta{
+		podTemplateSpec := v1.PodTemplateSpec{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name:   deploymentName,
+				Labels: map[string]string{"app": deploymentName},
+			},
+			Spec: v1.PodSpec{
+				NodeSelector:                  nodeSelector,
+				TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+				ImagePullSecrets: []v1.LocalObjectReference{
+					{
+						Name: "docker-io",
+					},
+				},
+				Containers: []v1.Container{
+					{
+						Name:  strings.ToLower(service.Name),
+						Image: data.Docker.Image,
+						Ports: deployPorts,
+						Args:  commandArray,
+						Resources: v1.ResourceRequirements{
+							Limits: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse(service.Spec.CpuLimit),
+								v1.ResourceMemory: resource.MustParse(service.Spec.MemoryLimit),
+							},
+							Requests: v1.ResourceList{
+								v1.ResourceCPU:    resource.MustParse(service.Spec.CpuRequest),
+								v1.ResourceMemory: resource.MustParse(service.Spec.MemoryRequest),
+							},
+						},
+						ImagePullPolicy: v1.PullIfNotPresent,
+						Env:             myEnvVars,
+						ReadinessProbe:  &readyProbe,
+						LivenessProbe:   &liveProbe,
+						VolumeMounts:    volumeMounts,
+					},
+				},
+				Volumes:       deployVolumes,
+				RestartPolicy: v1.RestartPolicyAlways,
+				DNSPolicy:     v1.DNSClusterFirst,
+			},
+		}
+
+		var deployParams *v1beta1.Deployment
+
+		deployParams = &v1beta1.Deployment{
+			TypeMeta: meta_v1.TypeMeta{
 				Kind:       "Deployment",
 				APIVersion: "extensions/v1beta1",
 			},
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: meta_v1.ObjectMeta{
 				Name: deploymentName,
 			},
 			Spec: v1beta1.DeploymentSpec{
@@ -404,63 +672,25 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				Replicas:                &replicas,
 				Strategy:                deployStrategy,
 				RevisionHistoryLimit:    &revisionHistoryLimit,
-				Template: v1.PodTemplateSpec{
-					ObjectMeta: v1.ObjectMeta{
-						Name:   deploymentName,
-						Labels: map[string]string{"app": deploymentName},
-					},
-					Spec: v1.PodSpec{
-						NodeSelector:                  nodeSelector,
-						TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-						ImagePullSecrets: []v1.LocalObjectReference{
-							{
-								Name: "docker-io",
-							},
-						},
-						Containers: []v1.Container{
-							{
-								Name:  service.Name,
-								Image: data.Docker.Image,
-								Ports: deployPorts,
-								Args:  commandArray,
-								Resources: v1.ResourceRequirements{
-									Limits: v1.ResourceList{
-										v1.ResourceCPU:    resource.MustParse(service.Spec.CpuLimit),
-										v1.ResourceMemory: resource.MustParse(service.Spec.MemoryLimit),
-									},
-									Requests: v1.ResourceList{
-										v1.ResourceCPU:    resource.MustParse(service.Spec.CpuRequest),
-										v1.ResourceMemory: resource.MustParse(service.Spec.MemoryRequest),
-									},
-								},
-								ImagePullPolicy: v1.PullIfNotPresent,
-								Env:             myEnvVars,
-								ReadinessProbe:  &readyProbe,
-								LivenessProbe:   &liveProbe,
-								VolumeMounts:    volumeMounts,
-							},
-						},
-						Volumes:       deployVolumes,
-						RestartPolicy: v1.RestartPolicyAlways,
-						DNSPolicy:     v1.DNSClusterFirst,
-					},
-				},
+				Template:                podTemplateSpec,
 			},
 		}
 
-		log.Printf("Getting list of deployments matching %s", deploymentName)
-		_, err := depInterface.Deployments(namespace).Get(deploymentName)
+		var err error
+		log.Printf("Getting list of deployments/ jobs matching %s", deploymentName)
+		_, err = depInterface.Deployments(namespace).Get(deploymentName, meta_v1.GetOptions{})
 		var myError error
 		if err != nil {
 			// Create deployment if it does not exist
 			log.Printf("Existing deployment not found for %s. requested action: %s.", deploymentName, service.Action)
 			// Sanity check that we were told to create this service or error out.
+
 			_, myError = depInterface.Deployments(namespace).Create(deployParams)
 			if myError != nil {
 				// send failed status
 				log.Printf("Failed to create service deployment %s, with error: %s", deploymentName, myError)
-				data.Services[index].State = plugins.Failed
-				data.Services[index].StateMessage = fmt.Sprintf("Error creating deployment: %s", myError)
+				deploymentServices[index].State = plugins.Failed
+				deploymentServices[index].StateMessage = fmt.Sprintf("Error creating deployment: %s", myError)
 				// shorten the timeout in this case so that we can fail without waiting
 				curTime = timeout
 			}
@@ -469,135 +699,184 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 			_, myError = depInterface.Deployments(namespace).Update(deployParams)
 			if myError != nil {
 				log.Printf("Failed to update service deployment %s, with error: %s", deploymentName, myError)
-				data.Services[index].State = plugins.Failed
-				data.Services[index].StateMessage = fmt.Sprintf("Failed to update deployment %s, with error: %s", deploymentName, myError)
+				deploymentServices[index].State = plugins.Failed
+				deploymentServices[index].StateMessage = fmt.Sprintf("Failed to update deployment %s, with error: %s", deploymentName, myError)
 				// shorten the timeout in this case so that we can fail without waiting
 				curTime = timeout
 			}
 		}
+
 	} // All service deployments initiated.
 
 	log.Printf("Waiting %d seconds for deployment to succeed.", timeout)
-	// Set all services initial state to Failed so that we know which have not succeeded.
-	for i := range data.Services {
-		data.Services[i].State = plugins.Waiting
+	for i := range deploymentServices {
+		deploymentServices[i].State = plugins.Waiting
 	}
 
-	// Check status of all deployments till the succeed or timeout.
-	replicaFailures := 0
-	for {
-		for index, service := range data.Services {
-			deploymentName := genDeploymentName(data.Project.Slug, service.Name)
-			deployment, err := depInterface.Deployments(namespace).Get(deploymentName)
-			if err != nil {
-				log.Printf("Error '%s' fetching deployment status for %s", err, deploymentName)
-				continue
+	if len(deploymentServices) > 0 {
+		// Check status of all deployments till the succeed or timeout.
+		replicaFailures := 0
+		for {
+			for index, service := range deploymentServices {
+				deploymentName := strings.ToLower(genDeploymentName(data.Project.Slug, service.Name))
+				deployment, err := depInterface.Deployments(namespace).Get(deploymentName, meta_v1.GetOptions{})
+				if err != nil {
+					log.Printf("Error '%s' fetching deployment status for %s", err, deploymentName)
+					continue
+				}
+				log.Printf("Waiting for %s; ObservedGeneration: %d, Generation: %d, UpdatedReplicas: %d, Replicas: %d, AvailableReplicas: %d, UnavailableReplicas: %d", deploymentName, deployment.Status.ObservedGeneration, deployment.ObjectMeta.Generation, deployment.Status.UpdatedReplicas, *deployment.Spec.Replicas, deployment.Status.AvailableReplicas, deployment.Status.UnavailableReplicas)
+				if deployment.Status.ObservedGeneration >= deployment.ObjectMeta.Generation && deployment.Status.UpdatedReplicas == *deployment.Spec.Replicas && deployment.Status.AvailableReplicas >= deployment.Status.UpdatedReplicas && deployment.Status.UnavailableReplicas == 0 {
+					// deployment success
+					deploymentServices[index].State = plugins.Complete
+					/// AH HA!! haha
+					successfulDeploys = 0
+					for _, d := range deploymentServices {
+						if d.State == plugins.Complete {
+							successfulDeploys++
+						}
+					}
+					log.Printf("%s deploy: %d of %d deployments successful.", deploymentName, successfulDeploys, len(deploymentServices))
+				}
+
+				//for _, condition := range deployment.Status.Conditions {
+				//	if condition.Type == v1beta1.DeploymentReplicaFailure || (condition.Type == v1beta1.DeploymentProgressing && condition.Status == v1.ConditionFalse) {
+				//		replicaFailures += 1
+				//		data.Services[index].State = plugins.Failed
+				//		data.Services[index].StateMessage = condition.Message
+				//		log.Printf("%s failed to start: %v (%v)", deploymentName, condition.Message, condition.Reason)
+				//	}
+				//}
+
 			}
-			log.Printf("Waiting for %s; ObservedGeneration: %d, Generation: %d, UpdatedReplicas: %d, Replicas: %d, AvailableReplicas: %d, UnavailableReplicas: %d", deploymentName, deployment.Status.ObservedGeneration, deployment.ObjectMeta.Generation, deployment.Status.UpdatedReplicas, *deployment.Spec.Replicas, deployment.Status.AvailableReplicas, deployment.Status.UnavailableReplicas)
 
-			if deployment.Status.ObservedGeneration >= deployment.ObjectMeta.Generation && deployment.Status.UpdatedReplicas == *deployment.Spec.Replicas && deployment.Status.AvailableReplicas >= deployment.Status.UpdatedReplicas && deployment.Status.UnavailableReplicas == 0 {
-				// deployment success
-				data.Services[index].State = plugins.Complete
-				/// AH HA!! haha
-				successfulDeploys = 0
-				for _, d := range data.Services {
-					if d.State == plugins.Complete {
-						successfulDeploys++
-					}
-				}
-				log.Printf("%s deploy: %d of %d successful.", deploymentName, successfulDeploys, totalDeploysRequested)
+			if successfulDeploys == len(deploymentServices) {
+				break
 			}
 
-			//for _, condition := range deployment.Status.Conditions {
-			//	if condition.Type == v1beta1.DeploymentReplicaFailure || (condition.Type == v1beta1.DeploymentProgressing && condition.Status == v1.ConditionFalse) {
-			//		replicaFailures += 1
-			//		data.Services[index].State = plugins.Failed
-			//		data.Services[index].StateMessage = condition.Message
-			//		log.Printf("%s failed to start: %v (%v)", deploymentName, condition.Message, condition.Reason)
-			//	}
-			//}
+			if curTime >= timeout || replicaFailures > 1 {
+				// timeout and get ready to rollback!
+				errMsg := fmt.Sprintf("Error, timeout reached waiting for all deployments to succeed.")
+				log.Printf(errMsg)
 
-			if successfulDeploys == totalDeploysRequested {
-				// all success!
-				log.Printf("All deployments successful.")
-				x.sendDDSuccessResponse(e, data.Services)
-
-				// cleanup Orphans! (these are deployments leftover from rename or etc.)
-				allDeploymentsList, listErr := depInterface.Deployments(namespace).List(v1.ListOptions{})
-				if listErr != nil {
-					// If we can't list the deployments just return.  We have already sent the success message.
-					log.Printf("Fatal Error listing deployments during cleanup.  %s", listErr)
-					return nil
-				}
-				var foundIt bool
-				var orphans []v1beta1.Deployment
-				for _, deployment := range allDeploymentsList.Items {
-					foundIt = false
-					for _, service := range data.Services {
-						if deployment.Name == genDeploymentName(data.Project.Slug, service.Name) {
-							foundIt = true
-						}
-					}
-					if foundIt == false {
-						orphans = append(orphans, deployment)
+				for index := range deploymentServices {
+					if deploymentServices[index].State == plugins.Waiting {
+						deploymentServices[index].State = plugins.Failed
+						deploymentServices[index].StateMessage = errMsg
 					}
 				}
-				// Preload list of all replica sets
-				repSets, repErr := depInterface.ReplicaSets(namespace).List(v1.ListOptions{})
-				if repErr != nil {
-					log.Printf("Error retrieving list of replicasets for %s", namespace)
-					return nil
-				}
-				// Preload list of all pods
-				allPods, podErr := coreInterface.Pods(namespace).List(v1.ListOptions{})
-				if podErr != nil {
-					log.Printf("Error retrieving list of pods for %s", namespace)
-					return nil
-				}
-				// Delete the deployments
-				for _, deleteThis := range orphans {
-					matched, _ := regexp.MatchString("^keep", deleteThis.Name)
-					if matched {
-						continue
-					}
-					log.Printf("Deleting deployment orphan: %s", deleteThis.Name)
-					deleteError := depInterface.Deployments(namespace).Delete(deleteThis.Name, &v1.DeleteOptions{})
-					if deleteError != nil {
-						log.Printf("Error when deleting: %s", deleteError)
-					}
-					// Delete the replicasets (cascade)
-					for _, repSet := range repSets.Items {
-						if repSet.ObjectMeta.Labels["app"] == deleteThis.Name {
-							log.Printf("Deleting replicaset orphan: %s", repSet.Name)
-							repDelErr := depInterface.ReplicaSets(namespace).Delete(repSet.Name, &v1.DeleteOptions{})
-							if repDelErr != nil {
-								log.Printf("Error '%s' while deleting replica set %s", repDelErr, repSet.Name)
-							}
-						}
-					}
-					// Delete the pods (cascade) or scale down the repset
-					for _, pod := range allPods.Items {
-						if pod.ObjectMeta.Labels["app"] == deleteThis.Name {
-							log.Printf("Deleting pod orphan: %s", pod.Name)
-							podDelErr := coreInterface.Pods(namespace).Delete(pod.Name, &v1.DeleteOptions{})
-							if podDelErr != nil {
-								log.Printf("Error '%s' while deleting pod %s", podDelErr, pod.Name)
-							}
-						}
-					}
-				}
-				// Already sent success, return.
+				x.sendDDErrorResponse(e, append(deploymentServices, oneShotServices...), errMsg)
 				return nil
 			}
+			time.Sleep(5 * time.Second)
+			curTime += 5
 		}
-		if curTime >= timeout || replicaFailures > 1 {
-			// timeout and get ready to rollback!
-			log.Printf("Error, timeout reached waiting for all deployments to succeed.")
-			x.sendDDErrorResponse(e, data.Services, "Error: One or more deployments failed.")
-			break
+
+	}
+
+	x.sendDDSuccessResponse(e, append(deploymentServices, oneShotServices...))
+
+	// all success!
+	log.Printf("All deployments successful.")
+	// Cleanup orphan jobs
+	existingJobs, err := batchv1DepInterface.Jobs(namespace).List(meta_v1.ListOptions{})
+	if err != nil {
+		log.Printf("Failed to list existing jobs in namespace %s, with error: %s", namespace, err)
+	}
+
+	for _, job := range existingJobs.Items {
+		var foundIt bool
+		for _, service := range oneShotServices {
+			oneShotServiceName := strings.ToLower(genOneShotServiceName(data.Project.Slug, service.Name))
+			if oneShotServiceName == job.Labels["app"] {
+				foundIt = true
+			}
 		}
-		time.Sleep(5 * time.Second)
-		curTime += 5
+
+		if foundIt == false {
+			log.Printf("Deleting orphan job %s", job.Name)
+			gracePeriod := int64(0)
+			isOrphan := true
+			deleteOptions := meta_v1.DeleteOptions{
+				GracePeriodSeconds: &gracePeriod,
+				OrphanDependents:   &isOrphan,
+			}
+
+			err = batchv1DepInterface.Jobs(namespace).Delete(job.Name, &deleteOptions)
+			if err != nil {
+				log.Printf("Failed to delete orphan job %s with err %s", job.Name, err)
+			}
+		}
+	}
+
+	// cleanup Orphans! (these are deployments leftover from rename or etc.)
+	allDeploymentsList, listErr := depInterface.Deployments(namespace).List(meta_v1.ListOptions{})
+	if listErr != nil {
+		// If we can't list the deployments just return.  We have already sent the success message.
+		log.Printf("Fatal Error listing deployments during cleanup.  %s", listErr)
+		return nil
+	}
+	var foundIt bool
+	var orphans []v1beta1.Deployment
+	for _, deployment := range allDeploymentsList.Items {
+		foundIt = false
+		for _, service := range data.Services {
+			if deployment.Name == genDeploymentName(data.Project.Slug, service.Name) {
+				foundIt = true
+			}
+		}
+		if foundIt == false {
+			orphans = append(orphans, deployment)
+		}
+	}
+
+	// Preload list of all replica sets
+	repSets, repErr := depInterface.ReplicaSets(namespace).List(meta_v1.ListOptions{})
+	if repErr != nil {
+		log.Printf("Error retrieving list of replicasets for %s", namespace)
+		return nil
+	}
+
+	// Preload list of all pods
+	allPods, podErr := coreInterface.Pods(namespace).List(meta_v1.ListOptions{})
+	if podErr != nil {
+		log.Printf("Error retrieving list of pods for %s", namespace)
+		return nil
+	}
+
+	// Delete the deployments
+	for _, deleteThis := range orphans {
+		matched, _ := regexp.MatchString("^keep", deleteThis.Name)
+		if matched {
+			continue
+		}
+
+		log.Printf("Deleting deployment orphan: %s", deleteThis.Name)
+		err := depInterface.Deployments(namespace).Delete(deleteThis.Name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			log.Printf("Error when deleting: %s", err)
+		}
+
+		// Delete the replicasets (cascade)
+		for _, repSet := range repSets.Items {
+			if repSet.ObjectMeta.Labels["app"] == deleteThis.Name {
+				log.Printf("Deleting replicaset orphan: %s", repSet.Name)
+				err := depInterface.ReplicaSets(namespace).Delete(repSet.Name, &meta_v1.DeleteOptions{})
+				if err != nil {
+					log.Printf("Error '%s' while deleting replica set %s", err, repSet.Name)
+				}
+			}
+		}
+
+		// Delete the pods (cascade) or scale down the repset
+		for _, pod := range allPods.Items {
+			if pod.ObjectMeta.Labels["app"] == deleteThis.Name {
+				log.Printf("Deleting pod orphan: %s", pod.Name)
+				err := coreInterface.Pods(namespace).Delete(pod.Name, &meta_v1.DeleteOptions{})
+				if err != nil {
+					log.Printf("Error '%s' while deleting pod %s", err, pod.Name)
+				}
+			}
+		}
 	}
 
 	return nil

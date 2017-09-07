@@ -36,18 +36,7 @@ import:
   subpackages:
   - bson
 - package: k8s.io/client-go
-  version: release-2.0
-  subpackages:
-  - kubernetes
-  - kubernetes/typed/core/v1
-  - pkg/api/errors
-  - pkg/api/resource
-  - pkg/api/v1
-  - pkg/apis/extensions/v1beta1
-  - pkg/apis/meta/v1
-  - pkg/util
-  - pkg/util/intstr
-  - tools/clientcmd
+  version: v4.0.0
 - package: github.com/ashwanthkumar/slack-go-webhook
 - package: github.com/mattes/migrate
   version: v1.3.1
@@ -57,3 +46,4 @@ import:
   version: ^0.4.0
 - package: github.com/sirupsen/logrus
   version: ^1.0.3
+- package: k8s.io/apimachinery

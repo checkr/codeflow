@@ -133,9 +133,9 @@ class ProjectServiceForm extends Component {
                   <Field name="command" className="form-control" component={renderInput} type="text"/>
                 </div>
 
-                {/* <div className="form-group">
+                <div className="form-group">
                   <Field className="form-check-input" name="oneShot" component={renderInput} type="checkbox" value="false"/> One-shot
-                </div> */}
+                </div>
 
                 <div className="row">
                   <div className="col-xs-12">
