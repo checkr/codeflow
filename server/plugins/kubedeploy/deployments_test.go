@@ -192,6 +192,29 @@ func (suite *TestDeployments) TestStragglerDeployment() {
 	assert.Equal(suite.T(), string(plugins.Complete), string(e.Payload.(plugins.DockerDeploy).State))
 }
 
+func (suite *TestDeployments) TestFailedDeployFollowedBySuccessDeploy() {
+	// To exercise the fast failure mode we will make sure that the detector picks the right replica set.
+	var e agent.Event
+
+	// Create a failed deploy with pods waiting 'forever' condition.
+	suite.agent1.Events <- testdata.CreateSuccessAndFailDeploy1()
+	// Consume the in-progress message
+	e = suite.agent1.GetTestEvent("plugins.DockerDeploy:status", 120)
+	assert.Equal(suite.T(), string(plugins.Running), string(e.Payload.(plugins.DockerDeploy).State))
+	// Consume the success message
+	e = suite.agent1.GetTestEvent("plugins.DockerDeploy:status", 120)
+	assert.Equal(suite.T(), string(plugins.Failed), string(e.Payload.(plugins.DockerDeploy).State))
+
+	// Create a success deploy and make sure it succeeds.
+	suite.agent1.Events <- testdata.CreateSuccessAndFailDeploy2()
+	// Consume the in-progress message
+	e = suite.agent1.GetTestEvent("plugins.DockerDeploy:status", 120)
+	assert.Equal(suite.T(), string(plugins.Running), string(e.Payload.(plugins.DockerDeploy).State))
+	// Consume the success message
+	e = suite.agent1.GetTestEvent("plugins.DockerDeploy:status", 120)
+	assert.Equal(suite.T(), string(plugins.Complete), string(e.Payload.(plugins.DockerDeploy).State))
+}
+
 func TestKubeDeployDeployments(t *testing.T) {
 	suite.Run(t, new(TestDeployments))
 }

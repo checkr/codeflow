@@ -192,6 +192,18 @@ func CreateSuccessDeploy() agent.Event {
 	return event
 }
 
+func CreateSuccessAndFailDeploy1() agent.Event {
+	deploy := DeployDataFail("nginx-success-and-fail", plugins.Create)
+	event := agent.NewEvent(deploy, nil)
+	return event
+}
+
+func CreateSuccessAndFailDeploy2() agent.Event {
+	deploy := DeployData("nginx-success-and-fail", plugins.Create)
+	event := agent.NewEvent(deploy, nil)
+	return event
+}
+
 func CreateSuccessDeployRenamed() agent.Event {
 	deploy := DeployDataRenamed("nginx-test-success", plugins.Create)
 	event := agent.NewEvent(deploy, nil)
@@ -433,7 +445,7 @@ func JobDataFailNonZero(name string, action plugins.Action) plugins.DockerDeploy
 	serviceArray = append(serviceArray, plugins.Service{
 		Action:    action,
 		Name:      "exit-non-zero",
-		Command:   "exit 1",
+		Command:   "/bin/false",
 		Listeners: []plugins.Listener{listener},
 		State:     plugins.Waiting,
 		Spec: plugins.ServiceSpec{
@@ -815,7 +827,7 @@ func DeployDataFail(name string, action plugins.Action) plugins.DockerDeploy {
 		serviceArray = append(serviceArray, plugins.Service{
 			Action:    action,
 			Name:      fmt.Sprintf("nginx%d", i),
-			Command:   "boom",
+			Command:   "/bin/false",
 			Listeners: []plugins.Listener{listener},
 			State:     plugins.Waiting,
 			Spec: plugins.ServiceSpec{
@@ -833,7 +845,7 @@ func DeployDataFail(name string, action plugins.Action) plugins.DockerDeploy {
 	serviceArray = append(serviceArray, plugins.Service{
 		Action:  action,
 		Name:    "worker",
-		Command: "boom",
+		Command: "/bin/false",
 		State:   plugins.Waiting,
 		Spec: plugins.ServiceSpec{
 
