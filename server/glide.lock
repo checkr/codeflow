@@ -1,5 +1,5 @@
-hash: 91467a977dc3831432a679245f58001d5673556e666a47f07794c30a6285fe6c
-updated: 2017-09-06T11:07:37.723298704-07:00
+hash: 94284d040647b608ab0997ec0272c5f23bf481d9ad3476fe360f03be1b1b26b9
+updated: 2017-09-08T13:18:04.703815035-07:00
 imports:
 - name: github.com/ant0ine/go-json-rest
   version: ce4b71cdf7ba29ef443d704bd923f5bbf281ee30
@@ -73,7 +73,7 @@ imports:
   subpackages:
   - raft/raftpb
 - name: github.com/davecgh/go-spew
-  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
+  version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
   subpackages:
   - spew
 - name: github.com/dgrijalva/jwt-go
@@ -263,8 +263,7 @@ imports:
   - jwa
   - jwk
 - name: github.com/libgit2/git2go
-  version: e424134bb6a425a508cf037ed62218c6b21600ce
-  repo: https://github.com/mikolajb/git2go.git
+  version: eb0bf21280bf589ebc69341b3040616463542f12
 - name: github.com/magiconair/properties
   version: be5ece7dd465ab0765a9682137865547526d1dfb
 - name: github.com/mailru/easyjson
@@ -372,7 +371,7 @@ imports:
   - ssh
   - ssh/terminal
 - name: golang.org/x/net
-  version: 1c05540f6879653db88113bc4a2b70aec4bd491f
+  version: f2499483f923065a842d38eb4c7f1927e6fc6e6d
   subpackages:
   - context
   - context/ctxhttp
@@ -389,10 +388,9 @@ imports:
   - unix
   - windows
 - name: golang.org/x/text
-  version: b19bf474d317b857955b12035d2c5acb57ce8b01
+  version: 2910a502d2bf9e43193af9d68ca516529614eed3
   subpackages:
   - cases
-  - internal
   - internal/tag
   - language
   - runes
@@ -442,6 +440,7 @@ imports:
   - pkg/conversion/unstructured
   - pkg/fields
   - pkg/labels
+  - pkg/openapi
   - pkg/runtime
   - pkg/runtime/schema
   - pkg/runtime/serializer
@@ -546,10 +545,6 @@ imports:
   - util/flowcontrol
   - util/homedir
   - util/integer
-- name: k8s.io/kube-openapi
-  version: 80f07ef71bb4f781233c65aa8d0369e4ecafab87
-  subpackages:
-  - pkg/common
 testImports:
 - name: github.com/jarcoal/httpmock
   version: 4442edb3db31196622da56482fd8d0fa375fba4d
@@ -558,7 +553,7 @@ testImports:
   subpackages:
   - difflib
 - name: github.com/stretchr/testify
-  version: f6abca593680b2315d2075e0f5e2a9751e3f431a
+  version: e3a8ff8ce36581f87a15341206f205b1da467059
   subpackages:
   - assert
   - require
