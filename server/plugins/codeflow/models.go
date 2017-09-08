@@ -273,7 +273,7 @@ type Release struct {
 	State              plugins.State `bson:"state" json:"state"`
 	StateMessage       string        `bson:"stateMessage" json:"stateMessage"`
 	Secrets            []Secret      `bson:"secrets" json:"-"`
-	Services           []Service     `bson:"services" json:"-"`
+	Services           []Service     `bson:"services" json:"services"`
 	Workflow           []Flow        `bson:"-" json:"workflow"`
 }
 

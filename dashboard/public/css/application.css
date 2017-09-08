@@ -473,3 +473,11 @@ input[type=checkbox], input[type=radio] {
   margin-top: 7px;
   margin-bottom: 0;
 }
+
+.release-errors {
+  margin-top: 7px;
+}
+
+.release-errors li {
+  padding: 5px;
+}

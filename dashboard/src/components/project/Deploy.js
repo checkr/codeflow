@@ -174,6 +174,37 @@ class ProjectDeploy extends Component {
     )
   }
 
+  renderReleaseErrors(release) {
+    if (release.state === "complete") {
+      return null
+    }
+
+    let errors = []
+    
+    if (release.stateMessage != "") {
+      errors.push(release.stateMessage) 
+    }
+
+    map(release.services, (service) => {
+      if (service.stateMessage != "") {
+        errors.push(service.name + ": " + service.stateMessage) 
+      }
+    })
+    
+    if (errors.length === 0) {
+      return null 
+    }
+
+    return (
+      <div>
+        <ul className="list-group release-errors">
+          {errors.map(err =>
+          <li className="list-group-item list-group-item-danger" key={err}>{err}</li>
+          )}
+        </ul>
+      </div>
+    )
+  }
   onReleaseMouseEnterHandler(release) {
     this.setState({releaseHover: release._id});
   }
@@ -212,6 +243,9 @@ class ProjectDeploy extends Component {
                   </div>
                   <div className="col-xs-12">
                     {this.renderReleaseWorkflow(release)}
+                  </div>
+                  <div className="col-xs-12">
+                    {this.renderReleaseErrors(release)}
                   </div>
                 </div>
               </div>
