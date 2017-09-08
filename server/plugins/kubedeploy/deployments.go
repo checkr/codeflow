@@ -349,7 +349,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 
 			// delete old job
 			gracePeriod := int64(0)
-			isOrphan := true
+			isOrphan := false
 			deleteOptions := meta_v1.DeleteOptions{
 				GracePeriodSeconds: &gracePeriod,
 				OrphanDependents:   &isOrphan,
