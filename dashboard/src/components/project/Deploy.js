@@ -175,7 +175,7 @@ class ProjectDeploy extends Component {
   }
 
   renderReleaseErrors(release) {
-    if (release.state === "complete") {
+    if (release.state !== "failed") {
       return null
     }
 
@@ -205,6 +205,7 @@ class ProjectDeploy extends Component {
       </div>
     )
   }
+
   onReleaseMouseEnterHandler(release) {
     this.setState({releaseHover: release._id});
   }
