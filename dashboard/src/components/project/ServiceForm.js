@@ -4,6 +4,7 @@ import { Field, FieldArray, reduxForm } from 'redux-form'
 import { Tooltip } from 'reactstrap';
 import ButtonConfirmAction from '../ButtonConfirmAction'
 import { toSafeInteger, without } from 'lodash'
+import { forEach } from 'lodash'
 
 const MIN_PORT = 1
 const MAX_PORT = 65535
@@ -94,8 +95,10 @@ class ProjectServiceForm extends Component {
     super(props);
 
     this.toggleContainerPort = this.toggleContainerPort.bind(this);
+    this.toggleTooltipServiceSettings = this.toggleTooltipServiceSettings.bind(this);
     this.state = {
-      tooltipContainerPortOpen: false
+      tooltipContainerPortOpen: false,
+      tooltipServiceSettingsOpen: false
     };
   }
 
@@ -103,6 +106,37 @@ class ProjectServiceForm extends Component {
     this.setState({
       tooltipContainerPortOpen: !this.state.tooltipContainerPortOpen
     })
+  }
+
+  toggleTooltipServiceSettings() {
+    this.setState({
+      tooltipServiceSettingsOpen: !this.state.tooltipServiceSettingsOpen
+    })
+  }
+
+  renderServiceSpecsTip() {
+    let { serviceSpecs } = this.props
+    let specs_jsx = []
+
+    forEach(serviceSpecs, spec => {
+      specs_jsx.push(this.renderQuickSpec(spec))
+    })
+    return specs_jsx
+  }
+
+  renderQuickSpec(spec) {
+    return (
+      <div style={{ align: 'left' }}>
+
+        <div className="hr-divider">
+          <h3 className="hr-divider-content hr-divider-heading">{spec.name}</h3>
+        </div>
+          CPU: {spec.cpuRequest} / {spec.cpuLimit}<br/>
+          Memory: {spec.memoryRequest} / {spec.memoryLimit}<br/>
+          Termination: {spec.terminationGracePeriodSeconds}s
+      <br/>
+      </div>
+    )
   }
 
   render() {
@@ -123,10 +157,15 @@ class ProjectServiceForm extends Component {
                     </div>
                   </div>
                   <div className="col-xs-4">
-                    <div className="form-group">
-                      <label>Spec</label>
-                      <Field className="form-control" name="specId" serviceSpecs={this.props.serviceSpecs} component={renderSpecsSelect}/>
-                    </div>
+                      <div className="form-group">
+                        <label>Spec</label>
+                        <i className="fa fa-question-circle" id="ToolTipServiceSettings" aria-hidden="true" style={{ position: 'left', zIndex: 100, bottom: '-20px', left: '175px' }}></i>
+
+                        <Field className="form-control" name="specId" serviceSpecs={this.props.serviceSpecs} component={renderSpecsSelect}/>                      
+                      </div>
+                      <Tooltip placement="right" isOpen={this.state.tooltipServiceSettingsOpen} target="ToolTipServiceSettings" toggle={this.toggleTooltipServiceSettings}>
+                        {this.renderServiceSpecsTip()}
+                      </Tooltip>
                   </div>
                   <div className="col-xs-2">
                     <div className="form-group">
