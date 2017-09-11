@@ -1,6 +1,7 @@
 package codeflow
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -202,6 +203,7 @@ func ReleaseCreated(r *Release) error {
 }
 
 func CheckWorkflows(r *Release) error {
+	now := time.Now()
 	var workflowStatus plugins.State = plugins.Complete
 
 	for idx := range r.Workflow {
@@ -210,6 +212,7 @@ func CheckWorkflows(r *Release) error {
 		switch flow.Type {
 		case "build":
 			var build Build
+
 			if err := db.Collection("builds").FindOne(bson.M{"featureHash": r.HeadFeature.Hash, "type": flow.Name}, &build); err != nil {
 				if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 					log.Printf("Builds::FindOne::DocumentNotFoundError: hash: `%v`, type: %v", r.HeadFeature.Hash, flow.Name)
@@ -230,6 +233,16 @@ func CheckWorkflows(r *Release) error {
 					flow.State = plugins.Running
 				}
 			}
+
+			// timeout after 60min
+			timeout := now.Add(-60 * time.Minute)
+			if flow.State == plugins.Waiting && flow.Created.Before(timeout) {
+				flow.State = plugins.Failed
+				flow.Message = fmt.Sprintf("%s timeout reached", flow.Name)
+				r.State = plugins.Failed
+				r.StateMessage = flow.Message
+			}
+
 			break
 
 		case "ci":
@@ -256,6 +269,15 @@ func CheckWorkflows(r *Release) error {
 				default:
 					flow.State = plugins.Running
 				}
+			}
+
+			// timeout after 5min
+			timeout := now.Add(-5 * time.Minute)
+			if flow.State == plugins.Waiting && flow.Created.Before(timeout) {
+				flow.State = plugins.Failed
+				flow.Message = fmt.Sprintf("%s timeout reached", flow.Name)
+				r.State = plugins.Failed
+				r.StateMessage = flow.Message
 			}
 			break
 		}
@@ -1067,4 +1089,19 @@ func GitSyncProjects(ids []bson.ObjectId) error {
 		cf.Events <- agent.NewEvent(gitSync, nil)
 	}
 	return nil
+}
+
+// timeout workflows if they stay in Waiting state for more than 5 minutes
+func ReleasesCheck() {
+	var release Release
+
+	results := db.Collection("releases").Find(bson.M{"state": bson.M{"$in": []plugins.State{plugins.Waiting}}})
+	for results.Next(&release) {
+		if err := CheckWorkflows(&release); err != nil {
+			log.Printf("CheckWorkflows::Error: %s, releaseId: %v"+err.Error(), release.Id)
+		}
+		if err := ReleaseUpdated(&release); err != nil {
+			log.Printf("ReleaseUpdated::Error: %s, releaseId: %v"+err.Error(), release.Id)
+		}
+	}
 }

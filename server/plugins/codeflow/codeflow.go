@@ -204,6 +204,7 @@ func (x *Codeflow) Process(e agent.Event) error {
 		switch heartBeat.Tick {
 		case "minute":
 			GitSyncProjects(nil)
+			ReleasesCheck()
 		}
 		return nil
 	}
