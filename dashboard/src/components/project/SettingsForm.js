@@ -151,6 +151,7 @@ class ProjectSettings extends Component {
     const { pristine, submitting, handleSubmit } = this.props
 
     return (
+      <div>
       <Form onSubmit={handleSubmit}>
         <div className="hr-divider m-t-md m-b">
           <h3 className="hr-divider-content hr-divider-heading">Project</h3>
@@ -171,11 +172,12 @@ class ProjectSettings extends Component {
         </FormGroup>
         <FieldArray name="secrets" collapsed={this.state.collapsed} component={this.renderConfigVars}/>
         <br/>
-        <ButtonConfirmAction btnLabel="Delete Project" onConfirm={() => this.onProjectDelete()} onCancel={this.onProjectCancel} btnClass="btn btn-link text-danger">
-          Are you sure?
-        </ButtonConfirmAction>
         <Button disabled={submitting || pristine} className="float-xs-right">{submitting ? 'Saving…' : 'Save'}</Button>
       </Form>
+      <ButtonConfirmAction btnLabel="Delete Project" onConfirm={() => this.onProjectDelete()} onCancel={this.onProjectCancel} btnClass="btn btn-link text-danger">
+        Are you sure you want to <b>DELETE</b> this project?
+      </ButtonConfirmAction>
+      </div>
     )
   }
 
