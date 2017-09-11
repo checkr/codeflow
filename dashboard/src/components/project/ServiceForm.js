@@ -163,7 +163,7 @@ class ProjectServiceForm extends Component {
 
                         <Field className="form-control" name="specId" serviceSpecs={this.props.serviceSpecs} component={renderSpecsSelect}/>                      
                       </div>
-                      <Tooltip placement="right" isOpen={this.state.tooltipServiceSettingsOpen} target="ToolTipServiceSettings" toggle={this.toggleTooltipServiceSettings}>
+                      <Tooltip placement="bottom" isOpen={this.state.tooltipServiceSettingsOpen} target="ToolTipServiceSettings" toggle={this.toggleTooltipServiceSettings}>
                         {this.renderServiceSpecsTip()}
                       </Tooltip>
                   </div>
