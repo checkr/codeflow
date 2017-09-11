@@ -38,7 +38,6 @@ class ProjectResources extends Component {
       edit: null,
       editExtension: null
     }
-
     this.onSaveService = this.onSaveService.bind(this)
   }
 
@@ -66,7 +65,7 @@ class ProjectResources extends Component {
                     </h5>
                   </div>
                   <div className="col-xs-2">
-                    <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-edit-resource" onClick={() => this.onEditService(service._id)}>
+                    <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-edit-resource" disabled={!!this.state.edit} onClick={() => this.onEditService(service._id)}>
                       <i className="fa fa-pencil" aria-hidden="true" /> Edit
                     </button>
                   </div>
@@ -171,7 +170,7 @@ class ProjectResources extends Component {
                     <Extension extension={extension} services={services}/>
                   </div>
                   <div className="col-xs-2">
-                    <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-edit-resource" onClick={(e) => this.onEditExtension(extension._id, e)}>
+                    <button type="button" className="btn btn-secondary btn-sm float-xs-right btn-edit-resource" disabled={!!this.state.editExtension} onClick={(e) => this.onEditExtension(extension._id, e)}>
                       <i className="fa fa-pencil" aria-hidden="true" /> Edit
                     </button>
                   </div>

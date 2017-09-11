@@ -152,31 +152,31 @@ class ProjectSettings extends Component {
 
     return (
       <div>
-      <Form onSubmit={handleSubmit}>
-        <div className="hr-divider m-t-md m-b">
-          <h3 className="hr-divider-content hr-divider-heading">Project</h3>
-        </div>
-        <FormGroup check>
-          <Label check>
-            <Field name="continuousIntegration" component={this.renderCheckbox} type="checkbox" normalize={normalizeBool} /> Continuous Integration (CircleCI)
-          </Label>
-        </FormGroup>
-        <FormGroup check>
-          <Label check>
-            <Field name="continuousDelivery" component={this.renderCheckbox} type="checkbox" normalize={normalizeBool} /> Continuous Delivery (Deploy on green)
-          </Label>
-        </FormGroup>
-        <FormGroup>
-          <Label for="notifyChannels">Notify Channels (Slack)</Label>
-          <Field name="notifyChannels" component={this.renderInput} type="text" placeholder="#eng,#devops"/>
-        </FormGroup>
-        <FieldArray name="secrets" collapsed={this.state.collapsed} component={this.renderConfigVars}/>
-        <br/>
-        <Button disabled={submitting || pristine} className="float-xs-right">{submitting ? 'Saving…' : 'Save'}</Button>
-      </Form>
-      <ButtonConfirmAction btnLabel="Delete Project" onConfirm={() => this.onProjectDelete()} onCancel={this.onProjectCancel} btnClass="btn btn-link text-danger">
-        Are you sure you want to <b>DELETE</b> this project?
-      </ButtonConfirmAction>
+        <Form onSubmit={handleSubmit}>
+          <div className="hr-divider m-t-md m-b">
+            <h3 className="hr-divider-content hr-divider-heading">Project</h3>
+          </div>
+          <FormGroup check>
+            <Label check>
+              <Field name="continuousIntegration" component={this.renderCheckbox} type="checkbox" normalize={normalizeBool} /> Continuous Integration (CircleCI)
+            </Label>
+          </FormGroup>
+          <FormGroup check>
+            <Label check>
+              <Field name="continuousDelivery" component={this.renderCheckbox} type="checkbox" normalize={normalizeBool} /> Continuous Delivery (Deploy on green)
+            </Label>
+          </FormGroup>
+          <FormGroup>
+            <Label for="notifyChannels">Notify Channels (Slack)</Label>
+            <Field name="notifyChannels" component={this.renderInput} type="text" placeholder="#eng,#devops"/>
+          </FormGroup>
+          <FieldArray name="secrets" collapsed={this.state.collapsed} component={this.renderConfigVars}/>
+          <br/>
+          <Button disabled={submitting || pristine} className="float-xs-right">{submitting ? 'Saving…' : 'Save'}</Button>
+        </Form>
+        <ButtonConfirmAction btnLabel="Delete Project" onConfirm={() => this.onProjectDelete()} onCancel={this.onProjectCancel} btnClass="btn btn-link text-danger">
+          Are you sure you want to <b>DELETE</b> this project?
+        </ButtonConfirmAction>
       </div>
     )
   }
