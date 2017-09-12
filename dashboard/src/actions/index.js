@@ -824,3 +824,23 @@ export const fetchServiceSpecServices = (slug) => {
     }
   }
 }
+
+export const PROJECT_CANCEL_RELEASE_REQUEST = 'PROJECT_CANCEL_RELEASE_REQUEST'
+export const PROJECT_CANCEL_RELEASE_SUCCESS = 'PROJECT_CANCEL_RELEASE_SUCCESS'
+export const PROJECT_CANCEL_RELEASE_FAILURE = 'PROJECT_CANCEL_RELEASE_FAILURE'
+
+export const cancelRelease = (project_slug, payload) => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/projects/${project_slug}/releases/cancel`,
+      method: 'POST',
+      body: postBody(payload),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [ PROJECT_CANCEL_RELEASE_REQUEST, PROJECT_CANCEL_RELEASE_SUCCESS, PROJECT_CANCEL_RELEASE_FAILURE ]
+    }
+  }
+}

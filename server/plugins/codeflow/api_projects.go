@@ -43,6 +43,7 @@ func (x *Projects) Register(api *rest.Api) []*rest.Route {
 		rest.Get(x.Path+"/#slug/releases", x.releases),
 		rest.Get(x.Path+"/#slug/releases/current", x.currentRelease),
 		rest.Post(x.Path+"/#slug/releases/rollback", x.createReleasesRollback),
+		rest.Post(x.Path+"/#slug/releases/cancel", x.cancelRelease),
 		rest.Get(x.Path+"/#slug/features", x.features),
 		rest.Get(x.Path+"/#slug", x.project),
 		rest.Post(x.Path, x.createProjects),
@@ -809,4 +810,46 @@ func (x *Projects) updateReleaseBuild(w rest.ResponseWriter, r *rest.Request) {
 	DockerBuildRebuild(&release)
 
 	w.WriteJson(build)
+}
+
+func (x *Projects) cancelRelease(w rest.ResponseWriter, r *rest.Request) {
+	release := Release{}
+	user := User{}
+
+	if err := r.DecodeJsonPayload(&release); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := db.Collection("releases").FindById(release.Id, &release); err != nil {
+		if _, ok := err.(*bongo.DocumentNotFoundError); ok {
+			log.Printf("Releases::FindById::DocumentNotFoundError: _id: `%v`", release.Id)
+		} else {
+			log.Printf("Releases::FindById::Error: %s", err.Error())
+		}
+		return
+	}
+
+	if err := CurrentUser(r, &user); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if release.State == plugins.Waiting {
+		release.State = plugins.Failed
+		release.StateMessage = fmt.Sprintf("cancelled by %v", user.Username)
+
+		if err := db.Collection("releases").Save(&release); err != nil {
+			log.Printf("Releases::Save::Error: %v", err.Error())
+			log.Printf("Releases::FindById::Error: %s", err.Error())
+			return
+		}
+
+		if err := ReleaseUpdated(&release); err != nil {
+			rest.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	w.WriteJson(release)
 }

@@ -2,7 +2,7 @@ import React, { Component } from 'react'
 import { isEmpty, map } from 'lodash'
 import { connect } from 'react-redux'
 import { Alert } from 'reactstrap'
-import { fetchProjectFeatures, createProjectRelease, createProjectRollbackTo, fetchProjectReleases, fetchProjectCurrentRelease } from '../../actions'
+import { fetchProjectFeatures, createProjectRelease, createProjectRollbackTo, fetchProjectReleases, fetchProjectCurrentRelease, cancelRelease } from '../../actions'
 import moment from 'moment'
 import Pagination from '../Pagination'
 import DockerImage from '../workflows/DockerImage'
@@ -57,6 +57,11 @@ class ProjectDeploy extends Component {
   onRollbackTo(release, e) {
     e.preventDefault()
     this.props.createProjectRollbackTo(this.props.project.slug, release)
+  }
+
+  onCancelRelease(release, e) {
+    e.preventDefault()
+    this.props.cancelRelease(this.props.project.slug, release)
   }
 
   renderFeatureHash(feature) {
@@ -125,7 +130,7 @@ class ProjectDeploy extends Component {
     let jsx = []
     switch(release.state) {
       case 'waiting':
-        jsx.push(<i key="waiting" className="fa fa-circle-o-notch fa-spin fa-fw float-xs-right" />)
+        jsx.push(<button type="button" key="btn" className="btn btn-secondary btn-sm float-xs-right" onClick={(e) => this.onCancelRelease(release, e)}>Cancel</button>)
         break
       case 'running':
         jsx.push(<i key="running" className="fa fa-refresh fa-spin fa-fw float-xs-right" />)
@@ -352,6 +357,7 @@ export default connect(mapStateToProps, {
   fetchProjectFeatures,
   createProjectRelease,
   createProjectRollbackTo,
+  cancelRelease,
   fetchProjectReleases,
   fetchProjectCurrentRelease
 })(ProjectDeploy)
