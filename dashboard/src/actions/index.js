@@ -844,3 +844,43 @@ export const cancelRelease = (project_slug, payload) => {
     }
   }
 }
+
+export const PROJECT_DEPLOY_ALL_REQUEST = 'PROJECT_DEPLOY_ALL_REQUEST'
+export const PROJECT_DEPLOY_ALL_SUCCESS = 'PROJECT_DEPLOY_ALL_SUCCESS'
+export const PROJECT_DEPLOY_ALL_FAILURE = 'PROJECT_DEPLOY_ALL_FAILURE'
+
+export const projectDeployAll = () => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/admin/deployallprojects`,
+      method: 'PUT',
+      body: '',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [ PROJECT_DEPLOY_ALL_REQUEST, PROJECT_DEPLOY_ALL_SUCCESS, PROJECT_DEPLOY_ALL_FAILURE ]
+    }
+  }
+}
+
+export const SERVICE_DEPLOY_ALL_REQUEST = 'SERVICE_DEPLOY_ALL_REQUEST'
+export const SERVICE_DEPLOY_ALL_SUCCESS = 'SERVICE_DEPLOY_ALL_SUCCESS'
+export const SERVICE_DEPLOY_ALL_FAILURE = 'SERVICE_DEPLOY_ALL_FAILURE'
+
+export const loadBalancerDeployAll = () => {
+  return {
+    [CALL_API]: {
+      endpoint: `${API_ROOT}/admin/deployloadbalancers`,
+      method: 'PUT',
+      body: '',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken()}`
+      },
+      types: [ SERVICE_DEPLOY_ALL_REQUEST, SERVICE_DEPLOY_ALL_SUCCESS, SERVICE_DEPLOY_ALL_FAILURE ]
+    }
+  }
+}
