@@ -312,7 +312,7 @@ func (x *Codeflow) Process(e agent.Event) error {
 			}
 		}
 
-		if err := db.Collection("features").FindOne(bson.M{"hash": payload.Hash}, &feature); err != nil {
+		if err := db.Collection("features").FindOne(bson.M{"hash": payload.Hash, "projectId": project.Id}, &feature); err != nil {
 			if _, ok := err.(*bongo.DocumentNotFoundError); ok {
 				feature = Feature{
 					ProjectId:  project.Id,

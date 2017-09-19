@@ -216,8 +216,8 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 	var ELBDNS string
 	if payload.Type == plugins.External || payload.Type == plugins.Office {
 		log.Printf("Waiting for ELB address for %s", payload.Name)
-		// Timeout waiting for ELB DNS name after 600 seconds
-		timeout := 600
+		// Timeout waiting for ELB DNS name after 900 seconds
+		timeout := 900
 		for {
 			elbResult, elbErr := coreInterface.Services(namespace).Get(payload.Name, meta_v1.GetOptions{})
 			if elbErr != nil {

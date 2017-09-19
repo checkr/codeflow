@@ -262,12 +262,14 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		panic(err.Error())
+		log.Printf("ERROR '%s' while building kubernetes api client config.  Aborting!", err)
+		return nil
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Println("Error getting cluster config.")
+		log.Println("Error getting cluster config.  Aborting!")
+		return nil
 	}
 
 	data := e.Payload.(plugins.DockerDeploy)
