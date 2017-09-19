@@ -59,7 +59,7 @@ func (x *Admin) deployAllLoadBalancers(w rest.ResponseWriter, r *rest.Request) {
 	results.Query.Sort("-$natural").All(&projects)
 	for _, p := range projects {
 		log.Printf("Finding services for '%s' project...", p.Slug)
-		l := bson.M{"projectId": p.Id}
+		l := bson.M{"projectId": p.Id, "state": "complete"}
 		lbResults := db.Collection("extensions").Find(l)
 		loadBalancer := &LoadBalancer{}
 		for lbResults.Next(loadBalancer) {
