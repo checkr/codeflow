@@ -32,7 +32,7 @@ func (x *Admin) Register(api *rest.Api) []*rest.Route {
 // Deploys all projects (does not touch services)
 func (x *Admin) deployAllProjects(w rest.ResponseWriter, r *rest.Request) {
 	projects := []Project{}
-	m := bson.M{"deleted": false}
+	m := bson.M{"deleted": false, "slug": bson.M{"$ne": "checkr-codeflow"}}
 	results := db.Collection("projects").Find(m)
 	results.Query.Sort("-$natural").All(&projects)
 	log.Printf("Deploying %d projects", len(projects))
@@ -54,7 +54,7 @@ func (x *Admin) deployAllProjects(w rest.ResponseWriter, r *rest.Request) {
 // Deploys all loadBalancers
 func (x *Admin) deployAllLoadBalancers(w rest.ResponseWriter, r *rest.Request) {
 	projects := []Project{}
-	m := bson.M{"deleted": false}
+	m := bson.M{"deleted": false, "slug": bson.M{"$ne": "checkr-codeflow"}}
 	results := db.Collection("projects").Find(m)
 	results.Query.Sort("-$natural").All(&projects)
 	for _, p := range projects {
