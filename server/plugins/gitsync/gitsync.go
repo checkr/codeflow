@@ -109,7 +109,7 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 	}
 	log.Info(string(gitCheckout))
 
-	gitLog, err := exec.Command("git", "log", "--date=iso-strict", "-n", "50", `--pretty=format:{###hash###:###%H###,###parentHash###:###%P###,###message###:###%s###,###user###:###%cN###,###created###:###%cd###},`).Output()
+	gitLog, err := exec.Command("git", "-C", repoPath, "log", "--date=iso-strict", "-n", "50", `--pretty=format:{###hash###:###%H###,###parentHash###:###%P###,###message###:###%s###,###user###:###%cN###,###created###:###%cd###},`).Output()
 
 	if err != nil {
 		log.Debug(err)
