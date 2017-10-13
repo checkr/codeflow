@@ -1084,7 +1084,7 @@ func GitSyncProjects(ids []bson.ObjectId) error {
 				RsaPrivateKey: project.RsaPrivateKey,
 				RsaPublicKey:  project.RsaPublicKey,
 			},
-			From: feature.Created,
+			From: feature.Hash,
 		}
 		cf.Events <- agent.NewEvent(gitSync, nil)
 	}
