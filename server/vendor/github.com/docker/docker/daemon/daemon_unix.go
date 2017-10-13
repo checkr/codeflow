@@ -24,6 +24,7 @@ import (
 	"github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/opts"
+	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/pkg/parsers/kernel"
@@ -612,8 +613,9 @@ func verifyPlatformContainerSettings(daemon *Daemon, hostConfig *containertypes.
 		return warnings, fmt.Errorf("Unknown runtime specified %s", hostConfig.Runtime)
 	}
 
+	parser := volume.NewParser(runtime.GOOS)
 	for dest := range hostConfig.Tmpfs {
-		if err := volume.ValidateTmpfsMountDestination(dest); err != nil {
+		if err := parser.ValidateTmpfsMountDestination(dest); err != nil {
 			return warnings, err
 		}
 	}
@@ -987,7 +989,7 @@ func removeDefaultBridgeInterface() {
 	}
 }
 
-func (daemon *Daemon) getLayerInit() func(string) error {
+func (daemon *Daemon) getLayerInit() func(containerfs.ContainerFS) error {
 	return daemon.setupInitLayer
 }
 
@@ -1295,7 +1297,42 @@ func rootFSToAPIType(rootfs *image.RootFS) types.RootFS {
 // setupDaemonProcess sets various settings for the daemon's process
 func setupDaemonProcess(config *config.Config) error {
 	// setup the daemons oom_score_adj
-	return setupOOMScoreAdj(config.OOMScoreAdjust)
+	if err := setupOOMScoreAdj(config.OOMScoreAdjust); err != nil {
+		return err
+	}
+	if err := setMayDetachMounts(); err != nil {
+		logrus.WithError(err).Warn("Could not set may_detach_mounts kernel parameter")
+	}
+	return nil
+}
+
+// This is used to allow removal of mountpoints that may be mounted in other
+// namespaces on RHEL based kernels starting from RHEL 7.4.
+// Without this setting, removals on these RHEL based kernels may fail with
+// "device or resource busy".
+// This setting is not available in upstream kernels as it is not configurable,
+// but has been in the upstream kernels since 3.15.
+func setMayDetachMounts() error {
+	f, err := os.OpenFile("/proc/sys/fs/may_detach_mounts", os.O_WRONLY, 0)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return errors.Wrap(err, "error opening may_detach_mounts kernel config file")
+	}
+	defer f.Close()
+
+	_, err = f.WriteString("1")
+	if os.IsPermission(err) {
+		// Setting may_detach_mounts does not work in an
+		// unprivileged container. Ignore the error, but log
+		// it if we appear not to be in that situation.
+		if !rsystem.RunningInUserNS() {
+			logrus.Debugf("Permission denied writing %q to /proc/sys/fs/may_detach_mounts", "1")
+		}
+		return nil
+	}
+	return err
 }
 
 func setupOOMScoreAdj(score int) error {

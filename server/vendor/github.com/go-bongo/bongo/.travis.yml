@@ -1,0 +1,16 @@
+language: go
+services:
+  - mongodb
+go:
+  - 1.4.x
+  - 1.7.x
+  - 1.8.x
+  - 1.9.x
+install:
+  - go get .
+  - go get github.com/smartystreets/goconvey
+  - go get github.com/axw/gocov/gocov
+  - go get github.com/mattn/goveralls
+  - if ! go get code.google.com/p/go.tools/cmd/cover; then go get golang.org/x/tools/cmd/cover; fi
+script:
+  - $HOME/gopath/bin/goveralls -service=travis-ci

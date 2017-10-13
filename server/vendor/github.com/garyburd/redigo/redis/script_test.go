@@ -20,18 +20,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/garyburd/redigo/internal/redistest"
 	"github.com/garyburd/redigo/redis"
 )
 
-var (
-	// These variables are declared at package level to remove distracting
-	// details from the examples.
-	c     redis.Conn
-	reply interface{}
-	err   error
-)
-
-func ExampleScript() {
+func ExampleScript(c redis.Conn, reply interface{}, err error) {
 	// Initialize a package-level variable with a script.
 	var getScript = redis.NewScript(1, `return redis.call('get', KEYS[1])`)
 
@@ -42,7 +35,7 @@ func ExampleScript() {
 }
 
 func TestScript(t *testing.T) {
-	c, err := redis.DialDefaultServer()
+	c, err := redistest.Dial()
 	if err != nil {
 		t.Fatalf("error connection to database, %v", err)
 	}

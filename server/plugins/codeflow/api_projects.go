@@ -17,7 +17,7 @@ import (
 	"github.com/checkr/codeflow/server/agent"
 	"github.com/checkr/codeflow/server/plugins"
 	"github.com/extemporalgenome/slug"
-	"github.com/maxwellhealth/bongo"
+	"github.com/go-bongo/bongo"
 	"golang.org/x/crypto/ssh"
 )
 

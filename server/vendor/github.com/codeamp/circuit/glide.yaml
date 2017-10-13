@@ -1,0 +1,40 @@
+package: github.com/codeamp/circuit
+import:
+- package: github.com/codeamp/logger
+- package: github.com/codeamp/transistor
+- package: github.com/davecgh/go-spew
+  version: ^1.1.0
+  subpackages:
+  - spew
+- package: github.com/dgrijalva/jwt-go
+  version: ^3.0.0
+- package: github.com/extemporalgenome/slug
+- package: github.com/googollee/go-socket.io
+- package: github.com/gorilla/handlers
+  version: ^1.2.1
+- package: github.com/jinzhu/gorm
+  version: ^1.0.0
+  subpackages:
+  - dialects/postgres
+- package: github.com/libgit2/git2go
+  version: v26.0
+- package: github.com/neelance/graphql-go
+  subpackages:
+  - relay
+- package: github.com/rk/go-cron
+- package: github.com/satori/go.uuid
+  version: ^1.1.0
+- package: github.com/satyakb/go-socket.io-redis
+- package: github.com/spf13/cobra
+- package: github.com/spf13/viper
+  version: ^1.0.0
+- package: golang.org/x/crypto
+  subpackages:
+  - bcrypt
+  - ssh
+testImport:
+- package: github.com/stretchr/testify
+  version: ^1.1.4
+  subpackages:
+  - assert
+  - suite

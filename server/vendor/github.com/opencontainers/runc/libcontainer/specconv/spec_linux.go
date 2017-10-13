@@ -37,7 +37,7 @@ var mountPropagationMapping = map[string]int{
 	"slave":    unix.MS_SLAVE,
 	"rshared":  unix.MS_SHARED | unix.MS_REC,
 	"shared":   unix.MS_SHARED,
-	"":         unix.MS_PRIVATE | unix.MS_REC,
+	"":         0,
 }
 
 var allowedDevices = []*configs.Device{
@@ -184,13 +184,6 @@ func CreateLibcontainerConfig(opts *CreateOpts) (*configs.Config, error) {
 	}
 
 	exists := false
-	if config.Namespaces.Contains(configs.NEWNET) {
-		config.Networks = []*configs.Network{
-			{
-				Type: "loopback",
-			},
-		}
-	}
 	for _, m := range spec.Mounts {
 		config.Mounts = append(config.Mounts, createLibcontainerMount(cwd, m))
 	}
@@ -221,6 +214,13 @@ func CreateLibcontainerConfig(opts *CreateOpts) (*configs.Config, error) {
 			}
 			config.Namespaces.Add(t, ns.Path)
 		}
+		if config.Namespaces.Contains(configs.NEWNET) {
+			config.Networks = []*configs.Network{
+				{
+					Type: "loopback",
+				},
+			}
+		}
 		config.MaskPaths = spec.Linux.MaskedPaths
 		config.ReadonlyPaths = spec.Linux.ReadonlyPaths
 		config.MountLabel = spec.Linux.MountLabel
@@ -250,6 +250,12 @@ func CreateLibcontainerConfig(opts *CreateOpts) (*configs.Config, error) {
 	}
 	createHooks(spec, config)
 	config.Version = specs.Version
+	if spec.Linux.IntelRdt != nil {
+		config.IntelRdt = &configs.IntelRdt{}
+		if spec.Linux.IntelRdt.L3CacheSchema != "" {
+			config.IntelRdt.L3CacheSchema = spec.Linux.IntelRdt.L3CacheSchema
+		}
+	}
 	return config, nil
 }
 

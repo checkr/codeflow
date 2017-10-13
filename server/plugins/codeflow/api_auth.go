@@ -15,7 +15,7 @@ import (
 	jwt_m "github.com/cheungpat/go-json-rest-middleware-jwt"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/lestrrat/go-jwx/jwk"
-	"github.com/maxwellhealth/bongo"
+	"github.com/go-bongo/bongo"
 	"github.com/spf13/viper"
 )
 

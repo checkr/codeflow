@@ -59,15 +59,13 @@ DEFAULT_BUNDLES=(
 	binary-daemon
 	dynbinary
 
-	test-unit
 	test-integration
 	test-docker-py
 
 	cross
-	tgz
 )
 
-VERSION=$(< ./VERSION)
+VERSION=${VERSION:-$(< ./VERSION)}
 ! BUILDTIME=$(date -u -d "@${SOURCE_DATE_EPOCH:-$(date +%s)}" --rfc-3339 ns 2> /dev/null | sed -e 's/ /T/')
 if [ "$DOCKER_GITCOMMIT" ]; then
 	GITCOMMIT="$DOCKER_GITCOMMIT"
@@ -190,20 +188,18 @@ bundle() {
 }
 
 main() {
-	# We want this to fail if the bundles already exist and cannot be removed.
-	# This is to avoid mixing bundles from different versions of the code.
-	mkdir -p bundles
-	if [ -e "bundles/$VERSION" ] && [ -z "$KEEPBUNDLE" ]; then
-		echo "bundles/$VERSION already exists. Removing."
-		rm -fr "bundles/$VERSION" && mkdir "bundles/$VERSION" || exit 1
+	if [ -z "${KEEPBUNDLE-}" ]; then
+		echo "Removing bundles/"
+		rm -rf "bundles/*"
 		echo
 	fi
+	mkdir -p bundles
 
+	# Windows and symlinks don't get along well
 	if [ "$(go env GOHOSTOS)" != 'windows' ]; then
-		# Windows and symlinks don't get along well
-
 		rm -f bundles/latest
-		ln -s "$VERSION" bundles/latest
+		# preserve latest symlink for backward compatibility
+		ln -sf . bundles/latest
 	fi
 
 	if [ $# -lt 1 ]; then
@@ -212,7 +208,7 @@ main() {
 		bundles=($@)
 	fi
 	for bundle in ${bundles[@]}; do
-		export DEST="bundles/$VERSION/$(basename "$bundle")"
+		export DEST="bundles/$(basename "$bundle")"
 		# Cygdrive paths don't play well with go build -o.
 		if [[ "$(uname -s)" == CYGWIN* ]]; then
 			export DEST="$(cygpath -mw "$DEST")"

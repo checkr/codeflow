@@ -12,7 +12,7 @@ import (
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/checkr/codeflow/server/agent"
 	"github.com/checkr/codeflow/server/plugins"
-	"github.com/maxwellhealth/bongo"
+	"github.com/go-bongo/bongo"
 	"github.com/spf13/viper"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"

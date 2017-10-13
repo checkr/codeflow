@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	containertypes "github.com/docker/docker/api/types/container"
@@ -108,6 +109,11 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 		if !mount.Writable {
 			m.Options = append(m.Options, "ro")
 		}
+		if img.OS != runtime.GOOS {
+			m.Type = "bind"
+			m.Options = append(m.Options, "rbind")
+			m.Options = append(m.Options, fmt.Sprintf("uvmpath=/tmp/gcs/%s/binds", c.ID))
+		}
 		s.Mounts = append(s.Mounts, m)
 	}
 
@@ -132,9 +138,9 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 	max := len(img.RootFS.DiffIDs)
 	for i := 1; i <= max; i++ {
 		img.RootFS.DiffIDs = img.RootFS.DiffIDs[:i]
-		layerPath, err := layer.GetLayerPath(daemon.stores[c.Platform].layerStore, img.RootFS.ChainID())
+		layerPath, err := layer.GetLayerPath(daemon.stores[c.OS].layerStore, img.RootFS.ChainID())
 		if err != nil {
-			return nil, fmt.Errorf("failed to get layer path from graphdriver %s for ImageID %s - %s", daemon.stores[c.Platform].layerStore, img.RootFS.ChainID(), err)
+			return nil, fmt.Errorf("failed to get layer path from graphdriver %s for ImageID %s - %s", daemon.stores[c.OS].layerStore, img.RootFS.ChainID(), err)
 		}
 		// Reverse order, expecting parent most first
 		s.Windows.LayerFolders = append([]string{layerPath}, s.Windows.LayerFolders...)
@@ -233,7 +239,7 @@ func (daemon *Daemon) createSpecWindowsFields(c *container.Container, s *specs.S
 
 	s.Root.Readonly = false // Windows does not support a read-only root filesystem
 	if !isHyperV {
-		s.Root.Path = c.BaseFS // This is not set for Hyper-V containers
+		s.Root.Path = c.BaseFS.Path() // This is not set for Hyper-V containers
 		if !strings.HasSuffix(s.Root.Path, `\`) {
 			s.Root.Path = s.Root.Path + `\` // Ensure a correctly formatted volume GUID path \\?\Volume{GUID}\
 		}

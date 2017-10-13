@@ -1,0 +1,10 @@
+version: "2"
+services:
+  redis:
+    image: redis
+    ports:
+      - "${DOCKER_COMPOSE_REDIS_PORT}:6379"
+  postgres:
+    image: postgres
+    ports:
+      - "${DOCKER_COMPOSE_POSTGRES_PORT}:5432"

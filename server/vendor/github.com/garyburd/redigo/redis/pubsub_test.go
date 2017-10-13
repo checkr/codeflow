@@ -16,18 +16,20 @@ package redis_test
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/garyburd/redigo/internal/redistest"
 	"github.com/garyburd/redigo/redis"
 )
 
 func publish(channel, value interface{}) {
 	c, err := dial()
 	if err != nil {
-		fmt.Println(err)
-		return
+		panic(err)
 	}
 	defer c.Close()
 	c.Do("PUBLISH", channel, value)
@@ -37,8 +39,7 @@ func publish(channel, value interface{}) {
 func ExamplePubSubConn() {
 	c, err := dial()
 	if err != nil {
-		fmt.Println(err)
-		return
+		panic(err)
 	}
 	defer c.Close()
 	var wg sync.WaitGroup
@@ -110,19 +111,20 @@ func expectPushed(t *testing.T, c redis.PubSubConn, message string, expected int
 }
 
 func TestPushed(t *testing.T) {
-	pc, err := redis.DialDefaultServer()
+	pc, err := redistest.Dial()
 	if err != nil {
 		t.Fatalf("error connection to database, %v", err)
 	}
 	defer pc.Close()
 
-	sc, err := redis.DialDefaultServer()
+	nc, err := net.Dial("tcp", ":6379")
 	if err != nil {
-		t.Fatalf("error connection to database, %v", err)
+		t.Fatal(err)
 	}
-	defer sc.Close()
+	defer nc.Close()
+	nc.SetReadDeadline(time.Now().Add(4 * time.Second))
 
-	c := redis.PubSubConn{Conn: sc}
+	c := redis.PubSubConn{Conn: redis.NewConn(nc, 0, 0)}
 
 	c.Subscribe("c1")
 	expectPushed(t, c, "Subscribe(c1)", redis.Subscription{Kind: "subscribe", Channel: "c1", Count: 1})
@@ -138,11 +140,4 @@ func TestPushed(t *testing.T) {
 
 	pc.Do("PUBLISH", "c1", "hello")
 	expectPushed(t, c, "PUBLISH c1 hello", redis.Message{Channel: "c1", Data: []byte("hello")})
-
-	c.Ping("hello")
-	expectPushed(t, c, `Ping("hello")`, redis.Pong{Data: "hello"})
-
-	c.Conn.Send("PING")
-	c.Conn.Flush()
-	expectPushed(t, c, `Send("PING")`, redis.Pong{})
 }

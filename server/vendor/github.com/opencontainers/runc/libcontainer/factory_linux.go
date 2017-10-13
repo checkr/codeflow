@@ -18,6 +18,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer/cgroups/systemd"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/configs/validate"
+	"github.com/opencontainers/runc/libcontainer/intelrdt"
 	"github.com/opencontainers/runc/libcontainer/utils"
 
 	"golang.org/x/sys/unix"
@@ -86,6 +87,20 @@ func RootlessCgroups(l *LinuxFactory) error {
 	return nil
 }
 
+// IntelRdtfs is an options func to configure a LinuxFactory to return
+// containers that use the Intel RDT "resource control" filesystem to
+// create and manage Intel Xeon platform shared resources (e.g., L3 cache).
+func IntelRdtFs(l *LinuxFactory) error {
+	l.NewIntelRdtManager = func(config *configs.Config, id string, path string) intelrdt.Manager {
+		return &intelrdt.IntelRdtManager{
+			Config: config,
+			Id:     id,
+			Path:   path,
+		}
+	}
+	return nil
+}
+
 // TmpfsRoot is an option func to mount LinuxFactory.Root to tmpfs.
 func TmpfsRoot(l *LinuxFactory) error {
 	mounted, err := mount.Mounted(l.Root)
@@ -125,6 +140,9 @@ func New(root string, options ...func(*LinuxFactory) error) (Factory, error) {
 	}
 	Cgroupfs(l)
 	for _, opt := range options {
+		if opt == nil {
+			continue
+		}
 		if err := opt(l); err != nil {
 			return nil, err
 		}
@@ -145,11 +163,19 @@ type LinuxFactory struct {
 	// containers.
 	CriuPath string
 
+	// New{u,g}uidmapPath is the path to the binaries used for mapping with
+	// rootless containers.
+	NewuidmapPath string
+	NewgidmapPath string
+
 	// Validator provides validation to container configurations.
 	Validator validate.Validator
 
 	// NewCgroupsManager returns an initialized cgroups manager for a single container.
 	NewCgroupsManager func(config *configs.Cgroup, paths map[string]string) cgroups.Manager
+
+	// NewIntelRdtManager returns an initialized Intel RDT manager for a single container.
+	NewIntelRdtManager func(config *configs.Config, id string, path string) intelrdt.Manager
 }
 
 func (l *LinuxFactory) Create(id string, config *configs.Config) (Container, error) {
@@ -183,7 +209,12 @@ func (l *LinuxFactory) Create(id string, config *configs.Config) (Container, err
 		config:        config,
 		initArgs:      l.InitArgs,
 		criuPath:      l.CriuPath,
+		newuidmapPath: l.NewuidmapPath,
+		newgidmapPath: l.NewgidmapPath,
 		cgroupManager: l.NewCgroupsManager(config.Cgroups, nil),
+	}
+	if intelrdt.IsEnabled() {
+		c.intelRdtManager = l.NewIntelRdtManager(config, id, "")
 	}
 	c.state = &stoppedState{c: c}
 	return c, nil
@@ -214,6 +245,8 @@ func (l *LinuxFactory) Load(id string) (Container, error) {
 		config:               &state.Config,
 		initArgs:             l.InitArgs,
 		criuPath:             l.CriuPath,
+		newuidmapPath:        l.NewuidmapPath,
+		newgidmapPath:        l.NewgidmapPath,
 		cgroupManager:        l.NewCgroupsManager(state.Config.Cgroups, state.CgroupPaths),
 		root:                 containerRoot,
 		created:              state.Created,
@@ -221,6 +254,9 @@ func (l *LinuxFactory) Load(id string) (Container, error) {
 	c.state = &loadedState{c: c}
 	if err := c.refreshState(); err != nil {
 		return nil, err
+	}
+	if intelrdt.IsEnabled() {
+		c.intelRdtManager = l.NewIntelRdtManager(&state.Config, id, state.IntelRdtPath)
 	}
 	return c, nil
 }
@@ -322,4 +358,22 @@ func (l *LinuxFactory) validateID(id string) error {
 	}
 
 	return nil
+}
+
+// NewuidmapPath returns an option func to configure a LinuxFactory with the
+// provided ..
+func NewuidmapPath(newuidmapPath string) func(*LinuxFactory) error {
+	return func(l *LinuxFactory) error {
+		l.NewuidmapPath = newuidmapPath
+		return nil
+	}
+}
+
+// NewgidmapPath returns an option func to configure a LinuxFactory with the
+// provided ..
+func NewgidmapPath(newgidmapPath string) func(*LinuxFactory) error {
+	return func(l *LinuxFactory) error {
+		l.NewgidmapPath = newgidmapPath
+		return nil
+	}
 }
