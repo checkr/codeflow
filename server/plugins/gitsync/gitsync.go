@@ -1,12 +1,15 @@
 package gitsync
 
 import (
-	"encoding/json"
+	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/checkr/codeflow/server/agent"
 	"github.com/checkr/codeflow/server/plugins"
@@ -16,6 +19,7 @@ import (
 
 type GitSync struct {
 	events chan agent.Event
+	idRsa  string
 }
 
 func init() {
@@ -51,6 +55,43 @@ func (x *GitSync) Subscribe() []string {
 	}
 }
 
+func (x *GitSync) git(args ...string) ([]byte, error) {
+	cmd := exec.Command("git", args...)
+	env := os.Environ()
+	env = append(env, x.idRsa)
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+
+	if err != nil {
+		if ee, ok := err.(*exec.Error); ok {
+			if ee.Err == exec.ErrNotFound {
+				return nil, errors.New("Git executable not found in $PATH")
+			}
+		}
+
+		return nil, errors.New(string(bytes.TrimSpace(out)))
+	}
+
+	return out, nil
+}
+
+func (x *GitSync) toGitCommit(entry string) (plugins.GitCommit, error) {
+	items := strings.Split(entry, "#@#")
+	commiterDate, err := time.Parse("2006-01-02T15:04:05-07:00", items[4])
+
+	if err != nil {
+		return plugins.GitCommit{}, err
+	}
+
+	return plugins.GitCommit{
+		User:       items[3],
+		Message:    items[2],
+		Hash:       items[0],
+		ParentHash: items[1],
+		Created:    commiterDate,
+	}, nil
+}
+
 func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.GitCommit, error) {
 	var err error
 	var gitClone []byte
@@ -58,19 +99,15 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 	var gitCheckout []byte
 
 	idRsaPath := fmt.Sprintf("%s/%s_id_rsa", viper.GetString("plugins.gitsync.workdir"), project.Repository)
-	idRsa := fmt.Sprintf("GIT_SSH_COMMAND=\"ssh -i %s -F /dev/null\"", idRsaPath)
+	x.idRsa = fmt.Sprintf("GIT_SSH_COMMAND=ssh -i %s -F /dev/null", idRsaPath)
 	repoPath := fmt.Sprintf("%s/%s_%s", viper.GetString("plugins.gitsync.workdir"), project.Repository, git.Branch)
 
-	if _, err = os.Stat(repoPath); err != nil {
-		if os.IsNotExist(err) {
-			mkdir, err := exec.Command("mkdir", "-p", repoPath).CombinedOutput()
-			if err != nil {
-				log.Debug(err)
-				return nil, err
-			}
-			log.Info(string(mkdir))
-		}
+	mkdir, err := exec.Command("mkdir", "-p", filepath.Dir(repoPath)).CombinedOutput()
+	if err != nil {
+		log.Debug(err)
+		return nil, err
 	}
+	log.Info(string(mkdir))
 
 	err = ioutil.WriteFile(idRsaPath, []byte(git.RsaPrivateKey), 0600)
 	if err != nil {
@@ -78,11 +115,9 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 		return nil, err
 	}
 
-	if _, err = os.Stat(fmt.Sprintf("%s/.git", repoPath)); err != nil {
+	if _, err = os.Stat(fmt.Sprintf("%s", repoPath)); err != nil {
 		if os.IsNotExist(err) {
-			run := exec.Command("git", "clone", "-b", git.Branch, "--single-branch", git.Url, repoPath)
-			run.Env = []string{idRsa}
-			gitClone, err = run.CombinedOutput()
+			gitClone, err = x.git("clone", git.Url, repoPath)
 			if err != nil {
 				log.Debug(err)
 				return nil, err
@@ -90,9 +125,7 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 			log.Info(string(gitClone))
 		}
 	} else {
-		run := exec.Command("git", "-C", repoPath, "pull", "origin", git.Branch)
-		run.Env = []string{idRsa}
-		gitPull, err = run.CombinedOutput()
+		gitPull, err = x.git("-C", repoPath, "pull", "origin", git.Branch)
 		if err != nil {
 			log.Debug(err)
 			return nil, err
@@ -100,37 +133,30 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 		log.Info(string(gitPull))
 	}
 
-	run := exec.Command("git", "-C", repoPath, "checkout", git.Branch)
-	run.Env = []string{idRsa}
-	gitCheckout, err = run.CombinedOutput()
+	gitCheckout, err = x.git("-C", repoPath, "checkout", git.Branch)
 	if err != nil {
 		log.Debug(err)
 		return nil, err
 	}
 	log.Info(string(gitCheckout))
 
-	gitLog, err := exec.Command("git", "-C", repoPath, "log", "--date=iso-strict", "-n", "50", `--pretty=format:{###hash###:###%H###,###parentHash###:###%P###,###message###:###%s###,###user###:###%cN###,###created###:###%cd###},`).Output()
+	gitLog, err := x.git("-C", repoPath, "log", "--no-merges", "--date=iso-strict", "-n", "50", "--pretty=format:%H#@#%P#@#%s#@#%cN#@#%cd", git.Branch)
 
 	if err != nil {
 		log.Debug(err)
 		return nil, err
 	}
 
-	gitLogString := string(gitLog)
-	gitLogString = strings.Replace(gitLogString, "\"", "'", -1)
-	gitLogString = strings.Replace(gitLogString, "{###", "{\"", -1)
-	gitLogString = strings.Replace(gitLogString, "###}", "\"}", -1)
-	gitLogString = strings.Replace(gitLogString, "###:###", "\":\"", -1)
-	gitLogString = strings.Replace(gitLogString, "###,###", "\",\"", -1)
-
-	gitLogJson := fmt.Sprintf("[%s]", gitLogString[:len(gitLogString)-1])
-
 	var commits []plugins.GitCommit
 
-	err = json.Unmarshal([]byte(gitLogJson), &commits)
-	if err != nil {
-		log.Debug(err)
-		return nil, err
+	for _, line := range strings.Split(strings.TrimSuffix(string(gitLog), "\n"), "\n") {
+		commit, err := x.toGitCommit(line)
+		if err != nil {
+			log.Debug(err)
+			return nil, err
+		}
+
+		commits = append(commits, commit)
 	}
 
 	return commits, nil
