@@ -18,6 +18,9 @@ RUN pacman -Sy archlinux-keyring --noconfirm && \
 
 RUN pacman -Sy --noconfirm libgit2 git openssh gcc go go-tools base-devel
 
+# create .ssh direcotry so git can create known_hosts file
+RUN mkdir ~/.ssh
+
 # development dependencies
 RUN go get github.com/cespare/reflex
 
