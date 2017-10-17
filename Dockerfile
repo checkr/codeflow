@@ -16,7 +16,7 @@ RUN pacman -Sy archlinux-keyring --noconfirm && \
 	pacman -Syu --noconfirm && \
 	rm -rf /var/lib/pacman/pkg/*
 
-RUN pacman -Sy --noconfirm libgit2 git gcc go go-tools base-devel
+RUN pacman -Sy --noconfirm libgit2 git openssh gcc go go-tools base-devel
 
 # development dependencies
 RUN go get github.com/cespare/reflex
