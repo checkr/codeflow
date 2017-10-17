@@ -38,7 +38,7 @@ func (x *GitSync) SampleConfig() string {
 
 func (x *GitSync) Start(e chan agent.Event) error {
 	x.events = e
-	log.SetLogLevel("debug")
+	log.SetLogLevel("warning")
 	log.Info("Started GitSync")
 
 	return nil
@@ -84,75 +84,77 @@ func (x *GitSync) toGitCommit(entry string) (plugins.GitCommit, error) {
 	}
 
 	return plugins.GitCommit{
-		User:       items[3],
-		Message:    items[2],
 		Hash:       items[0],
 		ParentHash: items[1],
+		Message:    items[2],
+		User:       items[3],
 		Created:    commiterDate,
 	}, nil
 }
 
 func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.GitCommit, error) {
 	var err error
-	var gitClone []byte
-	var gitPull []byte
-	var gitCheckout []byte
+	var output []byte
 
 	idRsaPath := fmt.Sprintf("%s/%s_id_rsa", viper.GetString("plugins.gitsync.workdir"), project.Repository)
 	x.idRsa = fmt.Sprintf("GIT_SSH_COMMAND=ssh -i %s -F /dev/null", idRsaPath)
 	repoPath := fmt.Sprintf("%s/%s_%s", viper.GetString("plugins.gitsync.workdir"), project.Repository, git.Branch)
 
-	mkdir, err := exec.Command("mkdir", "-p", filepath.Dir(repoPath)).CombinedOutput()
+	output, err = exec.Command("mkdir", "-p", filepath.Dir(repoPath)).CombinedOutput()
 	if err != nil {
-		log.Debug(err)
+		log.Error(err)
 		return nil, err
 	}
-	log.Info(string(mkdir))
+	log.Info(string(output))
 
-	err = ioutil.WriteFile(idRsaPath, []byte(git.RsaPrivateKey), 0600)
-	if err != nil {
-		log.Debug(err)
-		return nil, err
+	if _, err = os.Stat(idRsaPath); err != nil {
+		if os.IsNotExist(err) {
+			err = ioutil.WriteFile(idRsaPath, []byte(git.RsaPrivateKey), 0600)
+			if err != nil {
+				log.Error(err)
+				return nil, err
+			}
+		}
 	}
 
 	if _, err = os.Stat(fmt.Sprintf("%s", repoPath)); err != nil {
 		if os.IsNotExist(err) {
-			gitClone, err = x.git("clone", git.Url, repoPath)
+			output, err = x.git("clone", git.Url, repoPath)
 			if err != nil {
-				log.Debug(err)
+				log.Error(err)
 				return nil, err
 			}
-			log.Info(string(gitClone))
+			log.Info(string(output))
 		}
 	} else {
-		gitPull, err = x.git("-C", repoPath, "pull", "origin", git.Branch)
+		output, err = x.git("-C", repoPath, "pull", "origin", git.Branch)
 		if err != nil {
-			log.Debug(err)
+			log.Error(err)
 			return nil, err
 		}
-		log.Info(string(gitPull))
+		log.Info(string(output))
 	}
 
-	gitCheckout, err = x.git("-C", repoPath, "checkout", git.Branch)
+	output, err = x.git("-C", repoPath, "checkout", git.Branch)
 	if err != nil {
-		log.Debug(err)
+		log.Error(err)
 		return nil, err
 	}
-	log.Info(string(gitCheckout))
+	log.Info(string(output))
 
-	gitLog, err := x.git("-C", repoPath, "log", "--no-merges", "--date=iso-strict", "-n", "50", "--pretty=format:%H#@#%P#@#%s#@#%cN#@#%cd", git.Branch)
+	output, err = x.git("-C", repoPath, "log", "--no-merges", "--date=iso-strict", "-n", "50", "--pretty=format:%H#@#%P#@#%s#@#%cN#@#%cd", git.Branch)
 
 	if err != nil {
-		log.Debug(err)
+		log.Error(err)
 		return nil, err
 	}
 
 	var commits []plugins.GitCommit
 
-	for _, line := range strings.Split(strings.TrimSuffix(string(gitLog), "\n"), "\n") {
+	for _, line := range strings.Split(strings.TrimSuffix(string(output), "\n"), "\n") {
 		commit, err := x.toGitCommit(line)
 		if err != nil {
-			log.Debug(err)
+			log.Error(err)
 			return nil, err
 		}
 
@@ -177,7 +179,7 @@ func (x *GitSync) Process(e agent.Event) error {
 
 	commits, err := x.commits(gitSyncEvent.Project, gitSyncEvent.Git)
 	if err != nil {
-		log.Debug(err)
+		log.Error(err)
 		gitSyncEvent.State = plugins.Failed
 		gitSyncEvent.StateMessage = fmt.Sprintf("%v (Action: %v)", err.Error(), gitSyncEvent.State)
 		event := e.NewEvent(gitSyncEvent, err)
@@ -191,7 +193,7 @@ func (x *GitSync) Process(e agent.Event) error {
 		c.Ref = fmt.Sprintf("refs/heads/%s", gitSyncEvent.Git.Branch)
 
 		if c.Hash == gitSyncEvent.From {
-			return nil
+			break
 		}
 
 		x.events <- e.NewEvent(c, nil)

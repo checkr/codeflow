@@ -1,51 +1,43 @@
 package gitsync_test
 
 import (
-	"bytes"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/codeamp/circuit/plugins"
-	"github.com/codeamp/transistor"
-	"github.com/spf13/viper"
+	"github.com/checkr/codeflow/server/agent"
+	"github.com/checkr/codeflow/server/plugins"
+	log "github.com/codeamp/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
-type TestSuite struct {
-	suite.Suite
-	transistor *transistor.Transistor
-}
-
-var viperConfig = []byte(`
+var config = []byte(`
 plugins:
   gitsync:
     workers: 1
-    workdir: /tmp/gitsync
+    workdir: "/tmp/gitsync" 
 `)
 
+type TestSuite struct {
+	suite.Suite
+	agent *agent.Agent
+}
+
 func (suite *TestSuite) SetupSuite() {
-	viper.SetConfigType("YAML")
-	viper.ReadConfig(bytes.NewBuffer(viperConfig))
-	viper.SetConfigType("yaml") // or viper.SetConfigType("YAML")
-
-	config := transistor.Config{
-		Plugins:        viper.GetStringMap("plugins"),
-		EnabledPlugins: []string{"gitsync"},
-	}
-
-	ag, _ := transistor.NewTestTransistor(config)
-	suite.transistor = ag
-	go suite.transistor.Run()
+	ag, _ := agent.NewTestAgent(config)
+	suite.agent = ag
+	go suite.agent.Run()
 }
 
 func (suite *TestSuite) TearDownSuite() {
-	suite.transistor.Stop()
+	suite.agent.Stop()
 }
 
-func (suite *TestSuite) TestGitSync() {
-	var e transistor.Event
+func (suite *TestSuite) TestGitsync() {
+	var e agent.Event
+
+	log.SetLogLevel("debug")
 
 	gitSync := plugins.GitSync{
 		Action: plugins.Update,
@@ -64,11 +56,11 @@ func (suite *TestSuite) TestGitSync() {
 		From: "",
 	}
 
-	suite.transistor.Events <- transistor.NewEvent(gitSync, nil)
+	suite.agent.Events <- agent.NewEvent(gitSync, nil)
 
 	created := time.Now()
 	for i := 0; i < 5; i++ {
-		e = suite.transistor.GetTestEvent("plugins.GitCommit", 60)
+		e = suite.agent.GetTestEvent("plugins.GitCommit", 60)
 		payload := e.Payload.(plugins.GitCommit)
 		assert.Equal(suite.T(), payload.Repository, gitSync.Project.Repository)
 		assert.Equal(suite.T(), payload.Ref, fmt.Sprintf("refs/heads/%s", gitSync.Git.Branch))
@@ -76,6 +68,6 @@ func (suite *TestSuite) TestGitSync() {
 	}
 }
 
-func TestGitSync(t *testing.T) {
+func TestGitsync(t *testing.T) {
 	suite.Run(t, new(TestSuite))
 }
