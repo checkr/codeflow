@@ -81,9 +81,9 @@ plugins:
   slack:
     workers: 1
     webhook_url: ""
-  git_sync:
+  gitsync:
     workers: 1
-    workdir: "/tmp/git_sync" 
+    workdir: "/tmp/gitsync" 
   heartbeat:
     workers: 1
   route53:

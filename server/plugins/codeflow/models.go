@@ -10,7 +10,7 @@ import (
 
 	"github.com/checkr/codeflow/server/plugins"
 	"github.com/extemporalgenome/slug"
-	"github.com/maxwellhealth/bongo"
+	"github.com/go-bongo/bongo"
 	"github.com/spf13/viper"
 	"gopkg.in/mgo.v2/bson"
 )

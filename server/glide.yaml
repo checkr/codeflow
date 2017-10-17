@@ -1,48 +1,83 @@
-package: github.com/checkr/codeflow
+package: github.com/checkr/codeflow/server
 import:
 - package: github.com/ant0ine/go-json-rest
+  version: ^3.3.2
   subpackages:
   - rest
+- package: github.com/ashwanthkumar/slack-go-webhook
+  version: ^0.2.0
+- package: github.com/aws/aws-sdk-go
+  version: ^1.12.10
+  subpackages:
+  - aws
+  - aws/credentials
+  - aws/session
+  - service/route53
 - package: github.com/bww/go-json
 - package: github.com/cheungpat/go-json-rest-middleware-jwt
-- package: github.com/davecgh/go-spew
-  subpackages:
-  - spew
+- package: github.com/codeamp/logger
 - package: github.com/dgrijalva/jwt-go
-- package: github.com/docker/docker
-  subpackages:
-  - pkg/archive
+  version: ^3.0.0
 - package: github.com/extemporalgenome/slug
 - package: github.com/fsouza/go-dockerclient
+- package: github.com/go-bongo/bongo
+  version: master
 - package: github.com/google/shlex
 - package: github.com/gorilla/mux
+  version: ^1.5.0
 - package: github.com/gorilla/websocket
+  version: ^1.2.0
 - package: github.com/jrallison/go-workers
 - package: github.com/lestrrat/go-jwx
   subpackages:
   - jwk
 - package: github.com/libgit2/git2go
   version: v26
-- package: github.com/maxwellhealth/bongo
+- package: github.com/mattes/migrate
+  version: v1.3.1
+  subpackages:
+  - driver
+  - driver/mongodb/gomethods
+  - file
+  - migrate
+  - migrate/direction
 - package: github.com/pborman/uuid
+  version: ^1.1.0
 - package: github.com/spf13/cobra
 - package: github.com/spf13/viper
+  version: ^1.0.0
 - package: golang.org/x/crypto
-  version: master
   subpackages:
   - ssh
 - package: gopkg.in/mgo.v2
   subpackages:
   - bson
-- package: k8s.io/client-go
-  version: v4.0.0
-- package: github.com/ashwanthkumar/slack-go-webhook
-- package: github.com/mattes/migrate
-  version: v1.3.1
-- package: github.com/aws/aws-sdk-go
-  version: v1.8.21
-- package: github.com/gogo/protobuf
-  version: ^0.4.0
-- package: github.com/sirupsen/logrus
-  version: ^1.0.3
 - package: k8s.io/apimachinery
+  subpackages:
+  - pkg/api/errors
+  - pkg/api/resource
+  - pkg/apis/meta/v1
+  - pkg/util/intstr
+- package: k8s.io/client-go
+  version: ^4.0.0
+  subpackages:
+  - kubernetes
+  - kubernetes/typed/core/v1
+  - pkg/api/v1
+  - pkg/apis/batch/v1
+  - pkg/apis/extensions/v1beta1
+  - pkg/util
+  - tools/clientcmd
+- package: github.com/spf13/pflag
+  version: ^1.0.0
+testImport:
+- package: github.com/codeamp/circuit
+  subpackages:
+  - plugins
+- package: github.com/codeamp/transistor
+- package: github.com/jarcoal/httpmock
+- package: github.com/stretchr/testify
+  version: ^1.1.4
+  subpackages:
+  - assert
+  - suite

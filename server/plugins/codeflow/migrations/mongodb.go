@@ -14,7 +14,7 @@ import (
 	"github.com/checkr/codeflow/server/plugins/codeflow"
 	"github.com/checkr/codeflow/server/plugins/codeflow/migrations/driver"
 	"github.com/mattes/migrate/driver/mongodb/gomethods"
-	"github.com/maxwellhealth/bongo"
+	"github.com/go-bongo/bongo"
 	"github.com/spf13/viper"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"

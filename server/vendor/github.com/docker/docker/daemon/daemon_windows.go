@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/image"
+	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/fileutils"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/parsers"
@@ -26,8 +27,10 @@ import (
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/options"
 	blkiodev "github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/svc/mgr"
 )
 
 const (
@@ -56,7 +59,7 @@ func parseSecurityOpt(container *container.Container, config *containertypes.Hos
 	return nil
 }
 
-func (daemon *Daemon) getLayerInit() func(string) error {
+func (daemon *Daemon) getLayerInit() func(containerfs.ContainerFS) error {
 	return nil
 }
 
@@ -234,9 +237,32 @@ func checkSystem() error {
 
 	vmcompute := windows.NewLazySystemDLL("vmcompute.dll")
 	if vmcompute.Load() != nil {
-		return fmt.Errorf("Failed to load vmcompute.dll. Ensure that the Containers role is installed.")
+		return fmt.Errorf("failed to load vmcompute.dll, ensure that the Containers feature is installed")
 	}
 
+	// Ensure that the required Host Network Service and vmcompute services
+	// are running. Docker will fail in unexpected ways if this is not present.
+	var requiredServices = []string{"hns", "vmcompute"}
+	if err := ensureServicesInstalled(requiredServices); err != nil {
+		return errors.Wrap(err, "a required service is not installed, ensure the Containers feature is installed")
+	}
+
+	return nil
+}
+
+func ensureServicesInstalled(services []string) error {
+	m, err := mgr.Connect()
+	if err != nil {
+		return err
+	}
+	defer m.Disconnect()
+	for _, service := range services {
+		s, err := m.OpenService(service)
+		if err != nil {
+			return errors.Wrapf(err, "failed to open service %s", service)
+		}
+		s.Close()
+	}
 	return nil
 }
 
@@ -467,12 +493,14 @@ func (daemon *Daemon) runAsHyperVContainer(hostConfig *containertypes.HostConfig
 // conditionalMountOnStart is a platform specific helper function during the
 // container start to call mount.
 func (daemon *Daemon) conditionalMountOnStart(container *container.Container) error {
-	// Bail out now for Linux containers
-	if system.LCOWSupported() && container.Platform != "windows" {
+	// Bail out now for Linux containers. We cannot mount the containers filesystem on the
+	// host as it is a non-Windows filesystem.
+	if system.LCOWSupported() && container.OS != "windows" {
 		return nil
 	}
 
-	// We do not mount if a Hyper-V container
+	// We do not mount if a Hyper-V container as it needs to be mounted inside the
+	// utility VM, not the host.
 	if !daemon.runAsHyperVContainer(container.HostConfig) {
 		return daemon.Mount(container)
 	}
@@ -483,7 +511,7 @@ func (daemon *Daemon) conditionalMountOnStart(container *container.Container) er
 // during the cleanup of a container to unmount.
 func (daemon *Daemon) conditionalUnmountOnCleanup(container *container.Container) error {
 	// Bail out now for Linux containers
-	if system.LCOWSupported() && container.Platform != "windows" {
+	if system.LCOWSupported() && container.OS != "windows" {
 		return nil
 	}
 

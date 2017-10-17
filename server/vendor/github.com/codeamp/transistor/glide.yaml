@@ -1,0 +1,8 @@
+package: github.com/codeamp/transistor
+import:
+- package: github.com/bww/go-json
+- package: github.com/codeamp/logger
+- package: github.com/jrallison/go-workers
+- package: github.com/mitchellh/mapstructure
+- package: github.com/satori/go.uuid
+  version: ^1.1.0

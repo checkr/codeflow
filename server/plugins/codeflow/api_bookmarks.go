@@ -7,7 +7,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/ant0ine/go-json-rest/rest"
-	"github.com/maxwellhealth/bongo"
+	"github.com/go-bongo/bongo"
 )
 
 type Bookmarks struct {

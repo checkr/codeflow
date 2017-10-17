@@ -28,6 +28,7 @@ import (
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/libcontainerd"
 	"github.com/docker/docker/opts"
+	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/signal"
@@ -64,10 +65,10 @@ var (
 type Container struct {
 	StreamConfig *stream.Config
 	// embed for Container to support states directly.
-	*State          `json:"State"` // Needed for Engine API version <= 1.11
-	Root            string         `json:"-"` // Path to the "home" of the container, including metadata.
-	BaseFS          string         `json:"-"` // Path to the graphdriver mountpoint
-	RWLayer         layer.RWLayer  `json:"-"`
+	*State          `json:"State"`          // Needed for Engine API version <= 1.11
+	Root            string                  `json:"-"` // Path to the "home" of the container, including metadata.
+	BaseFS          containerfs.ContainerFS `json:"-"` // interface containing graphdriver mount
+	RWLayer         layer.RWLayer           `json:"-"`
 	ID              string
 	Created         time.Time
 	Managed         bool
@@ -79,7 +80,7 @@ type Container struct {
 	LogPath         string
 	Name            string
 	Driver          string
-	Platform        string
+	OS              string
 	// MountLabel contains the options for the 'mount' command
 	MountLabel             string
 	ProcessLabel           string
@@ -146,11 +147,11 @@ func (container *Container) FromDisk() error {
 		return err
 	}
 
-	// Ensure the platform is set if blank. Assume it is the platform of the
-	// host OS if not, to ensure containers created before multiple-platform
+	// Ensure the operating system is set if blank. Assume it is the OS of the
+	// host OS if not, to ensure containers created before multiple-OS
 	// support are migrated
-	if container.Platform == "" {
-		container.Platform = runtime.GOOS
+	if container.OS == "" {
+		container.OS = runtime.GOOS
 	}
 
 	return container.readHostConfig()
@@ -263,7 +264,7 @@ func (container *Container) WriteHostConfig() (*containertypes.HostConfig, error
 func (container *Container) SetupWorkingDirectory(rootIDs idtools.IDPair) error {
 	// TODO @jhowardmsft, @gupta-ak LCOW Support. This will need revisiting.
 	// We will need to do remote filesystem operations here.
-	if container.Platform != runtime.GOOS {
+	if container.OS != runtime.GOOS {
 		return nil
 	}
 
@@ -305,15 +306,13 @@ func (container *Container) SetupWorkingDirectory(rootIDs idtools.IDPair) error 
 func (container *Container) GetResourcePath(path string) (string, error) {
 	// IMPORTANT - These are paths on the OS where the daemon is running, hence
 	// any filepath operations must be done in an OS agnostic way.
-
-	cleanPath := cleanResourcePath(path)
-	r, e := symlink.FollowSymlinkInScope(filepath.Join(container.BaseFS, cleanPath), container.BaseFS)
+	r, e := container.BaseFS.ResolveScopedPath(path, false)
 
 	// Log this here on the daemon side as there's otherwise no indication apart
 	// from the error being propagated all the way back to the client. This makes
 	// debugging significantly easier and clearly indicates the error comes from the daemon.
 	if e != nil {
-		logrus.Errorf("Failed to FollowSymlinkInScope BaseFS %s cleanPath %s path %s %s\n", container.BaseFS, cleanPath, path, e)
+		logrus.Errorf("Failed to ResolveScopedPath BaseFS %s path %s %s\n", container.BaseFS.Path(), path, e)
 	}
 	return r, e
 }
@@ -435,6 +434,11 @@ func (container *Container) ShouldRestart() bool {
 
 // AddMountPointWithVolume adds a new mount point configured with a volume to the container.
 func (container *Container) AddMountPointWithVolume(destination string, vol volume.Volume, rw bool) {
+	operatingSystem := container.OS
+	if operatingSystem == "" {
+		operatingSystem = runtime.GOOS
+	}
+	volumeParser := volume.NewParser(operatingSystem)
 	container.MountPoints[destination] = &volume.MountPoint{
 		Type:        mounttypes.TypeVolume,
 		Name:        vol.Name(),
@@ -442,7 +446,7 @@ func (container *Container) AddMountPointWithVolume(destination string, vol volu
 		Destination: destination,
 		RW:          rw,
 		Volume:      vol,
-		CopyData:    volume.DefaultCopyMode,
+		CopyData:    volumeParser.DefaultCopyMode(),
 	}
 }
 
@@ -655,8 +659,12 @@ func (container *Container) BuildEndpointInfo(n libnetwork.Network, ep libnetwor
 	return nil
 }
 
+type named interface {
+	Name() string
+}
+
 // UpdateJoinInfo updates network settings when container joins network n with endpoint ep.
-func (container *Container) UpdateJoinInfo(n libnetwork.Network, ep libnetwork.Endpoint) error {
+func (container *Container) UpdateJoinInfo(n named, ep libnetwork.Endpoint) error {
 	if err := container.buildPortMapInfo(ep); err != nil {
 		return err
 	}
@@ -684,7 +692,7 @@ func (container *Container) UpdateSandboxNetworkSettings(sb libnetwork.Sandbox) 
 }
 
 // BuildJoinOptions builds endpoint Join options from a given network.
-func (container *Container) BuildJoinOptions(n libnetwork.Network) ([]libnetwork.EndpointOption, error) {
+func (container *Container) BuildJoinOptions(n named) ([]libnetwork.EndpointOption, error) {
 	var joinOptions []libnetwork.EndpointOption
 	if epConfig, ok := container.NetworkSettings.Networks[n.Name()]; ok {
 		for _, str := range epConfig.Links {
@@ -1039,15 +1047,14 @@ func (container *Container) ConfigFilePath(configRef swarmtypes.ConfigReference)
 // CreateDaemonEnvironment creates a new environment variable slice for this container.
 func (container *Container) CreateDaemonEnvironment(tty bool, linkedEnv []string) []string {
 	// Setup environment
-	// TODO @jhowardmsft LCOW Support. This will need revisiting later.
-	platform := container.Platform
-	if platform == "" {
-		platform = runtime.GOOS
+	os := container.OS
+	if os == "" {
+		os = runtime.GOOS
 	}
 	env := []string{}
-	if runtime.GOOS != "windows" || (system.LCOWSupported() && platform == "linux") {
+	if runtime.GOOS != "windows" || (runtime.GOOS == "windows" && os == "linux") {
 		env = []string{
-			"PATH=" + system.DefaultPathEnv(platform),
+			"PATH=" + system.DefaultPathEnv(os),
 			"HOSTNAME=" + container.Config.Hostname,
 		}
 		if tty {
