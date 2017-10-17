@@ -107,7 +107,6 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 
 	output, err = exec.Command("mkdir", "-p", filepath.Dir(repoPath)).CombinedOutput()
 	if err != nil {
-		log.Error(err)
 		return nil, err
 	}
 	log.Info(string(output))
@@ -116,7 +115,6 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 		if os.IsNotExist(err) {
 			err = ioutil.WriteFile(idRsaPath, []byte(git.RsaPrivateKey), 0600)
 			if err != nil {
-				log.Error(err)
 				return nil, err
 			}
 		}
@@ -126,15 +124,14 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 		if os.IsNotExist(err) {
 			output, err = x.git("clone", git.Url, repoPath)
 			if err != nil {
-				log.Error(err)
 				return nil, err
 			}
 			log.Info(string(output))
 		}
+		return nil, err
 	} else {
 		output, err = x.git("-C", repoPath, "pull", "origin", git.Branch)
 		if err != nil {
-			log.Error(err)
 			return nil, err
 		}
 		log.Info(string(output))
@@ -142,7 +139,6 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 
 	output, err = x.git("-C", repoPath, "checkout", git.Branch)
 	if err != nil {
-		log.Error(err)
 		return nil, err
 	}
 	log.Info(string(output))
@@ -150,7 +146,6 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 	output, err = x.git("-C", repoPath, "log", "--first-parent", "--date=iso-strict", "-n", "50", "--pretty=format:%H#@#%P#@#%s#@#%cN#@#%cd", git.Branch)
 
 	if err != nil {
-		log.Error(err)
 		return nil, err
 	}
 
@@ -159,7 +154,6 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 	for _, line := range strings.Split(strings.TrimSuffix(string(output), "\n"), "\n") {
 		commit, err := x.toGitCommit(line)
 		if err != nil {
-			log.Error(err)
 			return nil, err
 		}
 
