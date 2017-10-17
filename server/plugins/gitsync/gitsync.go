@@ -97,7 +97,7 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 	var output []byte
 
 	idRsaPath := fmt.Sprintf("%s/%s_id_rsa", viper.GetString("plugins.gitsync.workdir"), project.Repository)
-	x.idRsa = fmt.Sprintf("GIT_SSH_COMMAND=ssh -i %s -F /dev/null", idRsaPath)
+	x.idRsa = fmt.Sprintf("GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=no -i %s -F /dev/null", idRsaPath)
 	repoPath := fmt.Sprintf("%s/%s_%s", viper.GetString("plugins.gitsync.workdir"), project.Repository, git.Branch)
 
 	output, err = exec.Command("mkdir", "-p", filepath.Dir(repoPath)).CombinedOutput()
