@@ -38,7 +38,6 @@ func (x *GitSync) SampleConfig() string {
 
 func (x *GitSync) Start(e chan agent.Event) error {
 	x.events = e
-	log.SetLogLevel("warning")
 	log.Info("Started GitSync")
 
 	return nil
@@ -60,6 +59,12 @@ func (x *GitSync) git(args ...string) ([]byte, error) {
 	env := os.Environ()
 	env = append(env, x.idRsa)
 	cmd.Env = env
+
+	log.InfoWithFields("executing command", log.Fields{
+		"path": cmd.Path,
+		"args": strings.Join(cmd.Args, " "),
+	})
+
 	out, err := cmd.CombinedOutput()
 
 	if err != nil {

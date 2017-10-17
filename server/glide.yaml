@@ -70,14 +70,13 @@ import:
   - tools/clientcmd
 - package: github.com/spf13/pflag
   version: ^1.0.0
+- package: github.com/sirupsen/logrus
+  version: ^1.0.3
 testImport:
-- package: github.com/codeamp/circuit
-  subpackages:
-  - plugins
-- package: github.com/codeamp/transistor
 - package: github.com/jarcoal/httpmock
 - package: github.com/stretchr/testify
   version: ^1.1.4
   subpackages:
   - assert
   - suite
+

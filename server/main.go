@@ -2,16 +2,18 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/checkr/codeflow/server/agent"
+	log "github.com/codeamp/logger"
 	"github.com/mattes/migrate/file"
 	"github.com/mattes/migrate/migrate"
 	"github.com/mattes/migrate/migrate/direction"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -31,7 +33,8 @@ import (
 var cfgFile string
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.SetLogLevel(logrus.WarnLevel)
+	log.SetLogFormatter(&logrus.JSONFormatter{TimestampFormat: time.RFC3339Nano})
 	Execute()
 }
 
@@ -98,7 +101,7 @@ var cmdServer = &cobra.Command{
 		go func() {
 			sig := <-signals
 			if sig == os.Interrupt || sig == syscall.SIGTERM {
-				log.Printf("Shutting down Codeflow. SIGTERM recieved!\n")
+				log.Info("Shutting down Codeflow. SIGTERM recieved!\n")
 				// If Queueing is ON then workers are responsible for closing Shutdown chan
 				if !ag.Queueing {
 					ag.Stop()
@@ -106,7 +109,7 @@ var cmdServer = &cobra.Command{
 			}
 		}()
 
-		log.Printf("Loaded plugins: %s", strings.Join(ag.PluginNames(), " "))
+		log.Info("Loaded plugins: %s", strings.Join(ag.PluginNames(), " "))
 
 		ag.Run()
 	},

@@ -8,6 +8,7 @@ import (
 	"github.com/checkr/codeflow/server/agent"
 	"github.com/checkr/codeflow/server/plugins"
 	log "github.com/codeamp/logger"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -37,7 +38,7 @@ func (suite *TestSuite) TearDownSuite() {
 func (suite *TestSuite) TestGitsync() {
 	var e agent.Event
 
-	log.SetLogLevel("debug")
+	log.SetLogLevel(logrus.DebugLevel)
 
 	gitSync := plugins.GitSync{
 		Action: plugins.Update,

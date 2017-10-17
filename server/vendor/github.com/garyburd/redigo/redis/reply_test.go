@@ -19,7 +19,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/garyburd/redigo/internal/redistest"
 	"github.com/garyburd/redigo/redis"
 )
 
@@ -58,6 +57,16 @@ var replyTests = []struct {
 		ve([]string(nil), redis.ErrNil),
 	},
 	{
+		"byteslices([v1, v2])",
+		ve(redis.ByteSlices([]interface{}{[]byte("v1"), []byte("v2")}, nil)),
+		ve([][]byte{[]byte("v1"), []byte("v2")}, nil),
+	},
+	{
+		"byteslices(nil)",
+		ve(redis.ByteSlices(nil, nil)),
+		ve([][]byte(nil), redis.ErrNil),
+	},
+	{
 		"values([v1, v2])",
 		ve(redis.Values([]interface{}{[]byte("v1"), []byte("v2")}, nil)),
 		ve([]interface{}{[]byte("v1"), []byte("v2")}, nil),
@@ -87,6 +96,11 @@ var replyTests = []struct {
 		ve(redis.Uint64(int64(-1), nil)),
 		ve(uint64(0), redis.ErrNegativeInt),
 	},
+	{
+		"positions([[1, 2], nil, [3, 4]])",
+		ve(redis.Positions([]interface{}{[]interface{}{[]byte("1"), []byte("2")}, nil, []interface{}{[]byte("3"), []byte("4")}}, nil)),
+		ve([]*[2]float64{{1.0, 2.0}, nil, {3.0, 4.0}}, nil),
+	},
 }
 
 func TestReply(t *testing.T) {
@@ -101,15 +115,16 @@ func TestReply(t *testing.T) {
 	}
 }
 
-// dial wraps DialTestDB() with a more suitable function name for examples.
+// dial wraps DialDefaultServer() with a more suitable function name for examples.
 func dial() (redis.Conn, error) {
-	return redistest.Dial()
+	return redis.DialDefaultServer()
 }
 
 func ExampleBool() {
 	c, err := dial()
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	defer c.Close()
 
@@ -123,7 +138,8 @@ func ExampleBool() {
 func ExampleInt() {
 	c, err := dial()
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	defer c.Close()
 
@@ -140,7 +156,8 @@ func ExampleInt() {
 func ExampleInts() {
 	c, err := dial()
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	defer c.Close()
 
@@ -154,7 +171,8 @@ func ExampleInts() {
 func ExampleString() {
 	c, err := dial()
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	defer c.Close()
 

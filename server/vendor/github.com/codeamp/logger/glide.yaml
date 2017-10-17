@@ -1,4 +1,0 @@
-package: github.com/codeamp/logger
-import:
-- package: github.com/sirupsen/logrus
-  version: ^1.0.0
