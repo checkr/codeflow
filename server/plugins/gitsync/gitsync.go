@@ -56,17 +56,17 @@ func (x *GitSync) Subscribe() []string {
 
 func (x *GitSync) git(args ...string) ([]byte, error) {
 	cmd := exec.Command("git", args...)
-	env := os.Environ()
-	env = append(env, x.idRsa)
-	cmd.Env = env
 
 	log.InfoWithFields("executing command", log.Fields{
 		"path": cmd.Path,
 		"args": strings.Join(cmd.Args, " "),
 	})
 
-	out, err := cmd.CombinedOutput()
+	env := os.Environ()
+	env = append(env, x.idRsa)
+	cmd.Env = env
 
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if ee, ok := err.(*exec.Error); ok {
 			if ee.Err == exec.ErrNotFound {
@@ -102,7 +102,7 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 	var output []byte
 
 	idRsaPath := fmt.Sprintf("%s/%s_id_rsa", viper.GetString("plugins.gitsync.workdir"), project.Repository)
-	x.idRsa = fmt.Sprintf("GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=no -i %s -F /dev/null", idRsaPath)
+	x.idRsa = fmt.Sprintf("GIT_SSH_COMMAND=ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s -F /dev/null", idRsaPath)
 	repoPath := fmt.Sprintf("%s/%s_%s", viper.GetString("plugins.gitsync.workdir"), project.Repository, git.Branch)
 
 	_, err = exec.Command("mkdir", "-p", filepath.Dir(repoPath)).CombinedOutput()
@@ -186,7 +186,6 @@ func (x *GitSync) Process(e agent.Event) error {
 
 	commits, err := x.commits(gitSyncEvent.Project, gitSyncEvent.Git)
 	if err != nil {
-		log.Error(err)
 		gitSyncEvent.State = plugins.Failed
 		gitSyncEvent.StateMessage = fmt.Sprintf("%v (Action: %v)", err.Error(), gitSyncEvent.State)
 		event := e.NewEvent(gitSyncEvent, err)

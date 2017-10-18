@@ -33,7 +33,7 @@ import (
 var cfgFile string
 
 func main() {
-	log.SetLogLevel(logrus.InfoLevel)
+	log.SetLogLevel(logrus.DebugLevel)
 	log.SetLogFormatter(&logrus.JSONFormatter{TimestampFormat: time.RFC3339Nano})
 	Execute()
 }
