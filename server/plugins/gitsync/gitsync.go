@@ -19,7 +19,6 @@ import (
 
 type GitSync struct {
 	events chan agent.Event
-	idRsa  string
 }
 
 func init() {
@@ -54,7 +53,7 @@ func (x *GitSync) Subscribe() []string {
 	}
 }
 
-func (x *GitSync) git(args ...string) ([]byte, error) {
+func (x *GitSync) git(env []string, args ...string) ([]byte, error) {
 	cmd := exec.Command("git", args...)
 
 	log.InfoWithFields("executing command", log.Fields{
@@ -62,8 +61,6 @@ func (x *GitSync) git(args ...string) ([]byte, error) {
 		"args": strings.Join(cmd.Args, " "),
 	})
 
-	env := os.Environ()
-	env = append(env, x.idRsa)
 	cmd.Env = env
 
 	out, err := cmd.CombinedOutput()
@@ -102,8 +99,12 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 	var output []byte
 
 	idRsaPath := fmt.Sprintf("%s/%s_id_rsa", viper.GetString("plugins.gitsync.workdir"), project.Repository)
-	x.idRsa = fmt.Sprintf("GIT_SSH_COMMAND=ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s -F /dev/null", idRsaPath)
+	idRsa := fmt.Sprintf("GIT_SSH_COMMAND=ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s -F /dev/null", idRsaPath)
 	repoPath := fmt.Sprintf("%s/%s_%s", viper.GetString("plugins.gitsync.workdir"), project.Repository, git.Branch)
+
+	// Git Env
+	env := os.Environ()
+	env = append(env, idRsa)
 
 	_, err = exec.Command("mkdir", "-p", filepath.Dir(repoPath)).CombinedOutput()
 	if err != nil {
@@ -127,7 +128,7 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 			"path": repoPath,
 		})
 
-		output, err := x.git("clone", git.Url, repoPath)
+		output, err := x.git(env, "clone", git.Url, repoPath)
 		if err != nil {
 			log.Debug(err)
 			return nil, err
@@ -135,21 +136,21 @@ func (x *GitSync) commits(project plugins.Project, git plugins.Git) ([]plugins.G
 		log.Info(string(output))
 	}
 
-	output, err = x.git("-C", repoPath, "pull", "origin", git.Branch)
+	output, err = x.git(env, "-C", repoPath, "pull", "origin", git.Branch)
 	if err != nil {
 		log.Debug(err)
 		return nil, err
 	}
 	log.Info(string(output))
 
-	output, err = x.git("-C", repoPath, "checkout", git.Branch)
+	output, err = x.git(env, "-C", repoPath, "checkout", git.Branch)
 	if err != nil {
 		log.Debug(err)
 		return nil, err
 	}
 	log.Info(string(output))
 
-	output, err = x.git("-C", repoPath, "log", "--first-parent", "--date=iso-strict", "-n", "50", "--pretty=format:%H#@#%P#@#%s#@#%cN#@#%cd", git.Branch)
+	output, err = x.git(env, "-C", repoPath, "log", "--first-parent", "--date=iso-strict", "-n", "50", "--pretty=format:%H#@#%P#@#%s#@#%cN#@#%cd", git.Branch)
 
 	if err != nil {
 		log.Debug(err)
