@@ -20,7 +20,7 @@ import (
 	_ "github.com/checkr/codeflow/server/plugins"
 	_ "github.com/checkr/codeflow/server/plugins/codeflow"
 	_ "github.com/checkr/codeflow/server/plugins/codeflow/migrations"
-	_ "github.com/checkr/codeflow/server/plugins/docker_build"
+	_ "github.com/checkr/codeflow/server/plugins/dockerbuilder"
 	_ "github.com/checkr/codeflow/server/plugins/gitsync"
 	_ "github.com/checkr/codeflow/server/plugins/heartbeat"
 	_ "github.com/checkr/codeflow/server/plugins/kubedeploy"

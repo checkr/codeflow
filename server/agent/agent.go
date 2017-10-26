@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/jrallison/go-workers"
 	"github.com/pborman/uuid"
 	"github.com/spf13/viper"
@@ -261,11 +262,17 @@ func (a *Agent) GetTestEvent(name string, timeout time.Duration) Event {
 		log.Fatalf("Timer expired waiting for event: %v", name)
 	}()
 
-	for e := range a.TestEvents {
-		if e.Name == name {
-			timer.Stop()
-			return e
+	for {
+		spew.Dump("Loop")
+		spew.Dump(a.TestEvents)
+		for e := range a.TestEvents {
+			spew.Dump(e.Name)
+			if e.Name == name {
+				timer.Stop()
+				return e
+			}
 		}
+		time.Sleep(1 * time.Second)
 	}
 
 	return Event{}
