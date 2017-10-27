@@ -192,8 +192,12 @@ func (x *DockerBuilder) build(repoPath string, nameTag string, event plugins.Doc
 	}
 
 	dockerClient, err := docker.NewClient(x.Socket)
+	if err != nil {
+		return err
+	}
 
-	if err := dockerClient.BuildImage(buildOptions); err != nil {
+	err = dockerClient.BuildImage(buildOptions)
+	if err != nil {
 		return err
 	}
 
@@ -270,14 +274,14 @@ func (x *DockerBuilder) Process(e agent.Event) error {
 	repoPath := fmt.Sprintf("%s/%s_%s", event.Git.Workdir, event.Project.Repository, event.Git.Branch)
 	imagePath := fmt.Sprintf("%s/%s/%s:%s.%s", event.Registry.Host, event.Registry.Org, slug.Slug(event.Project.Repository), event.Feature.Hash, viper.GetString("environment"))
 
-	buf := bytes.NewBuffer(nil)
-	buildlog := io.MultiWriter(buf, os.Stdout)
+	buildlog := bytes.NewBuffer(nil)
+	//buildlog := io.MultiWriter(buf, os.Stdout)
 
 	err = x.bootstrap(repoPath, imagePath, event)
 	if err != nil {
 		log.Debug(err)
 		event.State = plugins.Failed
-		event.StateMessage = fmt.Sprintf("%v (Action: %v)", err.Error(), event.State)
+		event.StateMessage = fmt.Sprintf("%v (Action: %v, Step: bootstrap)", err.Error(), event.State)
 		event := e.NewEvent(event, err)
 		x.events <- event
 		return err
@@ -286,8 +290,8 @@ func (x *DockerBuilder) Process(e agent.Event) error {
 	err = x.build(repoPath, imagePath, event, buildlog)
 	if err != nil {
 		event.State = plugins.Failed
-		event.StateMessage = fmt.Sprintf("%v (Action: %v)", err.Error(), event.State)
-		event.BuildLog = buf.String()
+		event.StateMessage = fmt.Sprintf("%v (Action: %v, Step: build)", err.Error(), event.State)
+		event.BuildLog = buildlog.String()
 		event := e.NewEvent(event, err)
 		x.events <- event
 		return err
@@ -296,8 +300,8 @@ func (x *DockerBuilder) Process(e agent.Event) error {
 	err = x.push(repoPath, imagePath, event, buildlog)
 	if err != nil {
 		event.State = plugins.Failed
-		event.StateMessage = fmt.Sprintf("%v (Action: %v)", err.Error(), event.State)
-		event.BuildLog = buf.String()
+		event.StateMessage = fmt.Sprintf("%v (Action: %v, Step: push)", err.Error(), event.State)
+		event.BuildLog = buildlog.String()
 		event := e.NewEvent(event, err)
 		x.events <- event
 		return err
@@ -305,7 +309,7 @@ func (x *DockerBuilder) Process(e agent.Event) error {
 
 	event.State = plugins.Complete
 	event.StateMessage = ""
-	event.BuildLog = buf.String()
+	event.BuildLog = buildlog.String()
 	x.events <- e.NewEvent(event, nil)
 	return nil
 }

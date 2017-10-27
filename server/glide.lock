@@ -1,5 +1,5 @@
 hash: 3bfc7ae0015101e0af25b21e1a7ea0a7f87fdcfee73e3a1a6a1d850ef75f3493
-updated: 2017-10-17T11:25:04.026131-07:00
+updated: 2017-10-27T12:50:14.510802-07:00
 imports:
 - name: github.com/ant0ine/go-json-rest
   version: ce4b71cdf7ba29ef443d704bd923f5bbf281ee30
@@ -10,7 +10,7 @@ imports:
 - name: github.com/ashwanthkumar/slack-go-webhook
   version: 58b9a44feb242f0ced1a85304b1b6af57b770234
 - name: github.com/aws/aws-sdk-go
-  version: 6538303c6cc5d32ff3189285305b6357929d5c9b
+  version: ee1f179877b2daf2aaabf71fa900773bf8842253
   subpackages:
   - aws
   - aws/awserr
@@ -65,7 +65,7 @@ imports:
   - digest
   - reference
 - name: github.com/docker/docker
-  version: fa2df86ab62a231c8859400540bb4542143f3e0c
+  version: ecf4125b85e0faa57d2739348e0d453c1d24d10c
   subpackages:
   - api/types
   - api/types/blkiodev
@@ -109,7 +109,7 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: 4da3e2cfbabc9f751898f250b49f2439785783a1
 - name: github.com/fsouza/go-dockerclient
-  version: 5c271fbf9db00b7011f28131e150e29725b8a1a6
+  version: de3ca5806469df077d946342784e525cc7d078ed
 - name: github.com/garyburd/redigo
   version: 34a326de1fea52965fa5ad664d3fc7163dd4b0a1
   subpackages:
@@ -122,7 +122,7 @@ imports:
 - name: github.com/go-bongo/go-dotaccess
   version: ae070a2d2a38fd7233e255ded21fb26fe36b4796
 - name: github.com/go-ini/ini
-  version: 5b3e00af70a9484542169a976dcab8d03e601a17
+  version: f280b3ba517bf5fc98922624f21fb0e7a92adaec
 - name: github.com/go-openapi/analysis
   version: b44dc874b601d9e4e2f6e19140e794ba24bead3b
 - name: github.com/go-openapi/jsonpointer
@@ -219,7 +219,7 @@ imports:
   - specs-go
   - specs-go/v1
 - name: github.com/opencontainers/runc
-  version: 4edd9fb215e0b21e39fc1ace0b7e299a34059481
+  version: 9a1186d128c4c4df4b2c6722976b49898cbe2e03
   subpackages:
   - libcontainer/system
   - libcontainer/user
@@ -230,7 +230,7 @@ imports:
 - name: github.com/pelletier/go-toml
   version: 2009e44b6f182e34d8ce081ac2767622937ea3d4
 - name: github.com/pkg/errors
-  version: 2b3a18b5f0fb6b4f9190549597d3f962c02bc5eb
+  version: f15c970de5b76fac0b59abb32d62c17cc7bed265
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
