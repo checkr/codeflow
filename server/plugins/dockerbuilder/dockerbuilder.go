@@ -14,7 +14,6 @@ import (
 	"github.com/checkr/codeflow/server/agent"
 	"github.com/checkr/codeflow/server/plugins"
 	log "github.com/codeamp/logger"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/extemporalgenome/slug"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/spf13/viper"
@@ -139,7 +138,7 @@ func (x *DockerBuilder) bootstrap(repoPath string, imagePath string, event plugi
 	return nil
 }
 
-func (x *DockerBuilder) build(repoPath string, nameTag string, event plugins.DockerBuild, dockerBuildOut *bytes.Buffer) error {
+func (x *DockerBuilder) build(repoPath string, nameTag string, event plugins.DockerBuild, dockerBuildOut io.Writer) error {
 	gitArchive := exec.Command("git", "archive", event.Feature.Hash)
 	gitArchive.Dir = repoPath
 
@@ -201,14 +200,20 @@ func (x *DockerBuilder) build(repoPath string, nameTag string, event plugins.Doc
 	return nil
 }
 
-func (x *DockerBuilder) push(repoPath string, imagePath string, event plugins.DockerBuild, buildlog *bytes.Buffer) error {
+func (x *DockerBuilder) push(repoPath string, imagePath string, event plugins.DockerBuild, buildlog io.Writer) error {
 	var err error
 
-	buildlog.Write([]byte(fmt.Sprintf("Pushing %s", imagePath)))
+	buildlog.Write([]byte(fmt.Sprintf("Pushing %s\n", imagePath)))
 
 	dockerClient, err := docker.NewClient(x.Socket)
 
 	imagePathSplit := strings.Split(imagePath, ":")
+
+	tag_latest := "latest"
+
+	if viper.GetString("environment") != "production" {
+		tag_latest = fmt.Sprintf("%s.%s", "latest", viper.GetString("environment"))
+	}
 
 	err = dockerClient.PushImage(docker.PushImageOptions{
 		Name:         imagePathSplit[0],
@@ -225,7 +230,7 @@ func (x *DockerBuilder) push(repoPath string, imagePath string, event plugins.Do
 
 	tagOptions := docker.TagImageOptions{
 		Repo:  imagePathSplit[0],
-		Tag:   "latest",
+		Tag:   tag_latest,
 		Force: true,
 	}
 
@@ -235,7 +240,7 @@ func (x *DockerBuilder) push(repoPath string, imagePath string, event plugins.Do
 
 	err = dockerClient.PushImage(docker.PushImageOptions{
 		Name:         imagePathSplit[0],
-		Tag:          "latest",
+		Tag:          tag_latest,
 		OutputStream: buildlog,
 	}, docker.AuthConfiguration{
 		Username: event.Registry.Username,
@@ -264,8 +269,9 @@ func (x *DockerBuilder) Process(e agent.Event) error {
 
 	repoPath := fmt.Sprintf("%s/%s_%s", event.Git.Workdir, event.Project.Repository, event.Git.Branch)
 	imagePath := fmt.Sprintf("%s/%s/%s:%s.%s", event.Registry.Host, event.Registry.Org, slug.Slug(event.Project.Repository), event.Feature.Hash, viper.GetString("environment"))
-	buildlog := bytes.NewBuffer(nil)
-	_ = io.MultiWriter(os.Stdout)
+
+	buf := bytes.NewBuffer(nil)
+	buildlog := io.MultiWriter(buf, os.Stdout)
 
 	err = x.bootstrap(repoPath, imagePath, event)
 	if err != nil {
@@ -281,7 +287,7 @@ func (x *DockerBuilder) Process(e agent.Event) error {
 	if err != nil {
 		event.State = plugins.Failed
 		event.StateMessage = fmt.Sprintf("%v (Action: %v)", err.Error(), event.State)
-		event.BuildLog = buildlog.String()
+		event.BuildLog = buf.String()
 		event := e.NewEvent(event, err)
 		x.events <- event
 		return err
@@ -291,19 +297,15 @@ func (x *DockerBuilder) Process(e agent.Event) error {
 	if err != nil {
 		event.State = plugins.Failed
 		event.StateMessage = fmt.Sprintf("%v (Action: %v)", err.Error(), event.State)
-		event.BuildLog = buildlog.String()
+		event.BuildLog = buf.String()
 		event := e.NewEvent(event, err)
-		spew.Dump(buildlog, err)
 		x.events <- event
 		return err
 	}
 
 	event.State = plugins.Complete
 	event.StateMessage = ""
-	event.BuildLog = buildlog.String()
+	event.BuildLog = buf.String()
 	x.events <- e.NewEvent(event, nil)
-
-	fmt.Println(buildlog.String())
-
 	return nil
 }

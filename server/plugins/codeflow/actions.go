@@ -450,7 +450,6 @@ func DockerBuildStatus(br *plugins.DockerBuild) error {
 	build.Image = br.Image
 	build.State = br.State
 	build.BuildLog = br.BuildLog
-	build.BuildError = br.BuildError
 
 	if err := db.Collection("builds").Save(&build); err != nil {
 		log.Printf("Builds::Save::Error: %v", err.Error())

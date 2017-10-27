@@ -13,6 +13,7 @@ import (
 )
 
 var config = []byte(`
+environment: test
 plugins:
   dockerbuilder:
     workers: 1
@@ -82,10 +83,10 @@ func (suite *TestSuite) TestDockerBuilder() {
 	assert.Equal(suite.T(), string(payload.Action), string(plugins.Status))
 	assert.Equal(suite.T(), string(payload.State), string(plugins.Fetching))
 
-	//e = suite.agent.GetTestEvent("plugins.DockerBuild:status", 600)
-	//payload = e.Payload.(plugins.DockerBuild)
-	//assert.Equal(suite.T(), string(payload.Action), string(plugins.Status))
-	//assert.Equal(suite.T(), string(payload.State), string(plugins.Complete))
+	e = suite.agent.GetTestEvent("plugins.DockerBuild:status", 600)
+	payload = e.Payload.(plugins.DockerBuild)
+	assert.Equal(suite.T(), string(payload.Action), string(plugins.Status))
+	assert.Equal(suite.T(), string(payload.State), string(plugins.Complete))
 }
 
 func TestDockerBuilder(t *testing.T) {

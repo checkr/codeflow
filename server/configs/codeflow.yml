@@ -59,7 +59,7 @@ plugins:
       path: "/stats"
     admin:
       path: "/admin"
-  docker_build:
+  dockerbuilder:
     workers: 1
     registry_host: "docker.io"
     registry_org: ""
@@ -67,7 +67,7 @@ plugins:
     registry_password: ""
     registry_user_email: ""
     docker_host: "unix:///var/run/docker.sock"
-    workdir: "/tmp/docker_build"   
+    workdir: "/tmp/dockerbuilder"   
   kubedeploy:
     workers: 1
     kubeconfig:
