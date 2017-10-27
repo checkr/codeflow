@@ -5,12 +5,13 @@ import (
 	"log"
 	"time"
 
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/clientcmd"
+	//meta_v1 "k8s.io/core/v1/meta"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"strings"
 
@@ -72,8 +73,27 @@ func (x *KubeDeploy) doDeleteLoadBalancer(e agent.Event) error {
 // Make changes to kubernetes services (aka load balancers)
 func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 	payload := e.Payload.(plugins.LoadBalancer)
+
+	kubeconfigPath := viper.GetString("plugins.kubedeploy.kubeconfig")
+	/*
+		if kubeconfigPath == "" {
+			glog.Warningf("Kubeconfig not specified...  Using the inClusterConfig.  This might not work.")
+			kubeconfig, err := restclient.InClusterConfig()
+			if err != nil {
+				log.Printf("error creating inClusterConfig, falling back to default config: %s", err)
+			}
+		}
+	*/
+	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
+		&clientcmd.ConfigOverrides{Timeout: "60"}).ClientConfig()
+
 	// Codeflow will load the kube config from a file, specified by CF_PLUGINS_KUBEDEPLOY_KUBECONFIG environment variable
-	config, err := clientcmd.BuildConfigFromFlags("", viper.GetString("plugins.kubedeploy.kubeconfig"))
+	/*
+		config, err := clientcmd.BuildConfigFromFlags("", viper.GetString("plugins.kubedeploy.kubeconfig"))
+		x := clientcmd.Bu
+		config.Timeout = time.Second * 60
+	*/
 
 	if err != nil {
 		failMessage := fmt.Sprintf("ERROR: %s; you must set the environment variable CF_PLUGINS_KUBEDEPLOY_KUBECONFIG=/path/to/kubeconfig", err.Error())
@@ -234,7 +254,7 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 					return nil
 				}
 			}
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second * 10)
 			timeout -= 5
 		}
 	} else {

@@ -68,6 +68,14 @@ func LBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalancer {
 				Port:     80,
 				Protocol: "TCP",
 			},
+			{
+				Port:     81,
+				Protocol: "TCP",
+			},
+			{
+				Port:     82,
+				Protocol: "TCP",
+			},
 		},
 		State: plugins.Waiting,
 		Spec: plugins.ServiceSpec{
@@ -91,6 +99,14 @@ func LBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalancer {
 			{
 				Source:      plugins.Listener{Port: 443, Protocol: "TCP"},
 				Destination: plugins.Listener{Port: 80, Protocol: "TCP"},
+			},
+			{
+				Source:      plugins.Listener{Port: 80, Protocol: "TCP"},
+				Destination: plugins.Listener{Port: 81, Protocol: "TCP"},
+			},
+			{
+				Source:      plugins.Listener{Port: 8000, Protocol: "TCP"},
+				Destination: plugins.Listener{Port: 82, Protocol: "TCP"},
 			},
 		},
 		Subdomain: "nginx-testing.checkrhq-dev.net",

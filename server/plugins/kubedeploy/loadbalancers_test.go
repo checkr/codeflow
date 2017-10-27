@@ -6,6 +6,7 @@ import (
 	"github.com/checkr/codeflow/server/agent"
 	"github.com/checkr/codeflow/server/plugins"
 	"github.com/checkr/codeflow/server/plugins/kubedeploy/testdata"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -41,6 +42,7 @@ func (suite *TestLoadBalancers) TearDownSuite() {
 	suite.agent.Stop()
 }
 
+/*
 func (suite *TestLoadBalancers) TestLBTCPInternal() {
 	var e agent.Event
 
@@ -91,22 +93,26 @@ func (suite *TestLoadBalancers) TestLBTCPExternal() {
 	e = suite.agent.GetTestEvent("plugins.LoadBalancer:status", 60)
 	assert.Equal(suite.T(), string(plugins.Deleted), string(e.Payload.(plugins.LoadBalancer).State))
 }
+*/
 
 func (suite *TestLoadBalancers) TestLBHTTPSExternal() {
 	var e agent.Event
 
 	suite.agent.Events <- testdata.CreateLBHTTPS(plugins.External)
 	e = suite.agent.GetTestEvent("plugins.LoadBalancer:status", 60)
+	spew.Dump(e.Payload.(plugins.LoadBalancer).StateMessage)
 	assert.Equal(suite.T(), string(plugins.Complete), string(e.Payload.(plugins.LoadBalancer).State))
 	assert.NotNil(suite.T(), string(e.Payload.(plugins.LoadBalancer).DNS))
 
 	suite.agent.Events <- testdata.UpdateLBHTTPS(plugins.External)
 	e = suite.agent.GetTestEvent("plugins.LoadBalancer:status", 60)
+	spew.Dump(e.Payload.(plugins.LoadBalancer).StateMessage)
 	assert.Equal(suite.T(), string(plugins.Complete), string(e.Payload.(plugins.LoadBalancer).State))
 	assert.NotNil(suite.T(), string(e.Payload.(plugins.LoadBalancer).DNS))
 
 	suite.agent.Events <- testdata.TearDownLBHTTPS(plugins.External)
 	e = suite.agent.GetTestEvent("plugins.LoadBalancer:status", 60)
+	spew.Dump(e.Payload.(plugins.LoadBalancer).StateMessage)
 	assert.Equal(suite.T(), string(plugins.Deleted), string(e.Payload.(plugins.LoadBalancer).State))
 }
 
