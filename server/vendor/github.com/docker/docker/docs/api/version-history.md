@@ -15,6 +15,13 @@ keywords: "API, Docker, rcli, REST, documentation"
 
 ## v1.35 API changes
 
+[Docker Engine API v1.35](https://docs.docker.com/engine/api/v1.35/) documentation
+
+* `POST /services/create` and `POST /services/(id)/update` now accepts an
+  `Isolation` field on container spec to set the Isolation technology of the
+  containers running the service (`default`, `process`, or `hyperv`). This
+  configuration is only used for Windows containers.
+
 
 ## v1.34 API changes
 

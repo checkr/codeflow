@@ -127,6 +127,7 @@ type Listener struct {
 }
 
 type ListenerPair struct {
+	Name        string   `json:"name"`
 	Source      Listener `json:"source"`
 	Destination Listener `json:"destination"`
 }

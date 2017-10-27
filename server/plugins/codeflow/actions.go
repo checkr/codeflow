@@ -366,6 +366,7 @@ func loadBalancer(lb *LoadBalancer, action plugins.Action) error {
 
 	for _, listenerPair := range lb.ListenerPairs {
 		listenerPairs = append(listenerPairs, plugins.ListenerPair{
+			Name: listenerPair.Name,
 			Source: plugins.Listener{
 				Port:     int32(listenerPair.Source.Port),
 				Protocol: listenerPair.Destination.Protocol,
