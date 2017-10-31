@@ -1,8 +1,8 @@
 .PHONY:	up server dashboard build
 
 up:
-	docker-compose run server go install
-	docker-compose run go run main.go --config ./configs/codeflow.dev.yml migrate up
+	#docker-compose run server go install
+	docker-compose run server go run main.go --config ./configs/codeflow.dev.yml migrate up
 	docker-compose up -d redis mongo
 	docker-compose up server dashboard
 

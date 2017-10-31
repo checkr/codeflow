@@ -289,6 +289,7 @@ func (x *DockerBuilder) Process(e agent.Event) error {
 
 	err = x.build(repoPath, imagePath, event, buildlog)
 	if err != nil {
+		log.Debug(err)
 		event.State = plugins.Failed
 		event.StateMessage = fmt.Sprintf("%v (Action: %v, Step: build)", err.Error(), event.State)
 		event.BuildLog = buildlog.String()
@@ -299,6 +300,7 @@ func (x *DockerBuilder) Process(e agent.Event) error {
 
 	err = x.push(repoPath, imagePath, event, buildlog)
 	if err != nil {
+		log.Debug(err)
 		event.State = plugins.Failed
 		event.StateMessage = fmt.Sprintf("%v (Action: %v, Step: push)", err.Error(), event.State)
 		event.BuildLog = buildlog.String()

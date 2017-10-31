@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -47,23 +46,11 @@ const (
 	OPTIONS = "OPTIONS"
 )
 
-// Types we support.
-const (
-	TypeJSON       = "json"
-	TypeXML        = "xml"
-	TypeUrlencoded = "urlencoded"
-	TypeForm       = "form"
-	TypeFormData   = "form-data"
-	TypeHTML       = "html"
-	TypeText       = "text"
-	TypeMultipart  = "multipart"
-)
-
 // A SuperAgent is a object storing all request data for client.
 type SuperAgent struct {
 	Url               string
 	Method            string
-	Header            http.Header
+	Header            map[string]string
 	TargetType        string
 	ForceType         string
 	Data              map[string]interface{}
@@ -80,7 +67,7 @@ type SuperAgent struct {
 	BasicAuth         struct{ Username, Password string }
 	Debug             bool
 	CurlCommand       bool
-	logger            Logger
+	logger            *log.Logger
 	Retryable         struct {
 		RetryableStatus []int
 		RetryerTime     time.Duration
@@ -88,8 +75,6 @@ type SuperAgent struct {
 		Attempt         int
 		Enable          bool
 	}
-	//If true prevents clearing Superagent data and makes it possible to reuse it for the next requests
-	DoNotClearSuperAgent bool
 }
 
 var DisableTransportSwap = false
@@ -104,9 +89,9 @@ func New() *SuperAgent {
 	debug := os.Getenv("GOREQUEST_DEBUG") == "1"
 
 	s := &SuperAgent{
-		TargetType:        TypeJSON,
+		TargetType:        "json",
 		Data:              make(map[string]interface{}),
-		Header:            http.Header{},
+		Header:            make(map[string]string),
 		RawString:         "",
 		SliceData:         []interface{}{},
 		FormData:          url.Values{},
@@ -139,25 +124,16 @@ func (s *SuperAgent) SetCurlCommand(enable bool) *SuperAgent {
 	return s
 }
 
-// Enable the DoNotClear mode for not clearing super agent and reuse for the next request
-func (s *SuperAgent) SetDoNotClearSuperAgent(enable bool) *SuperAgent {
-	s.DoNotClearSuperAgent = enable
-	return s
-}
-
-func (s *SuperAgent) SetLogger(logger Logger) *SuperAgent {
+func (s *SuperAgent) SetLogger(logger *log.Logger) *SuperAgent {
 	s.logger = logger
 	return s
 }
 
 // Clear SuperAgent data for another new request.
 func (s *SuperAgent) ClearSuperAgent() {
-	if s.DoNotClearSuperAgent {
-		return
-	}
 	s.Url = ""
 	s.Method = ""
-	s.Header = http.Header{}
+	s.Header = make(map[string]string)
 	s.Data = make(map[string]interface{})
 	s.SliceData = []interface{}{}
 	s.FormData = url.Values{}
@@ -166,7 +142,7 @@ func (s *SuperAgent) ClearSuperAgent() {
 	s.BounceToRawString = false
 	s.RawString = ""
 	s.ForceType = ""
-	s.TargetType = TypeJSON
+	s.TargetType = "json"
 	s.Cookies = make([]*http.Cookie, 0)
 	s.Errors = nil
 }
@@ -253,8 +229,7 @@ func (s *SuperAgent) Options(targetUrl string) *SuperAgent {
 	return s
 }
 
-// Set is used for setting header fields,
-// this will overwrite the existed values of Header through AppendHeader().
+// Set is used for setting header fields.
 // Example. To set `Accept` as `application/json`
 //
 //    gorequest.New().
@@ -262,20 +237,7 @@ func (s *SuperAgent) Options(targetUrl string) *SuperAgent {
 //      Set("Accept", "application/json").
 //      End()
 func (s *SuperAgent) Set(param string, value string) *SuperAgent {
-	s.Header.Set(param, value)
-	return s
-}
-
-// AppendHeader is used for setting header fileds with multiple values,
-// Example. To set `Accept` as `application/json, text/plain`
-//
-//    gorequest.New().
-//      Post("/gamelist").
-//      AppendHeader("Accept", "application/json").
-//      AppendHeader("Accept", "text/plain").
-//      End()
-func (s *SuperAgent) AppendHeader(param string, value string) *SuperAgent {
-	s.Header.Add(param, value)
+	s.Header[param] = value
 	return s
 }
 
@@ -337,14 +299,14 @@ func (s *SuperAgent) AddCookies(cookies []*http.Cookie) *SuperAgent {
 }
 
 var Types = map[string]string{
-	TypeJSON:       "application/json",
-	TypeXML:        "application/xml",
-	TypeForm:       "application/x-www-form-urlencoded",
-	TypeFormData:   "application/x-www-form-urlencoded",
-	TypeUrlencoded: "application/x-www-form-urlencoded",
-	TypeHTML:       "text/html",
-	TypeText:       "text/plain",
-	TypeMultipart:  "multipart/form-data",
+	"html":       "text/html",
+	"json":       "application/json",
+	"xml":        "application/xml",
+	"text":       "text/plain",
+	"urlencoded": "application/x-www-form-urlencoded",
+	"form":       "application/x-www-form-urlencoded",
+	"form-data":  "application/x-www-form-urlencoded",
+	"multipart":  "multipart/form-data",
 }
 
 // Type is a convenience function to specify the data type to send.
@@ -721,7 +683,7 @@ func (s *SuperAgent) SendString(content string) *SuperAgent {
 					}
 				}
 			}
-			s.TargetType = TypeForm
+			s.TargetType = "form"
 		} else {
 			s.BounceToRawString = true
 		}
@@ -943,7 +905,7 @@ func changeMapToURLValues(data map[string]interface{}) url.Values {
 // For example:
 //
 //    resp, body, errs := gorequest.New().Get("http://www.google.com").End()
-//    if errs != nil {
+//    if (errs != nil) {
 //      fmt.Println(errs)
 //    }
 //    fmt.Println(resp, body)
@@ -1048,14 +1010,13 @@ func (s *SuperAgent) getResponseBytes() (Response, []byte, []error) {
 	}
 	// check if there is forced type
 	switch s.ForceType {
-	case TypeJSON, TypeForm, TypeXML, TypeText, TypeMultipart:
+	case "json", "form", "xml", "text", "multipart":
 		s.TargetType = s.ForceType
 		// If forcetype is not set, check whether user set Content-Type header.
 		// If yes, also bounce to the correct supported TargetType automatically.
 	default:
-		contentType := s.Header.Get("Content-Type")
 		for k, v := range Types {
-			if contentType == v {
+			if s.Header["Content-Type"] == v {
 				s.TargetType = k
 			}
 		}
@@ -1127,30 +1088,15 @@ func (s *SuperAgent) getResponseBytes() (Response, []byte, []error) {
 
 func (s *SuperAgent) MakeRequest() (*http.Request, error) {
 	var (
-		req           *http.Request
-		contentType   string // This is only set when the request body content is non-empty.
-		contentReader io.Reader
-		err           error
+		req *http.Request
+		err error
 	)
 
 	if s.Method == "" {
 		return nil, errors.New("No method specified")
 	}
 
-	// !!! Important Note !!!
-	//
-	// Throughout this region, contentReader and contentType are only set when
-	// the contents will be non-empty.
-	// This is done avoid ever sending a non-nil request body with nil contents
-	// to http.NewRequest, because it contains logic which dependends on
-	// whether or not the body is "nil".
-	//
-	// See PR #136 for more information:
-	//
-	//     https://github.com/parnurzeal/gorequest/pull/136
-	//
-	switch s.TargetType {
-	case TypeJSON:
+	if s.TargetType == "json" {
 		// If-case to give support to json array. we check if
 		// 1) Map only: send it as json map from s.Data
 		// 2) Array or Mix of map & array or others: send it as rawstring from s.RawString
@@ -1162,11 +1108,13 @@ func (s *SuperAgent) MakeRequest() (*http.Request, error) {
 		} else if len(s.SliceData) != 0 {
 			contentJson, _ = json.Marshal(s.SliceData)
 		}
-		if contentJson != nil {
-			contentReader = bytes.NewReader(contentJson)
-			contentType = "application/json"
+		contentReader := bytes.NewReader(contentJson)
+		req, err = http.NewRequest(s.Method, s.Url, contentReader)
+		if err != nil {
+			return nil, err
 		}
-	case TypeForm, TypeFormData, TypeUrlencoded:
+		req.Header.Set("Content-Type", "application/json")
+	} else if s.TargetType == "form" || s.TargetType == "form-data" || s.TargetType == "urlencoded" {
 		var contentForm []byte
 		if s.BounceToRawString || len(s.SliceData) != 0 {
 			contentForm = []byte(s.RawString)
@@ -1174,34 +1122,30 @@ func (s *SuperAgent) MakeRequest() (*http.Request, error) {
 			formData := changeMapToURLValues(s.Data)
 			contentForm = []byte(formData.Encode())
 		}
-		if len(contentForm) != 0 {
-			contentReader = bytes.NewReader(contentForm)
-			contentType = "application/x-www-form-urlencoded"
+		contentReader := bytes.NewReader(contentForm)
+		req, err = http.NewRequest(s.Method, s.Url, contentReader)
+		if err != nil {
+			return nil, err
 		}
-	case TypeText:
-		if len(s.RawString) != 0 {
-			contentReader = strings.NewReader(s.RawString)
-			contentType = "text/plain"
-		}
-	case TypeXML:
-		if len(s.RawString) != 0 {
-			contentReader = strings.NewReader(s.RawString)
-			contentType = "application/xml"
-		}
-	case TypeMultipart:
-		var (
-			buf = &bytes.Buffer{}
-			mw  = multipart.NewWriter(buf)
-		)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	} else if s.TargetType == "text" {
+		req, err = http.NewRequest(s.Method, s.Url, strings.NewReader(s.RawString))
+		req.Header.Set("Content-Type", "text/plain")
+	} else if s.TargetType == "xml" {
+		req, err = http.NewRequest(s.Method, s.Url, strings.NewReader(s.RawString))
+		req.Header.Set("Content-Type", "application/xml")
+	} else if s.TargetType == "multipart" {
+
+		var buf bytes.Buffer
+		mw := multipart.NewWriter(&buf)
 
 		if s.BounceToRawString {
-			fieldName := s.Header.Get("data_fieldname")
-			if fieldName == "" {
+			fieldName, ok := s.Header["data_fieldname"]
+			if !ok {
 				fieldName = "data"
 			}
 			fw, _ := mw.CreateFormField(fieldName)
 			fw.Write([]byte(s.RawString))
-			contentReader = buf
 		}
 
 		if len(s.Data) != 0 {
@@ -1212,12 +1156,11 @@ func (s *SuperAgent) MakeRequest() (*http.Request, error) {
 					fw.Write([]byte(value))
 				}
 			}
-			contentReader = buf
 		}
 
 		if len(s.SliceData) != 0 {
-			fieldName := s.Header.Get("json_fieldname")
-			if fieldName == "" {
+			fieldName, ok := s.Header["json_fieldname"]
+			if !ok {
 				fieldName = "data"
 			}
 			// copied from CreateFormField() in mime/multipart/writer.go
@@ -1231,7 +1174,6 @@ func (s *SuperAgent) MakeRequest() (*http.Request, error) {
 				return nil, err
 			}
 			fw.Write(contentJson)
-			contentReader = buf
 		}
 
 		// add the files
@@ -1240,41 +1182,25 @@ func (s *SuperAgent) MakeRequest() (*http.Request, error) {
 				fw, _ := mw.CreateFormFile(file.Fieldname, file.Filename)
 				fw.Write(file.Data)
 			}
-			contentReader = buf
 		}
 
 		// close before call to FormDataContentType ! otherwise its not valid multipart
 		mw.Close()
 
-		if contentReader != nil {
-			contentType = mw.FormDataContentType()
-		}
-	default:
+		req, err = http.NewRequest(s.Method, s.Url, &buf)
+		req.Header.Set("Content-Type", mw.FormDataContentType())
+	} else {
 		// let's return an error instead of an nil pointer exception here
 		return nil, errors.New("TargetType '" + s.TargetType + "' could not be determined")
 	}
 
-	if req, err = http.NewRequest(s.Method, s.Url, contentReader); err != nil {
-		return nil, err
-	}
-
-	for k, vals := range s.Header {
-		for _, v := range vals {
-			req.Header.Add(k, v)
-		}
-
-		// Setting the Host header is a special case, see this issue: https://github.com/golang/go/issues/7682
-		if strings.EqualFold(k, "Host") {
-			req.Host = vals[0]
+	for k, v := range s.Header {
+		req.Header.Set(k, v)
+		// Setting the host header is a special case, see this issue: https://github.com/golang/go/issues/7682
+		if strings.EqualFold(k, "host") {
+			req.Host = v
 		}
 	}
-
-	// https://github.com/parnurzeal/gorequest/issues/164
-	// Don't infer the content type header if an overrride is already provided.
-	if len(contentType) != 0 && req.Header.Get("Content-Type") == "" {
-		req.Header.Set("Content-Type", contentType)
-	}
-
 	// Add all querystring from Query func
 	q := req.URL.Query()
 	for k, v := range s.QueryData {

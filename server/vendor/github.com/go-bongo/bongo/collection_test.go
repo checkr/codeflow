@@ -23,31 +23,26 @@ type hookedDocument struct {
 
 func (h *hookedDocument) BeforeSave(c *Collection) error {
 	h.RanBeforeSave = true
-	So(c.Context.Get("foo"), ShouldEqual, "bar")
 	return nil
 }
 
 func (h *hookedDocument) AfterSave(c *Collection) error {
 	h.RanAfterSave = true
-	So(c.Context.Get("foo"), ShouldEqual, "bar")
 	return nil
 }
 
 func (h *hookedDocument) BeforeDelete(c *Collection) error {
 	h.RanBeforeDelete = true
-	So(c.Context.Get("foo"), ShouldEqual, "bar")
 	return nil
 }
 
 func (h *hookedDocument) AfterDelete(c *Collection) error {
 	h.RanAfterDelete = true
-	So(c.Context.Get("foo"), ShouldEqual, "bar")
 	return nil
 }
 
 func (h *hookedDocument) AfterFind(c *Collection) error {
 	h.RanAfterFind = true
-	So(c.Context.Get("foo"), ShouldEqual, "bar")
 	return nil
 }
 
@@ -122,11 +117,11 @@ func TestCollection(t *testing.T) {
 
 			err := conn.Collection("tests").Save(doc)
 			So(err, ShouldEqual, nil)
-			So(doc.Created.UnixNano(), ShouldEqual, doc.GetModified().UnixNano())
+			So(doc.Created.UnixNano(), ShouldEqual, doc.Modified.UnixNano())
 
 			err = conn.Collection("tests").Save(doc)
 			So(err, ShouldEqual, nil)
-			So(doc.Modified.UnixNano(), ShouldBeGreaterThan, doc.GetCreated().UnixNano())
+			So(doc.Modified.UnixNano(), ShouldBeGreaterThan, doc.Created.UnixNano())
 		})
 
 		Reset(func() {

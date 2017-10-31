@@ -19,7 +19,6 @@ func (d *DocumentBase) SetIsNew(isNew bool) {
 	d.exists = !isNew
 }
 
-// Is the document new
 func (d *DocumentBase) IsNew() bool {
 	return !d.exists
 }
@@ -29,27 +28,14 @@ func (d *DocumentBase) GetId() bson.ObjectId {
 	return d.Id
 }
 
-// Sets the ID for the document
 func (d *DocumentBase) SetId(id bson.ObjectId) {
 	d.Id = id
 }
 
-// Set's the created date
 func (d *DocumentBase) SetCreated(t time.Time) {
 	d.Created = t
 }
 
-// Get the created date
-func (d *DocumentBase) GetCreated() time.Time {
-	return d.Created
-}
-
-// Sets the modified date
 func (d *DocumentBase) SetModified(t time.Time) {
 	d.Modified = t
-}
-
-// Get's the modified date
-func (d *DocumentBase) GetModified() time.Time {
-	return d.Modified
 }
