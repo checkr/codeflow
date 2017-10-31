@@ -6,7 +6,7 @@ import (
 	"path"
 	"testing"
 
-	"gopkg.in/mattes/migrate.v1/migrate/direction"
+	"github.com/mattes/migrate/migrate/direction"
 )
 
 func TestParseFilenameSchema(t *testing.T) {

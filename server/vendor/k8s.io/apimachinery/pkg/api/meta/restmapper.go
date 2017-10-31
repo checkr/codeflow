@@ -117,10 +117,7 @@ func NewDefaultRESTMapper(defaultGroupVersions []schema.GroupVersion, f VersionI
 
 func (m *DefaultRESTMapper) Add(kind schema.GroupVersionKind, scope RESTScope) {
 	plural, singular := UnsafeGuessKindToResource(kind)
-	m.AddSpecific(kind, plural, singular, scope)
-}
 
-func (m *DefaultRESTMapper) AddSpecific(kind schema.GroupVersionKind, plural, singular schema.GroupVersionResource, scope RESTScope) {
 	m.singularToPlural[singular] = plural
 	m.pluralToSingular[plural] = singular
 

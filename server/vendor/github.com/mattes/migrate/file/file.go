@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/mattes/migrate.v1/migrate/direction"
+	"github.com/mattes/migrate/migrate/direction"
 )
 
 var filenameRegex = `^([0-9]+)_(.*)\.(up|down)\.%s$`

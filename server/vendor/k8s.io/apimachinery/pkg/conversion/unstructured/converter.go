@@ -29,7 +29,6 @@ import (
 	"sync/atomic"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/apimachinery/pkg/util/json"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -40,7 +39,7 @@ import (
 // Converter is an interface for converting between interface{}
 // and map[string]interface representation.
 type Converter interface {
-	ToUnstructured(obj interface{}) (map[string]interface{}, error)
+	ToUnstructured(obj interface{}, u *map[string]interface{}) error
 	FromUnstructured(u map[string]interface{}, obj interface{}) error
 }
 
@@ -107,8 +106,6 @@ func NewConverter(mismatchDetection bool) Converter {
 	}
 }
 
-// FromUnstructured converts an object from map[string]interface{} representation into a concrete type.
-// It uses encoding/json/Unmarshaler if object implements it or reflection if not.
 func (c *converterImpl) FromUnstructured(u map[string]interface{}, obj interface{}) error {
 	t := reflect.TypeOf(obj)
 	value := reflect.ValueOf(obj)
@@ -391,63 +388,24 @@ func interfaceFromUnstructured(sv, dv reflect.Value) error {
 	return nil
 }
 
-// ToUnstructured converts an object into map[string]interface{} representation.
-// It uses encoding/json/Marshaler if object implements it or reflection if not.
-func (c *converterImpl) ToUnstructured(obj interface{}) (map[string]interface{}, error) {
-	var u map[string]interface{}
-	var err error
-	if unstr, ok := obj.(runtime.Unstructured); ok {
-		u = DeepCopyJSON(unstr.UnstructuredContent())
-	} else {
-		t := reflect.TypeOf(obj)
-		value := reflect.ValueOf(obj)
-		if t.Kind() != reflect.Ptr || value.IsNil() {
-			return nil, fmt.Errorf("ToUnstructured requires a non-nil pointer to an object, got %v", t)
-		}
-		u = map[string]interface{}{}
-		err = toUnstructured(value.Elem(), reflect.ValueOf(&u).Elem())
+func (c *converterImpl) ToUnstructured(obj interface{}, u *map[string]interface{}) error {
+	t := reflect.TypeOf(obj)
+	value := reflect.ValueOf(obj)
+	if t.Kind() != reflect.Ptr || value.IsNil() {
+		return fmt.Errorf("ToUnstructured requires a non-nil pointer to an object, got %v", t)
 	}
+	err := toUnstructured(value.Elem(), reflect.ValueOf(u).Elem())
 	if c.mismatchDetection {
-		newUnstr := map[string]interface{}{}
-		newErr := toUnstructuredViaJSON(obj, &newUnstr)
+		newUnstr := &map[string]interface{}{}
+		newErr := toUnstructuredViaJSON(obj, newUnstr)
 		if (err != nil) != (newErr != nil) {
-			glog.Fatalf("ToUnstructured unexpected error for %v: error: %v; newErr: %v", obj, err, newErr)
+			glog.Fatalf("ToUnstructured unexpected error for %v: error: %v", obj, err)
 		}
 		if err == nil && !apiequality.Semantic.DeepEqual(u, newUnstr) {
 			glog.Fatalf("ToUnstructured mismatch for %#v, diff: %v", u, diff.ObjectReflectDiff(u, newUnstr))
 		}
 	}
-	if err != nil {
-		return nil, err
-	}
-	return u, nil
-}
-
-// DeepCopyJSON deep copies the passed value, assuming it is a valid JSON representation i.e. only contains
-// types produced by json.Unmarshal().
-func DeepCopyJSON(x map[string]interface{}) map[string]interface{} {
-	return deepCopyJSON(x).(map[string]interface{})
-}
-
-func deepCopyJSON(x interface{}) interface{} {
-	switch x := x.(type) {
-	case map[string]interface{}:
-		clone := make(map[string]interface{}, len(x))
-		for k, v := range x {
-			clone[k] = deepCopyJSON(v)
-		}
-		return clone
-	case []interface{}:
-		clone := make([]interface{}, len(x))
-		for i, v := range x {
-			clone[i] = deepCopyJSON(v)
-		}
-		return clone
-	case string, int64, bool, float64, nil, encodingjson.Number:
-		return x
-	default:
-		panic(fmt.Errorf("cannot deep copy %T", x))
-	}
+	return err
 }
 
 func toUnstructuredViaJSON(obj interface{}, u *map[string]interface{}) error {
@@ -458,95 +416,51 @@ func toUnstructuredViaJSON(obj interface{}, u *map[string]interface{}) error {
 	return json.Unmarshal(data, u)
 }
 
-var (
-	nullBytes  = []byte("null")
-	trueBytes  = []byte("true")
-	falseBytes = []byte("false")
-)
-
-func getMarshaler(v reflect.Value) (encodingjson.Marshaler, bool) {
-	// Check value receivers if v is not a pointer and pointer receivers if v is a pointer
-	if v.Type().Implements(marshalerType) {
-		return v.Interface().(encodingjson.Marshaler), true
-	}
-	// Check pointer receivers if v is not a pointer
-	if v.Kind() != reflect.Ptr && v.CanAddr() {
-		v = v.Addr()
-		if v.Type().Implements(marshalerType) {
-			return v.Interface().(encodingjson.Marshaler), true
-		}
-	}
-	return nil, false
-}
-
 func toUnstructured(sv, dv reflect.Value) error {
+	st, dt := sv.Type(), dv.Type()
+
 	// Check if the object has a custom JSON marshaller/unmarshaller.
-	if marshaler, ok := getMarshaler(sv); ok {
+	if st.Implements(marshalerType) {
 		if sv.Kind() == reflect.Ptr && sv.IsNil() {
 			// We're done - we don't need to store anything.
 			return nil
 		}
 
+		marshaler := sv.Interface().(encodingjson.Marshaler)
 		data, err := marshaler.MarshalJSON()
 		if err != nil {
 			return err
 		}
-		switch {
-		case len(data) == 0:
-			return fmt.Errorf("error decoding from json: empty value")
-
-		case bytes.Equal(data, nullBytes):
+		if bytes.Equal(data, []byte("null")) {
 			// We're done - we don't need to store anything.
-
-		case bytes.Equal(data, trueBytes):
-			dv.Set(reflect.ValueOf(true))
-
-		case bytes.Equal(data, falseBytes):
-			dv.Set(reflect.ValueOf(false))
-
-		case data[0] == '"':
-			var result string
-			err := json.Unmarshal(data, &result)
-			if err != nil {
-				return fmt.Errorf("error decoding string from json: %v", err)
-			}
-			dv.Set(reflect.ValueOf(result))
-
-		case data[0] == '{':
-			result := make(map[string]interface{})
-			err := json.Unmarshal(data, &result)
-			if err != nil {
-				return fmt.Errorf("error decoding object from json: %v", err)
-			}
-			dv.Set(reflect.ValueOf(result))
-
-		case data[0] == '[':
-			result := make([]interface{}, 0)
-			err := json.Unmarshal(data, &result)
-			if err != nil {
-				return fmt.Errorf("error decoding array from json: %v", err)
-			}
-			dv.Set(reflect.ValueOf(result))
-
-		default:
-			var (
-				resultInt   int64
-				resultFloat float64
-				err         error
-			)
-			if err = json.Unmarshal(data, &resultInt); err == nil {
-				dv.Set(reflect.ValueOf(resultInt))
-			} else if err = json.Unmarshal(data, &resultFloat); err == nil {
-				dv.Set(reflect.ValueOf(resultFloat))
-			} else {
-				return fmt.Errorf("error decoding number from json: %v", err)
+		} else {
+			switch {
+			case len(data) > 0 && data[0] == '"':
+				var result string
+				err := json.Unmarshal(data, &result)
+				if err != nil {
+					return fmt.Errorf("error decoding from json: %v", err)
+				}
+				dv.Set(reflect.ValueOf(result))
+			case len(data) > 0 && data[0] == '{':
+				result := make(map[string]interface{})
+				err := json.Unmarshal(data, &result)
+				if err != nil {
+					return fmt.Errorf("error decoding from json: %v", err)
+				}
+				dv.Set(reflect.ValueOf(result))
+			default:
+				var result int64
+				err := json.Unmarshal(data, &result)
+				if err != nil {
+					return fmt.Errorf("error decoding from json: %v", err)
+				}
+				dv.Set(reflect.ValueOf(result))
 			}
 		}
-
 		return nil
 	}
 
-	st, dt := sv.Type(), dv.Type()
 	switch st.Kind() {
 	case reflect.String:
 		if dt.Kind() == reflect.Interface && dv.NumMethod() == 0 {
