@@ -2,10 +2,9 @@ package reflections_test
 
 import (
 	"fmt"
+	"github.com/oleiade/reflections"
 	"log"
 	"reflect"
-
-	"github.com/oleiade/reflections"
 )
 
 type MyStruct struct {
@@ -61,32 +60,6 @@ func ExampleGetFieldKind() {
 		log.Fatal(err)
 	}
 	fmt.Println(secondFieldKind)
-}
-
-func ExampleGetFieldType() {
-	s := MyStruct{
-		FirstField:  "first value",
-		SecondField: 2,
-		ThirdField:  "third value",
-	}
-
-	var firstFieldType string
-	var secondFieldType string
-	var err error
-
-	// GetFieldType will return reflect.String
-	firstFieldType, err = reflections.GetFieldType(s, "FirstField")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(firstFieldType)
-
-	// GetFieldType will return reflect.Int
-	secondFieldType, err = reflections.GetFieldType(s, "SecondField")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(secondFieldType)
 }
 
 func ExampleGetFieldTag() {

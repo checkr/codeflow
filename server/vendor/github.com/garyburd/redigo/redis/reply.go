@@ -243,59 +243,34 @@ func Values(reply interface{}, err error) ([]interface{}, error) {
 	return nil, fmt.Errorf("redigo: unexpected type for Values, got type %T", reply)
 }
 
-func sliceHelper(reply interface{}, err error, name string, makeSlice func(int), assign func(int, []byte) error) error {
+// Strings is a helper that converts an array command reply to a []string. If
+// err is not equal to nil, then Strings returns nil, err. Nil array items are
+// converted to "" in the output slice. Strings returns an error if an array
+// item is not a bulk string or nil.
+func Strings(reply interface{}, err error) ([]string, error) {
 	if err != nil {
-		return err
+		return nil, err
 	}
 	switch reply := reply.(type) {
 	case []interface{}:
-		makeSlice(len(reply))
+		result := make([]string, len(reply))
 		for i := range reply {
 			if reply[i] == nil {
 				continue
 			}
 			p, ok := reply[i].([]byte)
 			if !ok {
-				return fmt.Errorf("redigo: unexpected element type for %s, got type %T", name, reply[i])
+				return nil, fmt.Errorf("redigo: unexpected element type for Strings, got type %T", reply[i])
 			}
-			if err := assign(i, p); err != nil {
-				return err
-			}
+			result[i] = string(p)
 		}
-		return nil
+		return result, nil
 	case nil:
-		return ErrNil
+		return nil, ErrNil
 	case Error:
-		return reply
+		return nil, reply
 	}
-	return fmt.Errorf("redigo: unexpected type for %s, got type %T", name, reply)
-}
-
-// Float64s is a helper that converts an array command reply to a []float64. If
-// err is not equal to nil, then Float64s returns nil, err. Nil array items are
-// converted to 0 in the output slice. Floats64 returns an error if an array
-// item is not a bulk string or nil.
-func Float64s(reply interface{}, err error) ([]float64, error) {
-	var result []float64
-	err = sliceHelper(reply, err, "Float64s", func(n int) { result = make([]float64, n) }, func(i int, p []byte) error {
-		f, err := strconv.ParseFloat(string(p), 64)
-		result[i] = f
-		return err
-	})
-	return result, err
-}
-
-// Strings is a helper that converts an array command reply to a []string. If
-// err is not equal to nil, then Strings returns nil, err. Nil array items are
-// converted to "" in the output slice. Strings returns an error if an array
-// item is not a bulk string or nil.
-func Strings(reply interface{}, err error) ([]string, error) {
-	var result []string
-	err = sliceHelper(reply, err, "Strings", func(n int) { result = make([]string, n) }, func(i int, p []byte) error {
-		result[i] = string(p)
-		return nil
-	})
-	return result, err
+	return nil, fmt.Errorf("redigo: unexpected type for Strings, got type %T", reply)
 }
 
 // ByteSlices is a helper that converts an array command reply to a [][]byte.
@@ -303,40 +278,43 @@ func Strings(reply interface{}, err error) ([]string, error) {
 // items are stay nil. ByteSlices returns an error if an array item is not a
 // bulk string or nil.
 func ByteSlices(reply interface{}, err error) ([][]byte, error) {
-	var result [][]byte
-	err = sliceHelper(reply, err, "ByteSlices", func(n int) { result = make([][]byte, n) }, func(i int, p []byte) error {
-		result[i] = p
-		return nil
-	})
-	return result, err
+	if err != nil {
+		return nil, err
+	}
+	switch reply := reply.(type) {
+	case []interface{}:
+		result := make([][]byte, len(reply))
+		for i := range reply {
+			if reply[i] == nil {
+				continue
+			}
+			p, ok := reply[i].([]byte)
+			if !ok {
+				return nil, fmt.Errorf("redigo: unexpected element type for ByteSlices, got type %T", reply[i])
+			}
+			result[i] = p
+		}
+		return result, nil
+	case nil:
+		return nil, ErrNil
+	case Error:
+		return nil, reply
+	}
+	return nil, fmt.Errorf("redigo: unexpected type for ByteSlices, got type %T", reply)
 }
 
-// Int64s is a helper that converts an array command reply to a []int64.
-// If err is not equal to nil, then Int64s returns nil, err. Nil array
-// items are stay nil. Int64s returns an error if an array item is not a
-// bulk string or nil.
-func Int64s(reply interface{}, err error) ([]int64, error) {
-	var result []int64
-	err = sliceHelper(reply, err, "Int64s", func(n int) { result = make([]int64, n) }, func(i int, p []byte) error {
-		n, err := strconv.ParseInt(string(p), 10, 64)
-		result[i] = n
-		return err
-	})
-	return result, err
-}
-
-// Ints is a helper that converts an array command reply to a []in.
-// If err is not equal to nil, then Ints returns nil, err. Nil array
-// items are stay nil. Ints returns an error if an array item is not a
-// bulk string or nil.
+// Ints is a helper that converts an array command reply to a []int. If
+// err is not equal to nil, then Ints returns nil, err.
 func Ints(reply interface{}, err error) ([]int, error) {
-	var result []int
-	err = sliceHelper(reply, err, "Ints", func(n int) { result = make([]int, n) }, func(i int, p []byte) error {
-		n, err := strconv.Atoi(string(p))
-		result[i] = n
-		return err
-	})
-	return result, err
+	var ints []int
+	values, err := Values(reply, err)
+	if err != nil {
+		return ints, err
+	}
+	if err := ScanSlice(values, &ints); err != nil {
+		return ints, err
+	}
+	return ints, nil
 }
 
 // StringMap is a helper that converts an array of strings (alternating key, value)

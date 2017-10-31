@@ -4,7 +4,7 @@ package simplejson
 
 import (
 	"bytes"
-	"github.com/stretchr/testify/assert"
+	"github.com/bmizerany/assert"
 	"strconv"
 	"testing"
 )

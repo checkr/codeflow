@@ -11,18 +11,14 @@ import (
 )
 
 type tomlValue struct {
-	value     interface{} // string, int64, uint64, float64, bool, time.Time, [] of any of this list
-	comment   string
-	commented bool
-	position  Position
+	value    interface{} // string, int64, uint64, float64, bool, time.Time, [] of any of this list
+	position Position
 }
 
 // Tree is the result of the parsing of a TOML file.
 type Tree struct {
-	values    map[string]interface{} // string -> *tomlValue, *Tree, []*Tree
-	comment   string
-	commented bool
-	position  Position
+	values   map[string]interface{} // string -> *tomlValue, *Tree, []*Tree
+	position Position
 }
 
 func newTree() *Tree {
@@ -181,14 +177,14 @@ func (t *Tree) GetDefault(key string, def interface{}) interface{} {
 // Set an element in the tree.
 // Key is a dot-separated path (e.g. a.b.c).
 // Creates all necessary intermediate trees, if needed.
-func (t *Tree) Set(key string, comment string, commented bool, value interface{}) {
-	t.SetPath(strings.Split(key, "."), comment, commented, value)
+func (t *Tree) Set(key string, value interface{}) {
+	t.SetPath(strings.Split(key, "."), value)
 }
 
 // SetPath sets an element in the tree.
 // Keys is an array of path elements (e.g. {"a","b","c"}).
 // Creates all necessary intermediate trees, if needed.
-func (t *Tree) SetPath(keys []string, comment string, commented bool, value interface{}) {
+func (t *Tree) SetPath(keys []string, value interface{}) {
 	subtree := t
 	for _, intermediateKey := range keys[:len(keys)-1] {
 		nextTree, exists := subtree.values[intermediateKey]
@@ -213,17 +209,13 @@ func (t *Tree) SetPath(keys []string, comment string, commented bool, value inte
 
 	switch value.(type) {
 	case *Tree:
-		tt := value.(*Tree)
-		tt.comment = comment
 		toInsert = value
 	case []*Tree:
 		toInsert = value
 	case *tomlValue:
-		tt := value.(*tomlValue)
-		tt.comment = comment
-		toInsert = tt
+		toInsert = value
 	default:
-		toInsert = &tomlValue{value: value, comment: comment, commented: commented}
+		toInsert = &tomlValue{value: value}
 	}
 
 	subtree.values[keys[len(keys)-1]] = toInsert

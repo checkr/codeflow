@@ -1,6 +1,7 @@
 package gen
 
 import (
+	"encoding"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -32,16 +33,18 @@ var primitiveEncoders = map[reflect.Kind]string{
 }
 
 var primitiveStringEncoders = map[reflect.Kind]string{
-	reflect.Int:    "out.IntStr(int(%v))",
-	reflect.Int8:   "out.Int8Str(int8(%v))",
-	reflect.Int16:  "out.Int16Str(int16(%v))",
-	reflect.Int32:  "out.Int32Str(int32(%v))",
-	reflect.Int64:  "out.Int64Str(int64(%v))",
-	reflect.Uint:   "out.UintStr(uint(%v))",
-	reflect.Uint8:  "out.Uint8Str(uint8(%v))",
-	reflect.Uint16: "out.Uint16Str(uint16(%v))",
-	reflect.Uint32: "out.Uint32Str(uint32(%v))",
-	reflect.Uint64: "out.Uint64Str(uint64(%v))",
+	reflect.String:  "out.String(string(%v))",
+	reflect.Int:     "out.IntStr(int(%v))",
+	reflect.Int8:    "out.Int8Str(int8(%v))",
+	reflect.Int16:   "out.Int16Str(int16(%v))",
+	reflect.Int32:   "out.Int32Str(int32(%v))",
+	reflect.Int64:   "out.Int64Str(int64(%v))",
+	reflect.Uint:    "out.UintStr(uint(%v))",
+	reflect.Uint8:   "out.Uint8Str(uint8(%v))",
+	reflect.Uint16:  "out.Uint16Str(uint16(%v))",
+	reflect.Uint32:  "out.Uint32Str(uint32(%v))",
+	reflect.Uint64:  "out.Uint64Str(uint64(%v))",
+	reflect.Uintptr: "out.UintptrStr(uintptr(%v))",
 }
 
 // fieldTags contains parsed version of json struct field tags.
@@ -95,6 +98,12 @@ func (g *Generator) genTypeEncoder(t reflect.Type, in string, tags fieldTags, in
 		return nil
 	}
 
+	marshalerIface = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+	if reflect.PtrTo(t).Implements(marshalerIface) {
+		fmt.Fprintln(g.out, ws+"out.RawText( ("+in+").MarshalText() )")
+		return nil
+	}
+
 	err := g.genTypeEncoderNoCheck(t, in, tags, indent)
 	return err
 }
@@ -118,16 +127,47 @@ func (g *Generator) genTypeEncoderNoCheck(t reflect.Type, in string, tags fieldT
 		iVar := g.uniqueVarName()
 		vVar := g.uniqueVarName()
 
-		fmt.Fprintln(g.out, ws+"out.RawByte('[')")
-		fmt.Fprintln(g.out, ws+"for "+iVar+", "+vVar+" := range "+in+" {")
-		fmt.Fprintln(g.out, ws+"  if "+iVar+" > 0 {")
-		fmt.Fprintln(g.out, ws+"    out.RawByte(',')")
-		fmt.Fprintln(g.out, ws+"  }")
+		if t.Elem().Kind() == reflect.Uint8 {
+			fmt.Fprintln(g.out, ws+"out.Base64Bytes("+in+")")
+		} else {
+			fmt.Fprintln(g.out, ws+"if "+in+" == nil && (out.Flags & jwriter.NilSliceAsEmpty) == 0 {")
+			fmt.Fprintln(g.out, ws+`  out.RawString("null")`)
+			fmt.Fprintln(g.out, ws+"} else {")
+			fmt.Fprintln(g.out, ws+"  out.RawByte('[')")
+			fmt.Fprintln(g.out, ws+"  for "+iVar+", "+vVar+" := range "+in+" {")
+			fmt.Fprintln(g.out, ws+"    if "+iVar+" > 0 {")
+			fmt.Fprintln(g.out, ws+"      out.RawByte(',')")
+			fmt.Fprintln(g.out, ws+"    }")
 
-		g.genTypeEncoder(elem, vVar, tags, indent+1)
+			if err := g.genTypeEncoder(elem, vVar, tags, indent+2); err != nil {
+				return err
+			}
 
-		fmt.Fprintln(g.out, ws+"}")
-		fmt.Fprintln(g.out, ws+"out.RawByte(']')")
+			fmt.Fprintln(g.out, ws+"  }")
+			fmt.Fprintln(g.out, ws+"  out.RawByte(']')")
+			fmt.Fprintln(g.out, ws+"}")
+		}
+
+	case reflect.Array:
+		elem := t.Elem()
+		iVar := g.uniqueVarName()
+
+		if t.Elem().Kind() == reflect.Uint8 {
+			fmt.Fprintln(g.out, ws+"out.Base64Bytes("+in+"[:])")
+		} else {
+			fmt.Fprintln(g.out, ws+"out.RawByte('[')")
+			fmt.Fprintln(g.out, ws+"for "+iVar+" := range "+in+" {")
+			fmt.Fprintln(g.out, ws+"  if "+iVar+" > 0 {")
+			fmt.Fprintln(g.out, ws+"    out.RawByte(',')")
+			fmt.Fprintln(g.out, ws+"  }")
+
+			if err := g.genTypeEncoder(elem, in+"["+iVar+"]", tags, indent+1); err != nil {
+				return err
+			}
+
+			fmt.Fprintln(g.out, ws+"}")
+			fmt.Fprintln(g.out, ws+"out.RawByte(']')")
+		}
 
 	case reflect.Struct:
 		enc := g.getEncoderName(t)
@@ -140,18 +180,21 @@ func (g *Generator) genTypeEncoderNoCheck(t reflect.Type, in string, tags fieldT
 		fmt.Fprintln(g.out, ws+`  out.RawString("null")`)
 		fmt.Fprintln(g.out, ws+"} else {")
 
-		g.genTypeEncoder(t.Elem(), "*"+in, tags, indent+1)
+		if err := g.genTypeEncoder(t.Elem(), "*"+in, tags, indent+1); err != nil {
+			return err
+		}
 
 		fmt.Fprintln(g.out, ws+"}")
 
 	case reflect.Map:
 		key := t.Key()
-		if key.Kind() != reflect.String {
-			return fmt.Errorf("map type %v not supported: only string keys are allowed", key)
+		keyEnc, ok := primitiveStringEncoders[key.Kind()]
+		if !ok {
+			return fmt.Errorf("map key type %v not supported: only string and integer keys are allowed", key)
 		}
 		tmpVar := g.uniqueVarName()
 
-		fmt.Fprintln(g.out, ws+"if "+in+" == nil {")
+		fmt.Fprintln(g.out, ws+"if "+in+" == nil && (out.Flags & jwriter.NilMapAsEmpty) == 0 {")
 		fmt.Fprintln(g.out, ws+"  out.RawString(`null`)")
 		fmt.Fprintln(g.out, ws+"} else {")
 		fmt.Fprintln(g.out, ws+"  out.RawByte('{')")
@@ -159,10 +202,12 @@ func (g *Generator) genTypeEncoderNoCheck(t reflect.Type, in string, tags fieldT
 		fmt.Fprintln(g.out, ws+"  for "+tmpVar+"Name, "+tmpVar+"Value := range "+in+" {")
 		fmt.Fprintln(g.out, ws+"    if !"+tmpVar+"First { out.RawByte(',') }")
 		fmt.Fprintln(g.out, ws+"    "+tmpVar+"First = false")
-		fmt.Fprintln(g.out, ws+"    out.String(string("+tmpVar+"Name))")
+		fmt.Fprintln(g.out, ws+"    "+fmt.Sprintf(keyEnc, tmpVar+"Name"))
 		fmt.Fprintln(g.out, ws+"    out.RawByte(':')")
 
-		g.genTypeEncoder(t.Elem(), tmpVar+"Value", tags, indent+2)
+		if err := g.genTypeEncoder(t.Elem(), tmpVar+"Value", tags, indent+2); err != nil {
+			return err
+		}
 
 		fmt.Fprintln(g.out, ws+"  }")
 		fmt.Fprintln(g.out, ws+"  out.RawByte('}')")
@@ -172,7 +217,13 @@ func (g *Generator) genTypeEncoderNoCheck(t reflect.Type, in string, tags fieldT
 		if t.NumMethod() != 0 {
 			return fmt.Errorf("interface type %v not supported: only interface{} is allowed", t)
 		}
-		fmt.Fprintln(g.out, ws+"out.Raw(json.Marshal("+in+"))")
+		fmt.Fprintln(g.out, ws+"if m, ok := "+in+".(easyjson.Marshaler); ok {")
+		fmt.Fprintln(g.out, ws+"  m.MarshalEasyJSON(out)")
+		fmt.Fprintln(g.out, ws+"} else if m, ok := "+in+".(json.Marshaler); ok {")
+		fmt.Fprintln(g.out, ws+"  out.Raw(m.MarshalJSON())")
+		fmt.Fprintln(g.out, ws+"} else {")
+		fmt.Fprintln(g.out, ws+"  out.Raw(json.Marshal("+in+"))")
+		fmt.Fprintln(g.out, ws+"}")
 
 	default:
 		return fmt.Errorf("don't know how to encode %v", t)
@@ -202,6 +253,7 @@ func (g *Generator) notEmptyCheck(t reflect.Type, v string) string {
 		return v + " != 0"
 
 	default:
+		// note: Array types don't have a useful empty value
 		return "true"
 	}
 }
@@ -234,16 +286,18 @@ func (g *Generator) genStructFieldEncoder(t reflect.Type, f reflect.StructField)
 
 func (g *Generator) genEncoder(t reflect.Type) error {
 	switch t.Kind() {
-	case reflect.Slice:
-		return g.genSliceEncoder(t)
+	case reflect.Slice, reflect.Array, reflect.Map:
+		return g.genSliceArrayMapEncoder(t)
 	default:
 		return g.genStructEncoder(t)
 	}
 }
 
-func (g *Generator) genSliceEncoder(t reflect.Type) error {
-	if t.Kind() != reflect.Slice {
-		return fmt.Errorf("cannot generate encoder/decoder for %v, not a slice type", t)
+func (g *Generator) genSliceArrayMapEncoder(t reflect.Type) error {
+	switch t.Kind() {
+	case reflect.Slice, reflect.Array, reflect.Map:
+	default:
+		return fmt.Errorf("cannot generate encoder/decoder for %v, not a slice/array/map type", t)
 	}
 
 	fname := g.getEncoderName(t)
@@ -260,7 +314,7 @@ func (g *Generator) genSliceEncoder(t reflect.Type) error {
 
 func (g *Generator) genStructEncoder(t reflect.Type) error {
 	if t.Kind() != reflect.Struct {
-		return fmt.Errorf("cannot generate encoder/decoder for %v, not a struct type")
+		return fmt.Errorf("cannot generate encoder/decoder for %v, not a struct type", t)
 	}
 
 	fname := g.getEncoderName(t)
@@ -287,9 +341,11 @@ func (g *Generator) genStructEncoder(t reflect.Type) error {
 	return nil
 }
 
-func (g *Generator) genStructMarshaller(t reflect.Type) error {
-	if t.Kind() != reflect.Struct && t.Kind() != reflect.Slice {
-		return fmt.Errorf("cannot generate encoder/decoder for %v, not a struct/slice type", t)
+func (g *Generator) genStructMarshaler(t reflect.Type) error {
+	switch t.Kind() {
+	case reflect.Slice, reflect.Array, reflect.Map, reflect.Struct:
+	default:
+		return fmt.Errorf("cannot generate encoder/decoder for %v, not a struct/slice/array/map type", t)
 	}
 
 	fname := g.getEncoderName(t)

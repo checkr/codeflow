@@ -1,4 +1,4 @@
-// +build !linux static_build
+// +build !linux
 
 package systemd
 
@@ -43,7 +43,7 @@ func (m *Manager) GetStats() (*cgroups.Stats, error) {
 }
 
 func (m *Manager) Set(container *configs.Config) error {
-	return fmt.Errorf("Systemd not supported")
+	return nil, fmt.Errorf("Systemd not supported")
 }
 
 func (m *Manager) Freeze(state configs.FreezerState) error {

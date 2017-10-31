@@ -3,9 +3,9 @@ We couldn't find a good ODM for MongoDB written in Go, so we made one. Bongo is 
 
 Bongo is tested using the fantasic GoConvey (https://github.com/smartystreets/goconvey)
 
-[![Build Status](https://travis-ci.org/maxwellhealth/bongo.svg)](https://travis-ci.org/maxwellhealth/bongo)
+[![Build Status](https://travis-ci.org/go-bongo/bongo.svg)](https://travis-ci.org/go-bongo/bongo)
 
-[![Coverage Status](https://coveralls.io/repos/maxwellhealth/bongo/badge.svg)](https://coveralls.io/r/maxwellhealth/bongo)
+[![Coverage Status](https://coveralls.io/repos/go-bongo/bongo/badge.svg)](https://coveralls.io/r/go-bongo/bongo)
 
 # Stablity
 
@@ -23,13 +23,13 @@ Since we're not yet at a major release, some things in the API might change. Her
 
 ## Basic Usage
 ### Import the Library
-`go get github.com/maxwellhealth/bongo`
+`go get github.com/go-bongo/bongo`
 
-`import "github.com/maxwellhealth/bongo"`
+`import "github.com/go-bongo/bongo"`
 
 And install dependencies:
 
-`cd $GOHOME/src/github.com/maxwellhealth/bongo && go get .`
+`cd $GOHOME/src/github.com/go-bongo/bongo && go get .`
 
 ### Connect to a Database
 
@@ -56,7 +56,7 @@ If you need to, you can access the raw `mgo` session with `connection.Session`
 
 ### Create a Document
 
-Any struct can be used as a document as long as it satisfies the `Document` interface (`SetId(bson.ObjectId)`, `GetId() bson.ObjectId`). We recommend that you use the `DocumentBase` provided with Bongo, which implements that interface as well as the `NewTracker` and `TimeTracker` interfaces (to keep track of new/existing documents and created/modified timestamps). If you use the `DocumentBase` or something similar, make sure you use `bson:",inline"` otherwise you will get nested behavior when the data goes to your database.
+Any struct can be used as a document as long as it satisfies the `Document` interface (`SetId(bson.ObjectId)`, `GetId() bson.ObjectId`). We recommend that you use the `DocumentBase` provided with Bongo, which implements that interface as well as the `NewTracker`, `TimeCreatedTracker` and `TimeModifiedTracker` interfaces (to keep track of new/existing documents and created/modified timestamps). If you use the `DocumentBase` or something similar, make sure you use `bson:",inline"` otherwise you will get nested behavior when the data goes to your database.
 
 For example:
 
@@ -195,7 +195,7 @@ Same as find, but it will populate the reference of the struct you provide as th
 
 person := &Person{}
 
-err := connection.Collection("people").FindOne(bson.M{"firstName":"Bob"})
+err := connection.Collection("people").FindOne(bson.M{"firstName":"Bob"}, person)
 
 if err != nil {
 	fmt.Println(err.Error())
