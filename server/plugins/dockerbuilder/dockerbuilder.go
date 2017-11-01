@@ -310,6 +310,7 @@ func (x *DockerBuilder) Process(e agent.Event) error {
 	}
 
 	event.State = plugins.Complete
+	event.Image = imagePath
 	event.StateMessage = ""
 	event.BuildLog = buildlog.String()
 	x.events <- e.NewEvent(event, nil)
