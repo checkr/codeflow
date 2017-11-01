@@ -3,11 +3,8 @@ sudo: false
 language: go
 
 go:
-  - 1.2.x
-  - 1.3.x
-  - 1.4.x
-  - 1.6.x
-  - 1.7.x
+  - 1.8.x
+  - 1.9.x
   - tip
 
 os:
@@ -19,7 +16,7 @@ matrix:
     - go: tip
 
 before_install:
-  - go get -v github.com/bmizerany/assert
+  - go get -v github.com/stretchr/testify
 
 script:
   - go test -v ./...

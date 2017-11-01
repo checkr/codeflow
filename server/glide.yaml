@@ -1,4 +1,6 @@
 package: github.com/checkr/codeflow/server
+ignore:
+  - github.com/checkr/codeflow
 import:
 - package: github.com/ant0ine/go-json-rest
   version: ^3.3.2
@@ -31,8 +33,6 @@ import:
 - package: github.com/lestrrat/go-jwx
   subpackages:
   - jwk
-- package: github.com/libgit2/git2go
-  version: v26
 - package: github.com/mattes/migrate
   version: v1.3.1
   subpackages:

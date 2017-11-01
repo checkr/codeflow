@@ -185,7 +185,6 @@ type DockerBuild struct {
 	Registry     DockerRegistry `json:"registry"`
 	BuildArgs    []Arg          `json:"buildArgs"`
 	BuildLog     string         `json:"buildLog"`
-	BuildError   string         `json:"buildError"`
 	Image        string         `json:"image"`
 }
 

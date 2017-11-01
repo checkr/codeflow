@@ -450,7 +450,6 @@ func DockerBuildStatus(br *plugins.DockerBuild) error {
 	build.Image = br.Image
 	build.State = br.State
 	build.BuildLog = br.BuildLog
-	build.BuildError = br.BuildError
 
 	if err := db.Collection("builds").Save(&build); err != nil {
 		log.Printf("Builds::Save::Error: %v", err.Error())
@@ -700,11 +699,11 @@ func CreateDeploy(r *Release) error {
 		Docker: plugins.Docker{
 			Image: build.Image,
 			Registry: plugins.DockerRegistry{
-				Host:     viper.GetString("plugins.docker_build.registry_host"),
-				Org:      viper.GetString("plugins.docker_build.registry_org"),
-				Username: viper.GetString("plugins.docker_build.registry_username"),
-				Password: viper.GetString("plugins.docker_build.registry_password"),
-				Email:    viper.GetString("plugins.docker_build.registry_user_email"),
+				Host:     viper.GetString("plugins.dockerbuilder.registry_host"),
+				Org:      viper.GetString("plugins.dockerbuilder.registry_org"),
+				Username: viper.GetString("plugins.dockerbuilder.registry_username"),
+				Password: viper.GetString("plugins.dockerbuilder.registry_password"),
+				Email:    viper.GetString("plugins.dockerbuilder.registry_user_email"),
 			},
 		},
 		Services:    services,
@@ -1020,7 +1019,7 @@ func DockerBuildRebuild(r *Release) error {
 			Url:           project.GitUrl,
 			Protocol:      project.GitProtocol,
 			Branch:        "master",
-			Workdir:       viper.GetString("plugins.docker_build.workdir"),
+			Workdir:       viper.GetString("plugins.dockerbuilder.workdir"),
 			RsaPrivateKey: project.RsaPrivateKey,
 			RsaPublicKey:  project.RsaPublicKey,
 		},
@@ -1031,11 +1030,11 @@ func DockerBuildRebuild(r *Release) error {
 			Message:    r.HeadFeature.Message,
 		},
 		Registry: plugins.DockerRegistry{
-			Host:     viper.GetString("plugins.docker_build.registry_host"),
-			Org:      viper.GetString("plugins.docker_build.registry_org"),
-			Username: viper.GetString("plugins.docker_build.registry_username"),
-			Password: viper.GetString("plugins.docker_build.registry_password"),
-			Email:    viper.GetString("plugins.docker_build.registry_user_email"),
+			Host:     viper.GetString("plugins.dockerbuilder.registry_host"),
+			Org:      viper.GetString("plugins.dockerbuilder.registry_org"),
+			Username: viper.GetString("plugins.dockerbuilder.registry_username"),
+			Password: viper.GetString("plugins.dockerbuilder.registry_password"),
+			Email:    viper.GetString("plugins.dockerbuilder.registry_user_email"),
 		},
 		BuildArgs: buildArgs,
 	}

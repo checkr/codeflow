@@ -32,7 +32,24 @@ install_containerd() {
 	git clone https://github.com/containerd/containerd.git "$GOPATH/src/github.com/containerd/containerd"
 	cd "$GOPATH/src/github.com/containerd/containerd"
 	git checkout -q "$CONTAINERD_COMMIT"
-	make $1
+	(
+		export GOPATH
+		make
+	)
+	cp bin/containerd /usr/local/bin/docker-containerd
+	cp bin/containerd-shim /usr/local/bin/docker-containerd-shim
+	cp bin/ctr /usr/local/bin/docker-containerd-ctr
+}
+
+install_containerd_static() {
+	echo "Install containerd version $CONTAINERD_COMMIT"
+	git clone https://github.com/containerd/containerd.git "$GOPATH/src/github.com/containerd/containerd"
+	cd "$GOPATH/src/github.com/containerd/containerd"
+	git checkout -q "$CONTAINERD_COMMIT"
+	(
+		export GOPATH
+		make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS="-extldflags \\\"-fno-PIC -static\\\""
+	)
 	cp bin/containerd /usr/local/bin/docker-containerd
 	cp bin/containerd-shim /usr/local/bin/docker-containerd-shim
 	cp bin/ctr /usr/local/bin/docker-containerd-ctr
@@ -103,7 +120,7 @@ do
 			;;
 
 		containerd)
-			install_containerd static
+			install_containerd_static
 			;;
 
 		containerd-dynamic)

@@ -166,7 +166,9 @@ func (a *Agent) flusher() {
 							log.Printf("Enqueue event %v for %v\n", e.Name, plugin.Name)
 							workers.Enqueue(plugin.Name, "Event", e)
 						} else {
-							plugin.Plugin.Process(e)
+							go func() {
+								plugin.Plugin.Process(e)
+							}()
 						}
 					}
 				}
