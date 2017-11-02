@@ -401,6 +401,7 @@ type Listener struct {
 }
 
 type ListenerPair struct {
+	Name        string   `bson:"name" json:"name"`
 	Source      Listener `bson:"source" json:"source"`
 	Destination Listener `bson:"destination" json:"destination"`
 }

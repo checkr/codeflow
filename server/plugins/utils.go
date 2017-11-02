@@ -1,6 +1,11 @@
 package plugins
 
-import "regexp"
+import (
+	"math/rand"
+	"regexp"
+)
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 func GetRegexParams(regEx, url string) (paramsMap map[string]string) {
 	var compRegEx = regexp.MustCompile(regEx)
@@ -13,4 +18,12 @@ func GetRegexParams(regEx, url string) (paramsMap map[string]string) {
 		}
 	}
 	return
+}
+
+func RandomString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }
