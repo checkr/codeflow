@@ -447,13 +447,28 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 
 			// delete old job
 			gracePeriod := int64(0)
-			isOrphan := false
 			deleteOptions := meta_v1.DeleteOptions{
 				GracePeriodSeconds: &gracePeriod,
-				OrphanDependents:   &isOrphan,
 			}
 
 			err = batchv1DepInterface.Jobs(namespace).Delete(job.Name, &deleteOptions)
+			if err != nil {
+				log.Printf("Failed to delete job %s with err %s", job.Name, err)
+			}
+
+			correspondingPods, err := coreInterface.Pods(namespace).List(meta_v1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", "app", oneShotServiceName)})
+			if err != nil {
+				log.Printf("Failed to find corresponding pods with job-name %s with err %s", job.Name, err)
+			}
+
+			// delete associated pods
+			for _, cp := range correspondingPods.Items {
+				err := coreInterface.Pods(namespace).Delete(cp.Name, &meta_v1.DeleteOptions{})
+				if err != nil {
+					log.Printf("Failed to delete pod %s with err %s", cp.Name, err)
+				}
+			}
+
 			if err != nil {
 				log.Printf("Failed to delete job %s with err %s", job.Name, err)
 			}
