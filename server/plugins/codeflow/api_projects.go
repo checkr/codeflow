@@ -360,6 +360,10 @@ func (x *Projects) createExtensions(w rest.ResponseWriter, r *rest.Request) {
 	extension.Name = fmt.Sprintf("%v-%v", extension.Type, extension.Id.Hex())
 	extension.ProjectId = project.Id
 
+	for i, _ := range extension.ListenerPairs {
+		extension.ListenerPairs[i].Name = plugins.RandomString(8)
+	}
+
 	if err := db.Collection("extensions").Save(&extension); err != nil {
 		log.Printf("Extensions::Save::Error: %v", err.Error())
 		rest.Error(w, err.Error(), http.StatusBadRequest)
@@ -386,6 +390,12 @@ func (x *Projects) updateExtensions(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	extension.ProjectId = project.Id
+
+	for i, _ := range extension.ListenerPairs {
+		if extension.ListenerPairs[i].Name == "" {
+			extension.ListenerPairs[i].Name = plugins.RandomString(8)
+		}
+	}
 
 	if err := db.Collection("extensions").Save(&extension); err != nil {
 		log.Printf("Extensions::Save::Error: %v", err.Error())

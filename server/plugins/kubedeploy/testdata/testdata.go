@@ -39,7 +39,7 @@ func UpdateLBTCP(t plugins.Type) agent.Event {
 
 func CreateLBHTTPS(t plugins.Type) agent.Event {
 	lbe := LBDataForTCP(plugins.Create, t)
-	lbe.ListenerPairs[0].Destination.Protocol = "HTTPS"
+	//lbe.ListenerPairs[0].Destination.Protocol = "HTTPS"
 	lbe.Name = "nginx-test-lb-https"
 	event := agent.NewEvent(lbe, nil)
 	return event
@@ -47,8 +47,9 @@ func CreateLBHTTPS(t plugins.Type) agent.Event {
 
 func UpdateLBHTTPS(t plugins.Type) agent.Event {
 	lbe := UpdateLBDataForTCP(plugins.Update, t)
-	lbe.ListenerPairs[0].Destination.Protocol = "HTTPS"
-	lbe.ListenerPairs[1].Destination.Protocol = "HTTPS"
+	//lbe.ListenerPairs[0].Destination.Protocol = "HTTPS"
+	//lbe.ListenerPairs[1].Destination.Protocol = "HTTPS"
+	//lbe.ListenerPairs[0].Source = plugins.Listener{Port: 446, Protocol: "TCP"}
 	lbe.Name = "nginx-test-lb-https"
 	event := agent.NewEvent(lbe, nil)
 	return event
@@ -65,7 +66,11 @@ func LBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalancer {
 		Command: "nginx -g 'daemon off;'",
 		Listeners: []plugins.Listener{
 			{
-				Port:     80,
+				Port:     3000,
+				Protocol: "TCP",
+			},
+			{
+				Port:     3001,
 				Protocol: "TCP",
 			},
 		},
@@ -89,8 +94,14 @@ func LBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalancer {
 		Service:     service,
 		ListenerPairs: []plugins.ListenerPair{
 			{
+				Name:        "port1",
 				Source:      plugins.Listener{Port: 443, Protocol: "TCP"},
-				Destination: plugins.Listener{Port: 80, Protocol: "TCP"},
+				Destination: plugins.Listener{Port: 3000, Protocol: "TCP"},
+			},
+			{
+				Name:        "port2",
+				Source:      plugins.Listener{Port: 444, Protocol: "TCP"},
+				Destination: plugins.Listener{Port: 3001, Protocol: "TCP"},
 			},
 		},
 		Subdomain: "nginx-testing.checkrhq-dev.net",
@@ -136,11 +147,13 @@ func UpdateLBDataForTCP(action plugins.Action, t plugins.Type) plugins.LoadBalan
 		Service:     service,
 		ListenerPairs: []plugins.ListenerPair{
 			{
-				Source:      plugins.Listener{Port: 80, Protocol: "TCP"},
+				Name:        "port1",
+				Source:      plugins.Listener{Port: 443, Protocol: "TCP"},
 				Destination: plugins.Listener{Port: 3000, Protocol: "TCP"},
 			},
 			{
-				Source:      plugins.Listener{Port: 443, Protocol: "TCP"},
+				Name:        "port2",
+				Source:      plugins.Listener{Port: 447, Protocol: "TCP"},
 				Destination: plugins.Listener{Port: 3001, Protocol: "TCP"},
 			},
 		},

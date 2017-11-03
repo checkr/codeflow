@@ -52,14 +52,8 @@ import:
 - package: gopkg.in/mgo.v2
   subpackages:
   - bson
-- package: k8s.io/apimachinery
-  subpackages:
-  - pkg/api/errors
-  - pkg/api/resource
-  - pkg/apis/meta/v1
-  - pkg/util/intstr
 - package: k8s.io/client-go
-  version: ^4.0.0
+  version: ^5.0.1
   subpackages:
   - kubernetes
   - kubernetes/typed/core/v1
