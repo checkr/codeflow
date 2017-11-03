@@ -442,7 +442,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 			if *job.Spec.Completions > 0 {
 				if (job.Status.Active == 0 && job.Status.Failed == 0 && job.Status.Succeeded == 0) || job.Status.Active > 0 {
 					oneShotServices[index].State = plugins.Failed
-					oneShotServices[index].StateMessage = fmt.Sprintf("Error previous job is still active: %s", job.Name)
+					oneShotServices[index].StateMessage = fmt.Sprintf("Cancelled deployment as a previous one-shot (%s) is still active. Redeploy your release once the currently running deployment process completes.", job.Name)
 					x.sendDDErrorResponse(e, oneShotServices, oneShotServices[index].StateMessage)
 					return nil
 				}
