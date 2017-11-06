@@ -139,36 +139,28 @@ func (x *DockerBuilder) bootstrap(repoPath string, imagePath string, event plugi
 }
 
 func (x *DockerBuilder) build(repoPath string, nameTag string, event plugins.DockerBuild, dockerBuildOut io.Writer) error {
-	gitArchive := exec.Command("git", "archive", event.Feature.Hash)
-	gitArchive.Dir = repoPath
+	tmpFolder := fmt.Sprintf("%s/%s_%s_%s", event.Git.Workdir, event.Project.Repository, event.Git.Branch, plugins.RandomString(8))
+	tmpTar := fmt.Sprintf("%s.tar", tmpFolder)
 
-	gitArchiveOut, err := gitArchive.StdoutPipe()
+	log.Debug("Building archive")
+	cmd := exec.Command("git", "archive", "--format=tar", "-o", tmpTar, event.Feature.Hash)
+	cmd.Dir = repoPath
+	_, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Debug(err)
 		return err
 	}
 
-	gitArchiveErr, err := gitArchive.StderrPipe()
+	log.Debug("Creating tmp folder")
+	_, err = exec.Command("mkdir", "-p", tmpFolder).CombinedOutput()
 	if err != nil {
-		log.Debug(err)
 		return err
 	}
 
-	err = gitArchive.Start()
-	if err != nil {
-		log.Fatal(err)
-		return err
-	}
-
-	dockerBuildIn := bytes.NewBuffer(nil)
-
-	go func() {
-		io.Copy(os.Stderr, gitArchiveErr)
-	}()
-
-	io.Copy(dockerBuildIn, gitArchiveOut)
-
-	err = gitArchive.Wait()
+	log.Debug("Untaring")
+	cmd = exec.Command("tar", "-xvf", tmpTar, "-C", tmpFolder)
+	cmd.Dir = repoPath
+	_, err = cmd.CombinedOutput()
 	if err != nil {
 		log.Debug(err)
 		return err
@@ -187,10 +179,11 @@ func (x *DockerBuilder) build(repoPath string, nameTag string, event plugins.Doc
 		Dockerfile:   "Dockerfile",
 		Name:         nameTag,
 		OutputStream: dockerBuildOut,
-		InputStream:  dockerBuildIn,
 		BuildArgs:    buildArgs,
+		ContextDir:   tmpFolder,
 	}
 
+	log.Debug("Building")
 	dockerClient, err := docker.NewClient(x.Socket)
 	if err != nil {
 		return err
@@ -198,8 +191,13 @@ func (x *DockerBuilder) build(repoPath string, nameTag string, event plugins.Doc
 
 	err = dockerClient.BuildImage(buildOptions)
 	if err != nil {
+		log.Debug(err)
 		return err
 	}
+
+	log.Debug("Cleaning")
+	os.RemoveAll(tmpFolder)
+	os.Remove(tmpTar)
 
 	return nil
 }

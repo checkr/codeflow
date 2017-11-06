@@ -49,11 +49,11 @@ func (suite *TestSuite) TestDockerBuilder() {
 		Action: plugins.Create,
 		State:  plugins.Waiting,
 		Project: plugins.Project{
-			Slug:       "codeamp-circuit",
-			Repository: "codeamp/circuit",
+			Slug:       "checkr-codeflow",
+			Repository: "checkr/codeflow",
 		},
 		Git: plugins.Git{
-			Url:           "https://github.com/codeamp/circuit.git",
+			Url:           "https://github.com/checkr/codeflow.git",
 			Protocol:      "HTTPS",
 			Branch:        "master",
 			RsaPrivateKey: "",
@@ -61,8 +61,8 @@ func (suite *TestSuite) TestDockerBuilder() {
 			Workdir:       viper.GetString("plugins.dockerbuilder.workdir"),
 		},
 		Feature: plugins.Feature{
-			Hash:       "b82f00530a7186d5b03ead5bd3d3600053b71ee7",
-			ParentHash: "b5021f702069ac6160fe5f0e9395351a36462c59",
+			Hash:       "51666df1f6d51ec1407796c9645c7c389de0f223",
+			ParentHash: "4f059f5d9cd8a65bd4acc6f1d6721ee6eb3fb713",
 			User:       "Saso Matejina",
 			Message:    "Test",
 		},
