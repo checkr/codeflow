@@ -157,7 +157,8 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 			IntVal: p.Destination.Port,
 		}
 		newPort := v1.ServicePort{
-			Name:       p.Name,
+			// TODO: remove this toLower when we fix the data in mongo, kube only allows lowercase port names
+			Name:       strings.ToLower(p.Name),
 			Port:       p.Source.Port,
 			TargetPort: convPort,
 			Protocol:   v1.Protocol(realProto),
@@ -198,7 +199,8 @@ func (x *KubeDeploy) doLoadBalancer(e agent.Event) error {
 		if svc.Spec.Type == "LoadBalancer" {
 			for i := range svc.Spec.Ports {
 				for j := range serviceParams.Spec.Ports {
-					if svc.Spec.Ports[i].Name == serviceParams.Spec.Ports[j].Name {
+					// TODO: remove this toLower when we fix the data in mongo, kube only allows lowercase port names
+					if strings.ToLower(svc.Spec.Ports[i].Name) == strings.ToLower(serviceParams.Spec.Ports[j].Name) {
 						serviceParams.Spec.Ports[j].NodePort = svc.Spec.Ports[i].NodePort
 					}
 				}
