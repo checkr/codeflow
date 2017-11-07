@@ -786,6 +786,10 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 						}
 					}
 					log.Printf("%s deploy: %d of %d deployments successful.", deploymentName, successfulDeploys, len(deploymentServices))
+
+					if successfulDeploys == len(deploymentServices) {
+						break
+					}
 				}
 
 				latestRevision := deployment.Annotations["deployment.kubernetes.io/revision"]
