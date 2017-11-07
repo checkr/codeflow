@@ -790,6 +790,8 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 					if successfulDeploys == len(deploymentServices) {
 						break
 					}
+					// If this deployment has succeeded then we can skip the failure checks below.
+					continue
 				}
 
 				latestRevision := deployment.Annotations["deployment.kubernetes.io/revision"]
