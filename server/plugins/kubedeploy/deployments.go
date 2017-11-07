@@ -84,15 +84,15 @@ func (x *KubeDeploy) sendDDInProgress(e agent.Event, services []plugins.Service,
 
 func secretifyDockerCred() string {
 	encodeMe := fmt.Sprintf("%s:%s",
-		viper.GetString("plugins.docker_build.registry_username"),
-		viper.GetString("plugins.docker_build.registry_password"))
+		viper.GetString("plugins.dockerbuilder.registry_username"),
+		viper.GetString("plugins.dockerbuilder.registry_password"))
 	encodeResult := []byte(encodeMe)
 	authField := base64.StdEncoding.EncodeToString(encodeResult)
 	jsonFilled := fmt.Sprintf("{\"%s\":{\"username\":\"%s\",\"password\":\"%s\",\"email\":\"%s\",\"auth\":\"%s\"}}",
-		viper.GetString("plugins.docker_build.registry_host"),
-		viper.GetString("plugins.docker_build.registry_username"),
-		viper.GetString("plugins.docker_build.registry_password"),
-		viper.GetString("plugins.docker_build.registry_user_email"),
+		viper.GetString("plugins.dockerbuilder.registry_host"),
+		viper.GetString("plugins.dockerbuilder.registry_username"),
+		viper.GetString("plugins.dockerbuilder.registry_password"),
+		viper.GetString("plugins.dockerbuilder.registry_user_email"),
 		authField,
 	)
 	return jsonFilled
