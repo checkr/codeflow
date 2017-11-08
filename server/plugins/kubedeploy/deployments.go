@@ -670,7 +670,17 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				},
 			}
 			deployStrategy = v1beta1.DeploymentStrategy{
-				Type: "Recreate",
+				Type: v1beta1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &v1beta1.RollingUpdateDeployment{
+					MaxUnavailable: &intstr.IntOrString{
+						Type:   intstr.String,
+						StrVal: "30%",
+					},
+					MaxSurge: &intstr.IntOrString{
+						Type:   intstr.String,
+						StrVal: "60%",
+					},
+				},
 			}
 		}
 
