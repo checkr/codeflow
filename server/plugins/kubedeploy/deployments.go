@@ -615,7 +615,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				PeriodSeconds:       10,
 				SuccessThreshold:    1,
 				FailureThreshold:    3,
-				TimeoutSeconds:      1,
+				TimeoutSeconds:      3,
 				Handler: v1.Handler{
 					TCPSocket: &v1.TCPSocketAction{
 						Port: intstr.IntOrString{IntVal: myPort},
@@ -627,7 +627,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				PeriodSeconds:       20,
 				SuccessThreshold:    1,
 				FailureThreshold:    3,
-				TimeoutSeconds:      1,
+				TimeoutSeconds:      3,
 				Handler: v1.Handler{
 					TCPSocket: &v1.TCPSocketAction{
 						Port: intstr.IntOrString{IntVal: myPort},
@@ -662,7 +662,7 @@ func (x *KubeDeploy) doDeploy(e agent.Event) error {
 				PeriodSeconds:       20,
 				SuccessThreshold:    1,
 				FailureThreshold:    3,
-				TimeoutSeconds:      1,
+				TimeoutSeconds:      3,
 				Handler: v1.Handler{
 					Exec: &v1.ExecAction{
 						Command: runThis,
