@@ -1,3 +1,5 @@
+# THIS PROJECT IS NOT MAINTAINED ANYMORE! All further development has been moved to CodeAmp https://github.com/codeamp
+
 # Codeflow [![CircleCI](https://circleci.com/gh/checkr/codeflow/tree/master.svg?style=svg)](https://circleci.com/gh/checkr/codeflow/tree/master)
 
 Extendable deployment pipeline
